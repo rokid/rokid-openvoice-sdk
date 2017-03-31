@@ -1,20 +1,20 @@
-#Rokid Speech SDK源码编译
+# Rokid Speech SDK源码编译
 
 ## Android
-###安装
-####fastjson
+### 安装
+#### fastjson
 ```
 git clone git clone https://github.com/Rokid/rokid-openvoice-sdk-deps-fastjson.git
 ```
-####protobuf
+#### protobuf
 ```
 git clone https://github.com/Rokid/rokid-openvoice-sdk-deps-protobuf.git
 ```
-####grpc
+#### grpc
 ```
 git clone https://github.com/Rokid/rokid-openvoice-sdk-deps-grpc.git
 ```
-####speech sdk
+#### speech sdk
 ```
 git clone https://github.com/Rokid/rokid-openvoice-sdk.git
 ```
@@ -40,7 +40,7 @@ make rprotoc
 make grpc_cpp_plugin
 make
 ```
-###Tts接口定义 (android)
+### Tts接口定义 (android)
 ```
 //  class Tts
 boolean prepare()
@@ -64,7 +64,7 @@ void onComplete(int id)
 
 void onError(int id, int err)
 ```
-###Tts使用示例 (android)
+### Tts使用示例 (android)
 ```
 import com.rokid.speech.Tts;
 
@@ -84,7 +84,7 @@ if (tts.prepare()) {
 }
 ```
 
-###Speech接口定义
+### Speech接口定义
 ```
 // class Speech
 boolean prepare()
@@ -120,7 +120,7 @@ void onStop(int id)
 
 void onError(int id, int err)
 ```
-###Speech使用示例
+### Speech使用示例
 ```
 import com.rokid.speech.Speech;
 
