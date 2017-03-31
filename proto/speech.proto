@@ -1,0 +1,127 @@
+syntax = "proto3";
+
+package rokid.open;
+
+service Speech {
+  rpc auth(AuthRequest) returns (AuthResponse) { }
+
+  rpc asr(stream AsrRequest) returns (stream AsrResponse) { }
+
+  rpc nlp(NlpRequest) returns (NlpResponse) { }
+
+  rpc tts(TtsRequest) returns (stream TtsResponse) { }
+
+  rpc speechv(stream VoiceSpeechRequest) returns (stream SpeechResponse) { }
+
+  rpc speecht(TextSpeechRequest) returns (SpeechResponse) { }
+}
+
+message AuthRequest {
+  string key              = 1;
+  string device_type      = 2;
+  string device_id        = 3;
+  string service          = 4;
+  string version          = 5;
+  string timestamp        = 6;
+  string sign             = 7;
+}
+
+message AuthResponse {
+  // 0: success
+  // -1: failed
+  int32 result            = 1;
+}
+
+message AsrRequest {
+  oneof request_content {
+    AsrHeader header      = 1;
+    bytes voice           = 2;
+  }
+}
+
+message AsrHeader {
+  int32 id                = 1;
+  string lang             = 2;
+  string codec            = 3;
+  // vt = voice trigger
+  string vt               = 4;
+}
+
+message AsrResponse {
+  string asr              = 1;
+}
+
+message NlpRequest {
+  NlpHeader header        = 1;
+  string asr              = 2;
+}
+
+message NlpHeader {
+  int32 id              = 1;
+  string lang           = 2;
+  string cdomain        = 3;
+}
+
+message NlpResponse {
+  string nlp              = 1;
+}
+
+message TtsRequest {
+  TtsHeader header        = 1;
+  string text             = 2;
+}
+
+message TtsHeader {
+  int32 id              = 1;
+  string declaimer      = 2;
+  string codec          = 3;
+}
+
+message TtsResponse {
+  string text             = 1;
+  bytes voice             = 2;
+}
+
+message VoiceSpeechRequest {
+  oneof request_content {
+    SpeechHeader header = 1;
+
+    bytes voice         = 2;
+  }
+}
+
+message SpeechResponse {
+  string asr              = 1;
+
+  string nlp              = 2;
+
+  string action           = 3;
+}
+
+message TextSpeechRequest {
+  SpeechHeader header = 1;
+
+  string asr          = 2;
+}
+
+message SpeechHeader {
+  int32 id = 1;
+
+  // zh
+  // en
+  string lang = 2;
+
+  // pcm
+  // opu
+  // opu2
+  string codec = 3;
+
+  // vt = voice trigger
+  string vt = 4;
+
+  // stack of current domains
+  string cdomain = 5;
+
+  // json format
+  string device = 6;
+}
