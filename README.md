@@ -1,24 +1,55 @@
-# Rokid Speech SDK源码编译
+# Rokid Speech SDK
+##c++ sdk 编译
 
-## Android
-### 安装
-#### fastjson
+**sdk依赖模块编译安装**
+
 ```
-git clone https://github.com/Rokid/rokid-openvoice-sdk-deps-fastjson.git
+git clone https://github.com/grpc/grpc.git
+cd grpc
+git submodule update --init
+git checkout v1.2.0
+cd third_party/protobuf
+./autogen.sh
+./configure --prefix=<your_grpc_install_path>
+make
+make install
+cd ../..
+make prefix=<your_grpc_install_path>
+make install
 ```
-#### protobuf
-```
-git clone https://github.com/Rokid/rokid-openvoice-sdk-deps-protobuf.git
-```
-#### grpc
-```
-git clone https://github.com/Rokid/rokid-openvoice-sdk-deps-grpc.git
-```
-#### speech sdk
+
+**sdk主体编译**
+
 ```
 git clone https://github.com/Rokid/rokid-openvoice-sdk.git
+cd rokid-openvoice-sdk
+./autogen.sh <your_grpc_install_path>
+make
 ```
+
+## Android sdk 编译
+**sdk依赖模块下载**
+
 ```
+git clone https://github.com/Rokid/rokid-openvoice-sdk-deps-fastjson.git
+
+git clone https://github.com/Rokid/rokid-openvoice-sdk-deps-protobuf.git
+
+git clone https://github.com/Rokid/rokid-openvoice-sdk-deps-grpc.git
+
+将以上三个模块目录放入android工程任意位置
+如 <android_project>/openvoice/protobuf
+<android_project>/openvoice/grpc
+<android_project>/openvoice/fastjson
+```
+
+**sdk编译**
+
+```
+git clone https://github.com/Rokid/rokid-openvoice-sdk.git
+将源码目录放入android工程任意位置
+如<android_project>/openvoice/speech
+
 将以下模块加入android工程makefile
 PRODUCT_PACKAGES += \
 	rprotoc \
@@ -33,7 +64,7 @@ PRODUCT_PACKAGES += \
 	RKSpeechDemo
 
 编译：
-cd <android工程根目录>
+cd <android_project>
 . build/envsetup.sh
 lunch <your_conf>
 make rprotoc
