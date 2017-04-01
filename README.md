@@ -4,7 +4,7 @@
 ### 安装
 #### fastjson
 ```
-git clone git clone https://github.com/Rokid/rokid-openvoice-sdk-deps-fastjson.git
+git clone https://github.com/Rokid/rokid-openvoice-sdk-deps-fastjson.git
 ```
 #### protobuf
 ```
