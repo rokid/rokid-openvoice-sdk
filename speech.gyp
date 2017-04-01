@@ -113,31 +113,5 @@
 			'<(src_dir)/speech/voice_stream_reader.h',
 		],
 	}, # target 'speech'
-	{
-		'target_name': 'demo',
-		'type': 'executable',
-		'include_dirs': [
-			'<(src_dir)/common',
-			'<(src_dir)/tts',
-			'<(src_dir)/asr',
-			'<(src_dir)/nlp',
-			'<(proto_gen_dir)',
-			'<(deps_dir)/include',
-			'include',
-		],
-		'dependencies': [
-			'tts',
-			'asr',
-			'nlp',
-			'speech',
-		],
-		'sources': [
-			'<(test_dir)/demo.cc',
-		],
-		'link_settings': {
-			'libraries': [ '-Wl,-rpath-link,<(deps_dir)/lib' ],
-			'ldflags': [ '-Wl,--copy-dt-needed-entries' ],
-		},
-	}
 	]
 }
