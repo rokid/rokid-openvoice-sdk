@@ -1,5 +1,5 @@
 # Rokid Speech SDK
-##c++ sdk 编译
+## C++ sdk 编译
 
 **sdk依赖模块编译安装**
 
