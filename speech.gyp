@@ -112,6 +112,25 @@
 			'<(src_dir)/speech/voice_stream_reader.cc',
 			'<(src_dir)/speech/voice_stream_reader.h',
 		],
+		'direct_dependent_settings': {
+			'include_dirs': [ 'include' ],
+			'link_settings': {
+				'libraries': [ '-L<(deps_dir)/lib', '-lgrpc++', '-lprotobuf', '-Wl,-rpath,<(deps_dir)/lib' ],
+			},
+		},
 	}, # target 'speech'
+	{
+		'target_name': 'demo',
+		'type': 'executable',
+		'dependencies': [
+			'speech',
+		],
+		'include_dirs': [
+			'include',
+		],
+		'sources': [
+			'demo/demo.cc',
+		],
+	}, # target 'demo'
 	]
 }

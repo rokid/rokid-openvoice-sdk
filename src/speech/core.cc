@@ -27,9 +27,9 @@ SpeechCore::SpeechCore() : context_(NULL), work_(false), next_id_(0) {
 }
 
 SpeechCore::~SpeechCore() {
+	release();
 	pthread_mutex_destroy(&mutex_);
 	pthread_cond_destroy(&cond_);
-	release();
 	if (config_)
 		delete config_;
 }
