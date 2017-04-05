@@ -7,6 +7,7 @@
 #include <list>
 #include <map>
 #include <memory>
+#include "log.h"
 
 using namespace std;
 
@@ -24,6 +25,7 @@ public:
 	class QueueItem {
 	public:
 		int32_t id;
+		bool deleted;
 		T_sp data;
 	};
 
@@ -48,6 +50,7 @@ public:
 		}
 		QueueItemSp item(new QueueItem());
 		item->id = id;
+		item->deleted = false;
 		item->data = data;
 		queue_.push_back(item);
 		pthread_cond_signal(&cond_);
@@ -55,23 +58,39 @@ public:
 		return true;
 	}
 
-	void erase(int32_t id) {
+	bool erase(int32_t id) {
 		typename list<QueueItemSp>::iterator it;
+		bool r = false;
 
 		pthread_mutex_lock(&mutex_);
 		for (it = queue_.begin(); it != queue_.end(); ++it) {
 			if ((*it)->id == id) {
-				queue_.erase(it);
+				(*it)->deleted = true;
+				r = true;
 				break;
 			}
 		}
 		pthread_mutex_unlock(&mutex_);
+		return r;
 	}
 
-	void clear() {
+	void clear(int32_t* min_id, int32_t* max_id) {
+		int32_t min = 0;
+		int32_t max = 0;
+		typename list<QueueItemSp>::iterator it;
+
 		pthread_mutex_lock(&mutex_);
-		queue_.clear();
+		if (queue_.size()) {
+			min = queue_.front()->id;
+			max = queue_.back()->id;
+		}
+		for (it = queue_.begin(); it != queue_.end(); ++it)
+			(*it)->deleted = true;
 		pthread_mutex_unlock(&mutex_);
+		if (min_id)
+			*min_id = min;
+		if (max_id)
+			*max_id = max;
 	}
 
 	void close() {
@@ -82,7 +101,17 @@ public:
 		pthread_mutex_unlock(&mutex_);
 	}
 
-	bool poll(int32_t& id, T_sp& data) {
+	uint32_t size() {
+		uint32_t s;
+		pthread_mutex_lock(&mutex_);
+		s = queue_.size();
+		pthread_mutex_unlock(&mutex_);
+		return s;
+	}
+
+	inline bool closed() { return closed_; }
+
+	bool poll(int32_t& id, T_sp& data, bool& del) {
 		bool r;
 		QueueItemSp item;
 
@@ -93,6 +122,7 @@ public:
 			item = queue_.front();
 			id = item->id;
 			data = item->data;
+			del = item->deleted;
 			queue_.pop_front();
 			r = true;
 		} else {
@@ -223,16 +253,25 @@ public:
 		return false;
 	}
 
-	bool clear() {
+	void clear(int32_t* min_id, int32_t* max_id) {
 		typename list<QueueItemSp>::iterator it;
+		int32_t min = 0;
+		int32_t max = 0;
 
+		if (tag_queue_.size()) {
+			min = (*tag_queue_.front())->id;
+			max = (*tag_queue_.back())->id;
+		}
 		for (it = queue_.begin(); it != queue_.end(); ++it) {
 			if ((*it)->type == QueueItem::data)
 				queue_.erase(it);
 			else
 				(*it)->type = QueueItem::deleted;
 		}
-		return !tag_queue_.empty();
+		if (min_id)
+			*min_id = min;
+		if (max_id)
+			*max_id = max;
 	}
 
 	void close() {
@@ -342,7 +381,9 @@ public:
 			pthread_mutex_unlock(&mutex_);
 			return false;
 		}
-		StreamQueue<T>::start(id);
+		if (StreamQueue<T>::start(id)) {
+			pthread_cond_signal(&cond_);
+		}
 		pthread_mutex_unlock(&mutex_);
 		return true;
 	}
@@ -353,8 +394,9 @@ public:
 			pthread_mutex_unlock(&mutex_);
 			return;
 		}
-		if (StreamQueue<T>::stream(id, data))
+		if (StreamQueue<T>::stream(id, data)) {
 			pthread_cond_signal(&cond_);
+		}
 		pthread_mutex_unlock(&mutex_);
 	}
 
@@ -364,31 +406,39 @@ public:
 			pthread_mutex_unlock(&mutex_);
 			return;
 		}
-		if (StreamQueue<T>::end(id))
+		if (StreamQueue<T>::end(id)) {
 			pthread_cond_signal(&cond_);
+		}
 		pthread_mutex_unlock(&mutex_);
 	}
 
-	void erase(int32_t id, uint32_t err = 0) {
+	bool erase(int32_t id, uint32_t err = 0) {
+		bool r = false;
 		pthread_mutex_lock(&mutex_);
 		if (closed_) {
 			pthread_mutex_unlock(&mutex_);
-			return;
+			return false;
 		}
-		if (StreamQueue<T>::erase(id, err))
+		if (StreamQueue<T>::erase(id, err)) {
+			r = true;
 			pthread_cond_signal(&cond_);
+		}
 		pthread_mutex_unlock(&mutex_);
+		return r;
 	}
 
-	void clear() {
+	void clear(int32_t* min_id, int32_t* max_id) {
+		int32_t min;
+		int32_t max;
 		pthread_mutex_lock(&mutex_);
-		if (closed_) {
-			pthread_mutex_unlock(&mutex_);
-			return;
-		}
-		if (StreamQueue<T>::clear())
+		StreamQueue<T>::clear(&min, &max);
+		if (min > 0)
 			pthread_cond_signal(&cond_);
 		pthread_mutex_unlock(&mutex_);
+		if (min_id)
+			*min_id = min;
+		if (max_id)
+			*max_id = max;
 	}
 
 	void close() {
@@ -399,6 +449,16 @@ public:
 		pthread_mutex_unlock(&mutex_);
 	}
 
+	uint32_t size() {
+		uint32_t s;
+		pthread_mutex_lock(&mutex_);
+		s = StreamQueue<T>::size();
+		pthread_mutex_unlock(&mutex_);
+		return s;
+	}
+
+	inline bool closed() { return closed_; }
+
 	// return  true: success
 	//         false: queue closed
 	// param 'id'  item id: if 'type != 0'
@@ -408,59 +468,19 @@ public:
 	//              2:  stream end
 	//              3:  stream deleted
 	bool poll(uint32_t& type, uint32_t& err, int32_t& id, T_sp& item) {
-		bool block = false;
-		StreamingItemPos tmp;
-		QueueItemSp tp;
-		QueueItemSp ip;
-
+		int32_t r;
 		pthread_mutex_lock(&mutex_);
-		if (tag_queue_.empty())
-			block = true;
-		else {
-			tmp = tag_queue_.front();
-			tp = *tmp;
-			assert(!queue_.empty());
-			ip = queue_.front();
-			if (tp->polling && tp.get() == ip.get()
-					&& tp->type == QueueItem::uncompleted)
-				block = true;
-		}
-		if (block) {
-			pthread_cond_wait(&cond_, &mutex_);
-			// 'close' invoked
-			if (tag_queue_.empty()) {
-				pthread_mutex_unlock(&mutex_);
-				assert(closed_);
-				return false;
+		do {
+			r = this->pop(id, item, err);
+			if (r < 0) {
+				pthread_cond_wait(&cond_, &mutex_);
+				if (closed_) {
+					pthread_mutex_unlock(&mutex_);
+					return false;
+				}
 			}
-		}
-
-		// data available or streaming end
-		tmp = tag_queue_.front();
-		tp = *tmp;
-		assert(!queue_.empty());
-		ip = queue_.front();
-		if (!tp->polling) {
-			tp->polling = 1;
-			id = tp->id;
-			type = QueueItem::uncompleted;
-		} else if (tp.get() == ip.get()) {
-			assert(tp->type == QueueItem::completed
-					|| tp->type == QueueItem::deleted
-					|| tp->type == QueueItem::error);
-			type = tp->type;
-			id = tp->id;
-			err = tp->err;
-			item_tags_.erase(id);
-			tag_queue_.pop_front();
-			queue_.pop_front();
-		} else {
-			assert(ip->type == QueueItem::data);
-			type = ip->type;
-			item = ip->content;
-			id = 0;
-			queue_.pop_front();
-		}
+		} while (r < 0);
+		type = r;
 		pthread_mutex_unlock(&mutex_);
 		return true;
 	}

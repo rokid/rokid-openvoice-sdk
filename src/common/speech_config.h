@@ -15,7 +15,7 @@ public:
 
 	bool set(const char* key, const char* value);
 
-	const char* get(const char* key, const char* default_value = NULL);
+	const char* get(const char* key, const char* default_value = NULL) const;
 
 private:
 	map<string, string> configs_;

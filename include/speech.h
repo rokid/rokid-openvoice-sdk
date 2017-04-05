@@ -6,19 +6,25 @@
 namespace rokid {
 namespace speech {
 
-struct SpeechResult {
+typedef struct {
 	int32_t id;
+	// 0  speech result
+	// 1  stream result start
+	// 2  stream result end
+	// 3  speech cancelled
+	// 4  speech occurs error
+	uint32_t type;
 	uint32_t err;
 	std::string asr;
 	std::string nlp;
 	std::string action;
-};
+} SpeechResult;
 
 class Speech {
 public:
 	virtual ~Speech() {}
 
-	virtual bool prepare(const char* config_file = NULL) = 0;
+	virtual bool prepare() = 0;
 
 	virtual void release() = 0;
 
@@ -34,15 +40,11 @@ public:
 
 	// poll speech results
 	// block current thread if no result available
-	// if Speech.release() invoked, poll() will return -1
+	// if Speech.release() invoked, poll() will return false
 	//
-	// return value: 0  speech result
-	//               1  stream result start
-	//               2  stream result end
-	//               3  speech cancelled
-	//               4  speech occurs error, see SpeechResult.err
-	//               -1  speech sdk released
-	virtual int32_t poll(SpeechResult& res) = 0;
+	// return value: true  success
+	//               false speech sdk released
+	virtual bool poll(SpeechResult& res) = 0;
 
 	virtual void config(const char* key, const char* value) = 0;
 };

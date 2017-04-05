@@ -35,8 +35,8 @@ bool SpeechConfig::set(const char* key, const char* value) {
 	return true;
 }
 
-const char* SpeechConfig::get(const char* key, const char* default_value) {
-	map<string, string>::iterator it = configs_.find(string(key));
+const char* SpeechConfig::get(const char* key, const char* default_value) const {
+	map<string, string>::const_iterator it = configs_.find(string(key));
 	if (it == configs_.end())
 		return default_value;
 	return it->second.c_str();
