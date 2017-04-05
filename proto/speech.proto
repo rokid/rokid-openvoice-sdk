@@ -18,7 +18,7 @@ service Speech {
 
 message AuthRequest {
   string key              = 1;
-  string device_type      = 2;
+  string device_type_id   = 2;
   string device_id        = 3;
   string service          = 4;
   string version          = 5;

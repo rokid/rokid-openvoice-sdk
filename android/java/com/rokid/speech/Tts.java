@@ -81,7 +81,7 @@ public class Tts {
 		_sdk_config("server_address", config.server_address, _sdk_tts);
 		_sdk_config("ssl_roots_pem", config.ssl_roots_pem, _sdk_tts);
 		_sdk_config("auth_key", config.auth_key, _sdk_tts);
-		_sdk_config("device_type", config.device_type, _sdk_tts);
+		_sdk_config("device_type_id", config.device_type_id, _sdk_tts);
 		_sdk_config("device_id", config.device_id, _sdk_tts);
 		_sdk_config("secret", config.secret, _sdk_tts);
 		_sdk_config("api_version", config.api_version, _sdk_tts);
@@ -121,7 +121,7 @@ class TtsConfig {
 
 	public String auth_key;
 
-	public String device_type;
+	public String device_type_id;
 
 	public String device_id;
 
@@ -133,7 +133,7 @@ class TtsConfig {
 		return "server_address=" + server_address
 			+ ", ssl_roots_pem=" + ssl_roots_pem
 			+ ", auth_key=" + auth_key
-			+ ", device_type=" + device_type
+			+ ", device_type_id=" + device_type_id
 			+ ", device_id=" + device_id
 			+ ", secret=" + secret
 			+ ", api_version=" + api_version;

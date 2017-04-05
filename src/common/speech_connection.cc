@@ -50,7 +50,7 @@ bool SpeechConnection::auth(Speech::Stub* stub, SpeechConfig* config, const char
 	AuthRequest req;
 	AuthResponse resp;
 	const char* auth_key = config->get("auth_key");
-	const char* device_type = config->get("device_type");
+	const char* device_type = config->get("device_type_id");
 	const char* device_id = config->get("device_id");
 	const char* api_version = config->get("api_version", "1");
 	const char* secret = config->get("secret");
@@ -60,7 +60,7 @@ bool SpeechConnection::auth(Speech::Stub* stub, SpeechConfig* config, const char
 		return false;
 
 	req.set_key(auth_key);
-	req.set_device_type(device_type);
+	req.set_device_type_id(device_type);
 	req.set_device_id(device_id);
 	req.set_service(svc);
 	req.set_version(api_version);

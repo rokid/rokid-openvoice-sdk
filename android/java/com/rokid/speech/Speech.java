@@ -165,7 +165,7 @@ public class Speech implements Runnable {
 		_sdk_config(_sdk_speech, "server_address", config.server_address);
 		_sdk_config(_sdk_speech, "ssl_roots_pem", config.ssl_roots_pem);
 		_sdk_config(_sdk_speech, "auth_key", config.auth_key);
-		_sdk_config(_sdk_speech, "device_type", config.device_type);
+		_sdk_config(_sdk_speech, "device_type_id", config.device_type_id);
 		_sdk_config(_sdk_speech, "device_id", config.device_id);
 		_sdk_config(_sdk_speech, "secret", config.secret);
 		_sdk_config(_sdk_speech, "api_version", config.api_version);
@@ -210,7 +210,7 @@ class SpeechConfig {
 
 	public String auth_key;
 
-	public String device_type;
+	public String device_type_id;
 
 	public String device_id;
 
@@ -222,7 +222,7 @@ class SpeechConfig {
 		return "server_address=" + server_address
 			+ ", ssl_roots_pem=" + ssl_roots_pem
 			+ ", auth_key=" + auth_key
-			+ ", device_type=" + device_type
+			+ ", device_type_id=" + device_type_id
 			+ ", device_id=" + device_id
 			+ ", secret=" + secret
 			+ ", api_version=" + api_version;
