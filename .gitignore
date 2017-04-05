@@ -1,0 +1,4 @@
+.*.swp
+build/
+Makefile
+gen/
