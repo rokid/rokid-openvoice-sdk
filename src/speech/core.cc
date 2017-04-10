@@ -268,6 +268,7 @@ void SpeechCore::run_requests() {
 					header->set_codec(codec);
 					const char* vt = config_->get("vt", default_voice_trigger);
 					header->set_vt(vt);
+					header->set_cdomain(config_->get("cdomain", ""));
 					Log::d(tag_, "write header, id %d", vreq->id);
 					if (!voice_stream->Write(grpc_req)) {
 						Log::d(tag_, "*a* write failed, stream broken");
