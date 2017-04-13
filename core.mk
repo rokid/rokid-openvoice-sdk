@@ -39,10 +39,10 @@ LOCAL_GENERATED_SOURCES := $(PROTOC_GEN_SRC)
 
 LOCAL_SRC_FILES := $(COMMON_SRC)
 
-LOCAL_CFLAGS := -std=c++11 $(IGNORED_WARNINGS) -DGOOGLE_PROTOBUF_NO_RTTI -DSPEECH_LOG_ANDROID
+LOCAL_CFLAGS := -std=c++11 $(IGNORED_WARNINGS) -DSPEECH_LOG_ANDROID -frtti
 LOCAL_CXX_STL := libc++
 LOCAL_SHARED_LIBRARIES := liblog libgrpc++ libprotobuf-rokid-cpp-full
-LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/src/common
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/src/common $(LOCAL_C_INCLUDES)
 
 include $(BUILD_SHARED_LIBRARY)
 
@@ -56,12 +56,12 @@ LOCAL_CPP_EXTENSION := .cc
 LOCAL_SRC_FILES := $(call all-named-files-under,*.cc,src/tts)
 
 LOCAL_C_INCLUDES := \
-	$(PROTOC_OUT_DIR)
+	$(PROTOC_OUT_DIR) \
+	$(LOCAL_PATH)/include
 
-LOCAL_CFLAGS := -std=c++11 $(IGNORED_WARNINGS) -DGOOGLE_PROTOBUF_NO_RTTI
+LOCAL_CFLAGS := -std=c++11 $(IGNORED_WARNINGS) -frtti
 LOCAL_CXX_STL := libc++
 LOCAL_SHARED_LIBRARIES := libspeech_common libgrpc++ libprotobuf-rokid-cpp-full
-LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/src/tts
 
 include $(BUILD_SHARED_LIBRARY)
 
@@ -75,12 +75,12 @@ LOCAL_CPP_EXTENSION := .cc
 LOCAL_SRC_FILES := $(call all-named-files-under,*.cc,src/asr)
 
 LOCAL_C_INCLUDES := \
-	$(PROTOC_OUT_DIR)
+	$(PROTOC_OUT_DIR) \
+	$(LOCAL_PATH)/include
 
-LOCAL_CFLAGS := -std=c++11 $(IGNORED_WARNINGS) -DGOOGLE_PROTOBUF_NO_RTTI
+LOCAL_CFLAGS := -std=c++11 $(IGNORED_WARNINGS) -frtti
 LOCAL_CXX_STL := libc++
 LOCAL_SHARED_LIBRARIES := libspeech_common libgrpc++ libprotobuf-rokid-cpp-full
-LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/src/asr
 
 include $(BUILD_SHARED_LIBRARY)
 
@@ -94,12 +94,12 @@ LOCAL_CPP_EXTENSION := .cc
 LOCAL_SRC_FILES := $(call all-named-files-under,*.cc,src/nlp)
 
 LOCAL_C_INCLUDES := \
-	$(PROTOC_OUT_DIR)
+	$(PROTOC_OUT_DIR) \
+	$(LOCAL_PATH)/include
 
-LOCAL_CFLAGS := -std=c++11 $(IGNORED_WARNINGS) -DGOOGLE_PROTOBUF_NO_RTTI
+LOCAL_CFLAGS := -std=c++11 $(IGNORED_WARNINGS) -frtti
 LOCAL_CXX_STL := libc++
 LOCAL_SHARED_LIBRARIES := libspeech_common libgrpc++ libprotobuf-rokid-cpp-full
-LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/src/nlp
 
 include $(BUILD_SHARED_LIBRARY)
 
@@ -116,9 +116,8 @@ LOCAL_C_INCLUDES := \
 	$(PROTOC_OUT_DIR) \
 	$(LOCAL_PATH)/include
 
-LOCAL_CFLAGS := -std=c++11 $(IGNORED_WARNINGS) -DGOOGLE_PROTOBUF_NO_RTTI
+LOCAL_CFLAGS := -std=c++11 $(IGNORED_WARNINGS) -frtti
 LOCAL_CXX_STL := libc++
 LOCAL_SHARED_LIBRARIES := libspeech_common libgrpc++ libprotobuf-rokid-cpp-full
-LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/src/speech
 
 include $(BUILD_SHARED_LIBRARY)

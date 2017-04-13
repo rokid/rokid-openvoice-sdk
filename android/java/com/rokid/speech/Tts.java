@@ -1,17 +1,17 @@
 package com.rokid.speech;
 
-import java.util.HashMap;
 import java.io.FileInputStream;
 import java.io.IOException;
 import android.util.Log;
+import android.util.SparseArray;
 import com.alibaba.fastjson.JSON;
 
 public class Tts {
 	public Tts(String configFile) {
-		callbacks_ = new HashMap<Long, TtsCallback>();
+		_callbacks = new SparseArray<TtsCallback>();
 		_sdk_tts = _sdk_create();
-
 		config_tts(configFile);
+		_sdk_prepare(_sdk_tts);
 	}
 
 	public void finalize() {
@@ -19,39 +19,23 @@ public class Tts {
 		_sdk_delete(_sdk_tts);
 	}
 
-	public boolean prepare() {
-		return _sdk_prepare(_sdk_tts);
-	}
-
 	public int speak(String content, TtsCallback cb) {
-		long sdk_cb = _sdk_create_callback(cb);
-		addCallback(sdk_cb, cb);
-		int id = _sdk_speak(content, sdk_cb, _sdk_tts);
-		Log.d(TAG, "speak " + content + ", id = " + id);
-		if (id <= 0)
-			eraseCallback(sdk_cb);
+		int id;
+		synchronized (_callbacks) {
+			id = _sdk_speak(_sdk_tts, content);
+			Log.d(TAG, "speak " + content + ", id = " + id);
+			if (id > 0)
+				_callbacks.put(id, cb);
+		}
 		return id;
 	}
 
-	public void stop(int id) {
-		_sdk_stop(id, _sdk_tts);
+	public void cancel(int id) {
+		_sdk_cancel(_sdk_tts, id);
 	}
 
 	public void config(String key, String value) {
-		_sdk_config(key, value, _sdk_tts);
-	}
-
-	private void addCallback(long sdk_cb, TtsCallback cb) {
-		synchronized (callbacks_) {
-			callbacks_.put(sdk_cb, cb);
-		}
-	}
-
-	// invoked by native '_sdk_cb' when '_sdk_cb' release
-	private void eraseCallback(long sdk_cb) {
-		synchronized (callbacks_) {
-			callbacks_.remove(sdk_cb);
-		}
+		_sdk_config(_sdk_tts, key, value);
 	}
 
 	private void config_tts(String configFile) {
@@ -78,14 +62,53 @@ public class Tts {
 		}
 		TtsConfig config = JSON.parseObject(content, TtsConfig.class);
 		Log.d(TAG, "config file parse result = " + config);
-		_sdk_config("server_address", config.server_address, _sdk_tts);
-		_sdk_config("ssl_roots_pem", config.ssl_roots_pem, _sdk_tts);
-		_sdk_config("auth_key", config.auth_key, _sdk_tts);
-		_sdk_config("device_type_id", config.device_type_id, _sdk_tts);
-		_sdk_config("device_id", config.device_id, _sdk_tts);
-		_sdk_config("secret", config.secret, _sdk_tts);
-		_sdk_config("api_version", config.api_version, _sdk_tts);
+		_sdk_config(_sdk_tts, "server_address", config.server_address);
+		_sdk_config(_sdk_tts, "ssl_roots_pem", config.ssl_roots_pem);
+		_sdk_config(_sdk_tts, "auth_key", config.auth_key);
+		_sdk_config(_sdk_tts, "device_type_id", config.device_type_id);
+		_sdk_config(_sdk_tts, "device_id", config.device_id);
+		_sdk_config(_sdk_tts, "secret", config.secret);
+		_sdk_config(_sdk_tts, "api_version", config.api_version);
 	}
+
+	// invoke by native poll thread
+	private void handle_callback(TtsResult res) {
+		assert(res.id > 0);
+		TtsCallback cb;
+		boolean del_cb = false;
+		synchronized (_callbacks) {
+			cb = _callbacks.get(res.id);
+		}
+		if (cb != null) {
+			switch(res.type) {
+				case 0:
+					cb.onVoice(res.id, res.voice);
+					break;
+				case 1:
+					cb.onStart(res.id);
+					break;
+				case 2:
+					cb.onComplete(res.id);
+					del_cb = true;
+					break;
+				case 3:
+					cb.onCancel(res.id);
+					del_cb = true;
+					break;
+				case 4:
+					cb.onError(res.id, res.err);
+					del_cb = true;
+					break;
+			}
+		}
+		if (del_cb) {
+			synchronized (_callbacks) {
+				_callbacks.remove(res.id);
+			}
+		}
+	}
+
+	private static native void _sdk_init(Class tts_cls, Class res_cls);
 
 	private native long _sdk_create();
 
@@ -95,23 +118,34 @@ public class Tts {
 
 	private native void _sdk_release(long sdk_tts);
 
-	private native long _sdk_create_callback(TtsCallback cb);
+	private native int _sdk_speak(long sdk_tts, String content);
 
-	private native int _sdk_speak(String content, long sdk_cb, long sdk_tts);
+	private native void _sdk_cancel(long sdk_tts, int id);
 
-	private native void _sdk_stop(int id, long sdk_tts);
+	private native void _sdk_config(long sdk_tts, String key, String value);
 
-	private native void _sdk_config(String key, String value, long sdk_tts);
+	private SparseArray<TtsCallback> _callbacks;
 
-	private HashMap<Long, TtsCallback> callbacks_;
+	private long _sdk_tts;
 
 	static {
 		System.loadLibrary("rokid_tts_jni");
+		_sdk_init(Tts.class, TtsResult.class);
 	}
 
 	private static final String TAG = "tts.sdk";
 
-	private long _sdk_tts;
+	private static class TtsResult {
+		public int id;
+		// 0:  voice data
+		// 1:  start voice
+		// 2:  end voice
+		// 3:  cancel voice
+		// 4:  error
+		public int type;
+		public int err;
+		public byte[] voice;
+	}
 }
 
 class TtsConfig {

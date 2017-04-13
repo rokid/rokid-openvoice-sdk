@@ -11,7 +11,7 @@ public interface SpeechCallback {
 
 	void onComplete(int id);
 
-	void onStop(int id);
+	void onCancel(int id);
 
 	void onError(int id, int err);
 }

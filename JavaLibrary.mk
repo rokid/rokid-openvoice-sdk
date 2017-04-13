@@ -8,17 +8,14 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := librokid_tts_jni
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_C_INCLUDES := \
-	$(LOCAL_PATH)/src/common \
-	$(PROTOC_OUT_DIR) \
-	external/libopus/include
+	$(LOCAL_PATH)/include
 
-LOCAL_CFLAGS := $(IGNORED_WARNINGS) -DGOOGLE_PROTOBUF_NO_RTTI
+LOCAL_CFLAGS := -frtti
 
 LOCAL_SRC_FILES := \
-		$(JNI_DIR)/com_rokid_speech_Tts.cc \
-		$(JNI_DIR)/com_rokid_speech_Opus.cc
+		$(JNI_DIR)/com_rokid_speech_Tts.cc
 
-LOCAL_SHARED_LIBRARIES := libnativehelper libspeech_tts libspeech_common libopus liblog libgrpc libprotobuf-rokid-cpp-full
+LOCAL_SHARED_LIBRARIES := libnativehelper libspeech_tts libspeech_common liblog
 
 include $(BUILD_SHARED_LIBRARY)
 
@@ -28,8 +25,7 @@ LOCAL_MODULE := rokid_tts
 
 LOCAL_SRC_FILES := \
 		$(JAVA_DIR)/com/rokid/speech/Tts.java \
-		$(JAVA_DIR)/com/rokid/speech/TtsCallback.java \
-		$(JAVA_DIR)/com/rokid/speech/Opus.java
+		$(JAVA_DIR)/com/rokid/speech/TtsCallback.java
 LOCAL_STATIC_JAVA_LIBRARIES := fastjson-android
 
 include $(BUILD_STATIC_JAVA_LIBRARY)
@@ -41,7 +37,7 @@ LOCAL_CPP_EXTENSION := .cc
 LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/include
 
-LOCAL_CFLAGS := $(IGNORED_WARNINGS) -DGOOGLE_PROTOBUF_NO_RTTI
+LOCAL_CFLAGS := -frtti
 
 LOCAL_SRC_FILES := \
 		$(JNI_DIR)/com_rokid_speech_Speech.cc
@@ -50,15 +46,13 @@ LOCAL_SHARED_LIBRARIES := libnativehelper libspeech libspeech_common liblog
 
 include $(BUILD_SHARED_LIBRARY)
 
-
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := rokid_speech
 
 LOCAL_SRC_FILES := \
 		$(JAVA_DIR)/com/rokid/speech/Speech.java \
-		$(JAVA_DIR)/com/rokid/speech/SpeechCallback.java \
-		$(JAVA_DIR)/com/rokid/speech/SpeechResult.java
+		$(JAVA_DIR)/com/rokid/speech/SpeechCallback.java
 LOCAL_STATIC_JAVA_LIBRARIES := fastjson-android
 
 include $(BUILD_STATIC_JAVA_LIBRARY)

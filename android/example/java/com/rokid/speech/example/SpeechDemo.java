@@ -11,10 +11,6 @@ public class SpeechDemo extends Service {
 	@Override
 	public void onCreate() {
 		_speech = new Speech("/system/etc/speech_sdk.json");
-		if (!_speech.prepare()) {
-			Log.w(TAG, "speech prepare failed");
-			return;
-		}
 		_speech.config("codec", "opu");
 	}
 
@@ -25,7 +21,6 @@ public class SpeechDemo extends Service {
 
 	@Override
 	public void onDestroy() {
-		_speech.release();
 	}
 
 	@Override
@@ -61,8 +56,8 @@ class SpeechCallbackDemo implements SpeechCallback {
 		Log.d(SpeechDemo.TAG, "onComplete " + id);
 	}
 
-	public void onStop(int id) {
-		Log.d(SpeechDemo.TAG, "onStop " + id);
+	public void onCancel(int id) {
+		Log.d(SpeechDemo.TAG, "onCancel " + id);
 	}
 
 	public void onError(int id, int err) {

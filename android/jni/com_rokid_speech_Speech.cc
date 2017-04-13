@@ -1,155 +1,206 @@
 #include <jni.h>
+#include <thread>
 #include "log.h"
 #include "speech.h"
 #include "JNIHelp.h"
+
+using std::thread;
 
 namespace rokid {
 namespace speech {
 
 static const char* tag_ = "speech.jni";
 static JavaVM* vm_ = NULL;
-static jclass speech_result_class_ = NULL;
-static jmethodID speech_result_constructor_ = 0;
-static jfieldID speech_result_fields_[] = {
-	0, 0, 0, 0, 0, 0
-};
-enum SpeechResultFieldName {
-	SpeechResultField_id,
-	SpeechResultField_type,
-	SpeechResultField_err,
-	SpeechResultField_asr,
-	SpeechResultField_nlp,
-	SpeechResultField_action,
+
+enum SpeechResultFieldAlias {
+	RES_ID,
+	RES_TYPE,
+	RES_ERROR,
+	RES_ASR,
+	RES_NLP,
+	RES_ACTION,
+
+	RES_FIELD_NUM
 };
 
+typedef struct {
+	jmethodID handle_callback;
+	jfieldID result_fields[RES_FIELD_NUM];
+	jclass result_class;
+} SpeechNativeConstants;
+
+static SpeechNativeConstants constants_;
+
+class SpeechPollThread {
+public:
+	void start(Speech* speech, jobject speech_obj) {
+		speech_ = speech;
+		speech_obj_ = speech_obj;
+		thread_ = new thread([=] { run(); });
+	}
+
+	void close() {
+		env_->DeleteGlobalRef(speech_obj_);
+		thread_->join();
+		delete thread_;
+	}
+
+protected:
+	void run() {
+		vm_->AttachCurrentThread(&env_, NULL);
+		do_poll();
+		vm_->DetachCurrentThread();
+	}
+
+	void do_poll() {
+		SpeechResult result;
+		int32_t r;
+		jobject res_obj;
+		while (true) {
+			if (!speech_->poll(result))
+				break;
+			env_->PushLocalFrame(32);
+			res_obj = generate_result_object(result);
+			env_->CallVoidMethod(speech_obj_, constants_.handle_callback, res_obj);
+			env_->PopLocalFrame(NULL);
+		}
+	}
+
+private:
+	jobject generate_result_object(SpeechResult& result) {
+		jobject res_obj = env_->AllocObject(constants_.result_class);
+		env_->SetIntField(res_obj, constants_.result_fields[RES_ID], result.id);
+		env_->SetIntField(res_obj, constants_.result_fields[RES_TYPE], result.type);
+		env_->SetIntField(res_obj, constants_.result_fields[RES_ERROR], result.err);
+		jstring strobj;
+		if (result.asr.length() > 0) {
+			strobj = env_->NewStringUTF(result.asr.c_str());
+			env_->SetObjectField(res_obj, constants_.result_fields[RES_ASR], strobj);
+		}
+		if (result.nlp.length() > 0) {
+			strobj = env_->NewStringUTF(result.nlp.c_str());
+			env_->SetObjectField(res_obj, constants_.result_fields[RES_NLP], strobj);
+		}
+		if (result.action.length() > 0) {
+			strobj = env_->NewStringUTF(result.action.c_str());
+			env_->SetObjectField(res_obj, constants_.result_fields[RES_ACTION], strobj);
+		}
+		return res_obj;
+	}
+
+private:
+	thread* thread_;
+	Speech* speech_;
+	jobject speech_obj_;
+	JNIEnv* env_;
+};
+
+typedef struct {
+	Speech* speech;
+	SpeechPollThread* poll_thread;
+} SpeechNativeInfo;
+
+static void com_rokid_speech_Speech__sdk_init(JNIEnv *env, jobject thiz, jclass speech_cls, jclass res_cls) {
+	assert(vm_);
+	constants_.handle_callback = env->GetMethodID(
+			speech_cls, "handle_callback", "(Lcom/rokid/speech/Speech$SpeechResult;)V");
+	constants_.result_fields[RES_ID] = env->GetFieldID(res_cls, "id", "I");
+	constants_.result_fields[RES_TYPE] = env->GetFieldID(res_cls, "type", "I");
+	constants_.result_fields[RES_ERROR] = env->GetFieldID(res_cls, "err", "I");
+	constants_.result_fields[RES_ASR] = env->GetFieldID(res_cls, "asr", "Ljava/lang/String;");
+	constants_.result_fields[RES_NLP] = env->GetFieldID(res_cls, "nlp", "Ljava/lang/String;");
+	constants_.result_fields[RES_ACTION] = env->GetFieldID(res_cls, "action", "Ljava/lang/String;");
+	constants_.result_class = (jclass)env->NewGlobalRef(res_cls);
+}
+
 static jlong com_rokid_speech_Speech__sdk_create(JNIEnv *env, jobject thiz) {
-	return (jlong)new_speech();
+	SpeechNativeInfo* r = new SpeechNativeInfo();
+	memset(r, 0, sizeof(*r));
+	r->speech = new_speech();
+	return (jlong)r;
 }
 
 static void com_rokid_speech_Speech__sdk_delete(JNIEnv *env, jobject thiz, jlong speechl) {
-	Speech* speech = reinterpret_cast<Speech*>(speechl);
-	if (speech == NULL)
-		return;
-	delete_speech(speech);
+	SpeechNativeInfo* p = reinterpret_cast<SpeechNativeInfo*>(speechl);
+	if (p) {
+		delete_speech(p->speech);
+		delete p;
+	}
 }
 
 static jboolean com_rokid_speech_Speech__sdk_prepare(JNIEnv *env, jobject thiz, jlong speechl) {
-	Speech* speech = reinterpret_cast<Speech*>(speechl);
-	if (speech == NULL)
-		return false;
-	if (!speech->prepare()) {
+	SpeechNativeInfo* p = reinterpret_cast<SpeechNativeInfo*>(speechl);
+	assert(p);
+	if (!p->speech->prepare()) {
 		Log::d(tag_, "prepare failed");
 		return false;
 	}
+	p->poll_thread = new SpeechPollThread();
+	p->poll_thread->start(p->speech, env->NewGlobalRef(thiz));
 	return true;
 }
 
 static void com_rokid_speech_Speech__sdk_release(JNIEnv *env, jobject thiz, jlong speechl) {
-	Speech* speech = reinterpret_cast<Speech*>(speechl);
-	if (speech == NULL)
-		return;
-	speech->release();
-	delete speech;
+	SpeechNativeInfo* p = reinterpret_cast<SpeechNativeInfo*>(speechl);
+	assert(p);
+	p->speech->release();
+	if (p->poll_thread) {
+		p->poll_thread->close();
+		delete p->poll_thread;
+		p->poll_thread = NULL;
+	}
 }
 
-static jint com_rokid_speech_Speech__sdk_put_text(JNIEnv *env, jobject thiz, jlong speechl, jstring text) {
-	Speech* speech = reinterpret_cast<Speech*>(speechl);
-	if (speech == NULL || text == NULL)
-		return 0;
-	const char* content = env->GetStringUTFChars(text, NULL);
-	jint id = speech->put_text(content);
-	env->ReleaseStringUTFChars(text, content);
+static jint com_rokid_speech_Speech__sdk_put_text(JNIEnv *env, jobject thiz, jlong speechl, jstring str) {
+	SpeechNativeInfo* p = reinterpret_cast<SpeechNativeInfo*>(speechl);
+	assert(p);
+	const char* content = env->GetStringUTFChars(str, NULL);
+	jint id = p->speech->put_text(content);
+	env->ReleaseStringUTFChars(str, content);
 	return id;
 }
 
 static jint com_rokid_speech_Speech__sdk_start_voice(JNIEnv *env, jobject thiz, jlong speechl) {
-	Speech* speech = reinterpret_cast<Speech*>(speechl);
-	if (speech == NULL)
-		return 0;
-	return speech->start_voice();
+	SpeechNativeInfo* p = reinterpret_cast<SpeechNativeInfo*>(speechl);
+	assert(p);
+	return p->speech->start_voice();
 }
 
-static void com_rokid_speech_Speech__sdk_put_voice(JNIEnv *env, jobject thiz, jlong speechl,
-		jint id, jbyteArray voice, jint offset, jint length) {
-	Speech* speech = reinterpret_cast<Speech*>(speechl);
-	if (speech == NULL || voice == NULL || offset < 0 || length <= 0)
-		return;
+static void com_rokid_speech_Speech__sdk_put_voice(JNIEnv *env,
+		jobject thiz, jlong speechl, jint id, jbyteArray voice, jint offset, jint length) {
+	SpeechNativeInfo* p = reinterpret_cast<SpeechNativeInfo*>(speechl);
+	assert(p);
 	jbyte* buf = new jbyte[length];
 	env->GetByteArrayRegion(voice, offset, length, buf);
-	if (env->ExceptionOccurred()) {
-		env->ExceptionClear();
-		delete buf;
-		return;
-	}
-	speech->put_voice(id, reinterpret_cast<uint8_t*>(buf), length);
+	p->speech->put_voice(id, (uint8_t*)buf, length);
 	delete buf;
 }
 
-static void com_rokid_speech_Speech__sdk_end_voice(JNIEnv *env, jobject thiz, jlong speechl, jint id) {
-	Speech* speech = reinterpret_cast<Speech*>(speechl);
-	if (speech == NULL)
-		return;
-	speech->end_voice(id);
+static void com_rokid_speech_Speech__sdk_end_voice(JNIEnv *env,
+		jobject thiz, jlong speechl, jint id) {
+	SpeechNativeInfo* p = reinterpret_cast<SpeechNativeInfo*>(speechl);
+	assert(p);
+	p->speech->end_voice(id);
 }
 
 static void com_rokid_speech_Speech__sdk_cancel(JNIEnv *env, jobject thiz, jlong speechl, jint id) {
-	Speech* speech= reinterpret_cast<Speech*>(speechl);
-	if (speech == NULL)
-		return;
-	speech->cancel(id);
+	SpeechNativeInfo* p = reinterpret_cast<SpeechNativeInfo*>(speechl);
+	assert(p);
+	p->speech->cancel(id);
 }
 
-static void com_rokid_speech_Speech__sdk_config(JNIEnv *env, jobject thiz,
-		jlong speechl, jstring key, jstring value) {
-	Speech* speech = reinterpret_cast<Speech*>(speechl);
-	if (speech == NULL)
-		return;
+static void com_rokid_speech_Speech__sdk_config(JNIEnv *env, jobject thiz, jlong speechl, jstring key, jstring value) {
+	SpeechNativeInfo* p = reinterpret_cast<SpeechNativeInfo*>(speechl);
+	assert(p);
 	const char* keystr = env->GetStringUTFChars(key, NULL);
 	const char* valstr = env->GetStringUTFChars(value, NULL);
-	speech->config(keystr, valstr);
+	p->speech->config(keystr, valstr);
 	env->ReleaseStringUTFChars(key, keystr);
 	env->ReleaseStringUTFChars(value, valstr);
 }
 
-static jobject com_rokid_speech_Speech__sdk_poll(JNIEnv *env, jobject thiz, jlong speechl) {
-	Speech* speech = reinterpret_cast<Speech*>(speechl);
-	if (speech == NULL)
-		return NULL;
-	SpeechResult sr;
-	int32_t r = speech->poll(sr);
-	if (r < 0)
-		return NULL;
-	jobject res = env->NewObject(speech_result_class_, speech_result_constructor_);
-	env->SetIntField(res, speech_result_fields_[SpeechResultField_id], sr.id);
-	env->SetIntField(res, speech_result_fields_[SpeechResultField_type], r);
-	env->SetIntField(res, speech_result_fields_[SpeechResultField_err], sr.err);
-	jstring str;
-	if (sr.asr.length()) {
-		str = env->NewStringUTF(sr.asr.c_str());
-		env->SetObjectField(res, speech_result_fields_[SpeechResultField_asr], str);
-	}
-	if (sr.nlp.length()) {
-		str = env->NewStringUTF(sr.nlp.c_str());
-		env->SetObjectField(res, speech_result_fields_[SpeechResultField_nlp], str);
-	}
-	if (sr.action.length()) {
-		str = env->NewStringUTF(sr.action.c_str());
-		env->SetObjectField(res, speech_result_fields_[SpeechResultField_action], str);
-	}
-	return res;
-}
-
-static void prepare_speech_result_info(JNIEnv* env, jclass cls) {
-	speech_result_constructor_ = env->GetMethodID(cls, "<init>", "()V");
-	speech_result_fields_[SpeechResultField_id] = env->GetFieldID(cls, "id", "I");
-	speech_result_fields_[SpeechResultField_type] = env->GetFieldID(cls, "type", "I");
-	speech_result_fields_[SpeechResultField_err] = env->GetFieldID(cls, "err", "I");
-	speech_result_fields_[SpeechResultField_asr] = env->GetFieldID(cls, "asr", "Ljava/lang/String;");
-	speech_result_fields_[SpeechResultField_nlp] = env->GetFieldID(cls, "nlp", "Ljava/lang/String;");
-	speech_result_fields_[SpeechResultField_action] = env->GetFieldID(cls, "action", "Ljava/lang/String;");
-}
-
 static JNINativeMethod _nmethods[] = {
+	{ "_sdk_init", "(Ljava/lang/Class;Ljava/lang/Class;)V", (void*)com_rokid_speech_Speech__sdk_init },
 	{ "_sdk_create", "()J", (void*)com_rokid_speech_Speech__sdk_create },
 	{ "_sdk_delete", "(J)V", (void*)com_rokid_speech_Speech__sdk_delete },
 	{ "_sdk_prepare", "(J)Z", (void*)com_rokid_speech_Speech__sdk_prepare },
@@ -160,7 +211,6 @@ static JNINativeMethod _nmethods[] = {
 	{ "_sdk_end_voice", "(JI)V", (void*)com_rokid_speech_Speech__sdk_end_voice },
 	{ "_sdk_cancel", "(JI)V", (void*)com_rokid_speech_Speech__sdk_cancel },
 	{ "_sdk_config", "(JLjava/lang/String;Ljava/lang/String;)V", (void*)com_rokid_speech_Speech__sdk_config },
-	{ "_sdk_poll", "(J)Lcom/rokid/speech/SpeechResult;", (void*)com_rokid_speech_Speech__sdk_poll },
 };
 
 int register_com_rokid_speech_Speech(JNIEnv* env) {
@@ -170,16 +220,6 @@ int register_com_rokid_speech_Speech(JNIEnv* env) {
 		Log::e("find class for %s failed", kclass);
 		return -1;
 	}
-
-	const char* rclass_name = "com/rokid/speech/SpeechResult";
-	jclass rclass = env->FindClass(rclass_name);
-	if (rclass == NULL) {
-		Log::e("find class for %s failed", rclass_name);
-		return -1;
-	}
-	speech_result_class_ = (jclass)env->NewGlobalRef(rclass);
-	prepare_speech_result_info(env, speech_result_class_);
-
 	return jniRegisterNativeMethods(env, kclass, _nmethods, NELEM(_nmethods));
 }
 
@@ -190,11 +230,11 @@ extern "C" jint JNI_OnLoad(JavaVM* vm, void* reserved) {
 	JNIEnv* env;
 
 	// store a global java vm pointer
-	// for tts java callback
+	// for speech java callback
 	rokid::speech::vm_ = vm;
 
 	if (vm->GetEnv((void**)&env, JNI_VERSION_1_4) != JNI_OK) {
-		rokid::speech::Log::e("%s: JNI_OnLoad failed", "RokidTts");
+		rokid::speech::Log::e("%s: JNI_OnLoad failed", "RokidSpeech");
 		return -1;
 	}
 	rokid::speech::register_com_rokid_speech_Speech(env);

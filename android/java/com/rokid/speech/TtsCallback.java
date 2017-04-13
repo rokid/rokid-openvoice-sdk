@@ -7,7 +7,7 @@ public interface TtsCallback {
 
 	public void onVoice(int id, byte[] data);
 
-	public void onStop(int id);
+	public void onCancel(int id);
 
 	public void onComplete(int id);
 

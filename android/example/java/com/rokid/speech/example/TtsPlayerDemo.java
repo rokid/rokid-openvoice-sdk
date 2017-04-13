@@ -6,12 +6,12 @@ import android.media.AudioFormat;
 import android.media.AudioAttributes;
 import android.util.Log;
 import com.rokid.speech.TtsCallback;
-import com.rokid.speech.Opus;
+// import com.rokid.speech.pus;
 
 public class TtsPlayerDemo implements TtsCallback {
 	public TtsPlayerDemo(Service svc) {
-		_opus = new Opus(SAMPLE_RATE, PLAY_CHANNEL, 16000,
-				Opus.OpusApplication.OPUS_AUDIO);
+		// _opus = new Opus(SAMPLE_RATE, PLAY_CHANNEL, 16000,
+		//		Opus.OpusApplication.OPUS_AUDIO);
 		_audioTrack = createAudioTrack();
 		_audioTrack.play();
 		_thisService = svc;
@@ -28,8 +28,8 @@ public class TtsPlayerDemo implements TtsCallback {
 	@Override
 	public void onVoice(int id, byte[] data) {
 		Log.d(TAG, "onVoice data " + data.length);
-		data = _opus.decode(data);
-		Log.d(TAG, "onVoice decoded data " + data.length);
+		// data = _opus.decode(data);
+		// Log.d(TAG, "onVoice decoded data " + data.length);
 
 		int r;
 		int offset = 0;
@@ -46,7 +46,7 @@ public class TtsPlayerDemo implements TtsCallback {
 	}
 
 	@Override
-	public void onStop(int id) {
+	public void onCancel(int id) {
 		doComplete();
 	}
 
@@ -61,7 +61,7 @@ public class TtsPlayerDemo implements TtsCallback {
 	}
 
 	private AudioTrack createAudioTrack() {
-		int bufSize = AudioTrack.getMinBufferSize(SAMPLE_RATE.getValue(),
+		int bufSize = AudioTrack.getMinBufferSize(SAMPLE_RATE,
 				AudioFormat.CHANNEL_OUT_MONO, AUDIO_ENCODING) * 2;
 		return new AudioTrack.Builder()
 			.setAudioAttributes(new AudioAttributes.Builder()
@@ -70,7 +70,7 @@ public class TtsPlayerDemo implements TtsCallback {
 					.build())
 			.setAudioFormat(new AudioFormat.Builder()
 					.setEncoding(AUDIO_ENCODING)
-					.setSampleRate(SAMPLE_RATE.getValue())
+					.setSampleRate(SAMPLE_RATE)
 					.setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
 					.build())
 			.setBufferSizeInBytes(bufSize)
@@ -81,12 +81,13 @@ public class TtsPlayerDemo implements TtsCallback {
 		_thisService.stopSelf();
 	}
 
-	private static final Opus.OpusSampleRate SAMPLE_RATE = Opus.OpusSampleRate.SR_24K;
+	// private static final Opus.OpusSampleRate SAMPLE_RATE = Opus.OpusSampleRate.SR_24K;
+	private static final int SAMPLE_RATE = 24000;
 	private static final int PLAY_CHANNEL = 1;
 	private static final int AUDIO_ENCODING = AudioFormat.ENCODING_PCM_16BIT;
 	private static final String TAG = "tts.PlayerDemo";
 
 	private AudioTrack _audioTrack;
-	private Opus _opus;
+	// private Opus _opus;
 	private Service _thisService;
 }
