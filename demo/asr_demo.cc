@@ -5,13 +5,14 @@ using namespace rokid::speech;
 
 static int32_t last_id_ = 0;
 static bool quit_ = false;
-static const char* OPU_FILE = "demo/hello.opu";
+// static const char* OPU_FILE = "demo/hello.opu";
+static const char* PCM_FILE = "demo/hello.pcm";
 
 static void asr_req(Asr* asr) {
 	FILE* fp;
-	fp = fopen(OPU_FILE, "r");
+	fp = fopen(PCM_FILE, "r");
 	if (fp == NULL) {
-		printf("open %s failed\n", OPU_FILE);
+		printf("open %s failed\n", PCM_FILE);
 		return;
 	}
 	int32_t id = asr->start();
@@ -65,7 +66,7 @@ static void asr_poll(Asr* asr) {
 void asr_demo() {
 	Asr* asr = new_asr();
 	prepare(asr);
-	asr->config("codec", "opu");
+	asr->config("codec", "pcm");
 	run(asr, asr_req, asr_poll);
 	delete_asr(asr);
 }
