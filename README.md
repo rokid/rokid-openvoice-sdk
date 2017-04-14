@@ -74,11 +74,9 @@ make
 ### Tts接口定义 (android)
 ```
 //  class Tts
-boolean prepare()
-
 int speak(String content, TtsCallback cb)
 
-void stop(int id)
+void cancel(int id)
 
 void config(String key, String value)
 
@@ -89,7 +87,7 @@ void onText(int id, String text)
 
 void onVoice(int id, byte[] data)
 
-void onStop(int id)
+void onCancel(int id)
 
 void onComplete(int id)
 
@@ -104,24 +102,18 @@ import com.rokid.speech.Tts;
 // 其中定义了服务器地址，服务器认证所需的信息
 // 服务器认证信息获取方式: https://developer-forum.rokid.com/t/rokid/101
 Tts tts = new Tts("/system/etc/tts_sdk.json");
-if (tts.prepare()) {
 	// 指定tts音频编码格式
 	// 'pcm', 'opu', 'opu2'
 	// 默认为"pcm"
-	tts.config("codec", "opu2");
+	tts.config("codec", "pcm");
 	tts.speak("你好", new TtsCallback() {
 		......
 		});
-}
 ```
 
 ### Speech接口定义
 ```
 // class Speech
-boolean prepare()
-
-void release()
-
 int putText(String text, SpeechCallback cb)
 
 int startVoice(SpeechCallback cb)
@@ -147,7 +139,7 @@ void onAction(int id, String action)
 
 void onComplete(int id)
 
-void onStop(int id)
+void onCancel(int id)
 
 void onError(int id, int err)
 ```
@@ -158,8 +150,6 @@ import com.rokid.speech.Speech;
 // 构造函数传入配置文件路径名
 // 配置文件格式与Tts类似
 Speech speech = new Speech("/system/etc/speech_sdk.json")
-if (!speech.prepare())
-	return;
 // 编译格式: "pcm", "opu"
 // 默认为"pcm"
 speech.config("codec", "opu");
@@ -176,6 +166,4 @@ speech.endVoice(id);
 
 // wait callback function invoked
 
-// complete use speech
-speech.release();
 ```
