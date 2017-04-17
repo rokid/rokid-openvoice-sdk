@@ -11,6 +11,7 @@ LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/include
 
 LOCAL_CFLAGS := -frtti
+LOCAL_LDFLAGS := -Wl,-hash-style=sysv
 
 LOCAL_SRC_FILES := \
 		$(JNI_DIR)/com_rokid_speech_Tts.cc
@@ -38,6 +39,7 @@ LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/include
 
 LOCAL_CFLAGS := -frtti
+LOCAL_LDFLAGS := -Wl,-hash-style=sysv
 
 LOCAL_SRC_FILES := \
 		$(JNI_DIR)/com_rokid_speech_Speech.cc

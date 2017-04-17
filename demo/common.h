@@ -6,7 +6,7 @@ template <typename T>
 bool prepare(T* inst) {
 	inst->config("server_address", "apigw.open.rokid.com:443");
 	inst->config("ssl_roots_pem", "etc/roots.pem");
-	inst->config("auth_key", "rokid_test_key");
+	inst->config("key", "rokid_test_key");
 	inst->config("device_type_id", "rokid_test_device_type_id");
 	inst->config("device_id", "rokid_test_device_id");
 	inst->config("version", "1");
