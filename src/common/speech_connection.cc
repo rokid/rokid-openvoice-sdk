@@ -49,15 +49,17 @@ unique_ptr<Speech::Stub> SpeechConnection::connect(SpeechConfig* config, const c
 bool SpeechConnection::auth(Speech::Stub* stub, SpeechConfig* config, const char* svc) {
 	AuthRequest req;
 	AuthResponse resp;
-	const char* auth_key = config->get("auth_key");
+	const char* auth_key = config->get("key");
 	const char* device_type = config->get("device_type_id");
 	const char* device_id = config->get("device_id");
 	const char* api_version = config->get("api_version", "1");
 	const char* secret = config->get("secret");
 	std::string ts = timestamp();
 	if (auth_key == NULL || device_type == NULL || device_id == NULL
-			|| secret == NULL)
+			|| secret == NULL) {
+		Log::d(tag_, "auth return false: %p, %p, %p, %p", auth_key, device_type, device_id, secret);
 		return false;
+	}
 
 	req.set_key(auth_key);
 	req.set_device_type_id(device_type);

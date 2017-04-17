@@ -64,7 +64,7 @@ public class Tts {
 		Log.d(TAG, "config file parse result = " + config);
 		_sdk_config(_sdk_tts, "server_address", config.server_address);
 		_sdk_config(_sdk_tts, "ssl_roots_pem", config.ssl_roots_pem);
-		_sdk_config(_sdk_tts, "auth_key", config.auth_key);
+		_sdk_config(_sdk_tts, "key", config.key);
 		_sdk_config(_sdk_tts, "device_type_id", config.device_type_id);
 		_sdk_config(_sdk_tts, "device_id", config.device_id);
 		_sdk_config(_sdk_tts, "secret", config.secret);
@@ -153,7 +153,7 @@ class TtsConfig {
 
 	public String ssl_roots_pem;
 
-	public String auth_key;
+	public String key;
 
 	public String device_type_id;
 
@@ -166,7 +166,7 @@ class TtsConfig {
 	public String toString() {
 		return "server_address=" + server_address
 			+ ", ssl_roots_pem=" + ssl_roots_pem
-			+ ", auth_key=" + auth_key
+			+ ", key=" + key
 			+ ", device_type_id=" + device_type_id
 			+ ", device_id=" + device_id
 			+ ", secret=" + secret
