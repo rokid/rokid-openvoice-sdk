@@ -15,10 +15,12 @@ using rokid::open::AsrHeader;
 namespace rokid {
 namespace speech {
 
+static uint32_t grpc_timeout_ = 5;
+
 AsrReqHandler::AsrReqHandler() : closed_(false) {
 }
 
-AsrClientStreamSp AsrReqHandler::poll() {
+shared_ptr<AsrRespInfo> AsrReqHandler::poll() {
 	unique_lock<mutex> locker(mutex_);
 	if (resp_streams_.empty()) {
 		cond_.wait(locker);
@@ -26,7 +28,7 @@ AsrClientStreamSp AsrReqHandler::poll() {
 			return NULL;
 		assert(!resp_streams_.empty());
 	}
-	AsrClientStreamSp stream = resp_streams_.front();
+	shared_ptr<AsrRespInfo> stream = resp_streams_.front();
 	assert(stream.get());
 	resp_streams_.pop_front();
 	return stream;
@@ -42,11 +44,13 @@ bool AsrReqHandler::closed() {
 	return closed_;
 }
 
+static void config_client_context(ClientContext* ctx) {
+	std::chrono::system_clock::time_point deadline =
+		std::chrono::system_clock::now() + std::chrono::seconds(grpc_timeout_);
+	ctx->set_deadline(deadline);
+}
+
 void AsrReqHandler::start_handle(shared_ptr<AsrReqInfo> in, void* arg) {
-	if (in.get()) {
-		CommonArgument* carg = (CommonArgument*)arg;
-		carg->current_id = in->id;
-	}
 }
 
 int32_t AsrReqHandler::handle(shared_ptr<AsrReqInfo> in, void* arg) {
@@ -73,8 +77,9 @@ int32_t AsrReqHandler::handle(shared_ptr<AsrReqInfo> in, void* arg) {
 					in->voice->length(), stream.get());
 			break;
 		case 1: {
-			carg->context.reset(new ClientContext());
-			stream = stub_->asr(carg->context.get());
+			shared_ptr<ClientContext> ctx(new ClientContext());
+			config_client_context(ctx.get());
+			stream = stub_->asr(ctx.get());
 			assert(stream.get());
 			header = req.mutable_header();
 			header->set_id(in->id);
@@ -91,8 +96,12 @@ int32_t AsrReqHandler::handle(shared_ptr<AsrReqInfo> in, void* arg) {
 			carg->stream = stream;
 			Log::d(tag__, "AsrReqHandler: asr begin, id is %d, stream is %p",
 					in->id, stream.get());
+			shared_ptr<AsrRespInfo> resp_info(new AsrRespInfo());
+			resp_info->id = in->id;
+			resp_info->stream = stream;
+			resp_info->context = ctx;
 			unique_lock<mutex> locker(mutex_);
-			resp_streams_.push_back(stream);
+			resp_streams_.push_back(resp_info);
 			cond_.notify_one();
 			locker.unlock();
 			break;
@@ -107,6 +116,12 @@ int32_t AsrReqHandler::handle(shared_ptr<AsrReqInfo> in, void* arg) {
 					in->id, stream.get());
 			break;
 		case 3:
+			cancel_handler_->cancel(in->id);
+			stream = carg->stream;
+			if (stream.get()) {
+				stream->WritesDone();
+				carg->stream.reset();
+			}
 			cancel_handler_->cancelled(in->id);
 			Log::d(tag__, "AsrReqHandler: asr cancel, id is %d", in->id);
 			return FLAG_BREAK_LOOP;

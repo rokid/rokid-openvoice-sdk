@@ -19,9 +19,14 @@ public:
 	std::shared_ptr<std::string> voice;
 };
 
-typedef struct {
-	int32_t current_id;
+class AsrRespInfo {
+public:
+	int32_t id;
+	AsrClientStreamSp stream;
 	std::shared_ptr<grpc::ClientContext> context;
+};
+
+typedef struct {
 	SpeechConfig config;
 	AsrClientStreamSp stream;
 } CommonArgument;

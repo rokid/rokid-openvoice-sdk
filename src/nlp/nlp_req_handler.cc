@@ -16,7 +16,13 @@ using grpc::Status;
 namespace rokid {
 namespace speech {
 
+static uint32_t grpc_timeout_ = 5;
+
 NlpReqHandler::NlpReqHandler() : cancel_handler_(NULL) {
+}
+
+void NlpReqHandler::close() {
+	stub_.reset();
 }
 
 bool NlpReqHandler::closed() {
@@ -25,6 +31,12 @@ bool NlpReqHandler::closed() {
 
 void NlpReqHandler::set_grpc_stub(unique_ptr<Speech::Stub>& stub) {
 	stub_ = std::move(stub);
+}
+
+static void config_client_context(ClientContext* ctx) {
+	std::chrono::system_clock::time_point deadline =
+		std::chrono::system_clock::now() + std::chrono::seconds(grpc_timeout_);
+	ctx->set_deadline(deadline);
 }
 
 void NlpReqHandler::start_handle(shared_ptr<NlpReqInfo> in, void* arg) {
@@ -47,6 +59,7 @@ int32_t NlpReqHandler::handle(shared_ptr<NlpReqInfo> in, void* arg) {
 	}
 
 	ClientContext ctx;
+	config_client_context(&ctx);
 	header = req.mutable_header();
 	header->set_id(in->id);
 	header->set_lang(carg->config.get("lang", "zh"));

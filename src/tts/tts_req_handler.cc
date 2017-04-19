@@ -1,3 +1,4 @@
+#include <chrono>
 #include <grpc++/client_context.h>
 #include "speech_connection.h"
 #include "log.h"
@@ -11,6 +12,8 @@ using rokid::open::TtsHeader;
 
 namespace rokid {
 namespace speech {
+
+const uint32_t grpc_timeout_ = 5;
 
 TtsReqHandler::TtsReqHandler() : cancel_handler_(NULL) {
 }
@@ -30,11 +33,18 @@ shared_ptr<TtsRespStream> TtsReqHandler::poll() {
 	return tmp;
 }
 
+static void config_client_context(ClientContext* ctx) {
+	std::chrono::system_clock::time_point deadline =
+		std::chrono::system_clock::now() + std::chrono::seconds(grpc_timeout_);
+	ctx->set_deadline(deadline);
+}
+
 void TtsReqHandler::start_handle(shared_ptr<TtsReqInfo> in, void* arg) {
 	if (in.get() && !in->deleted) {
 		CommonArgument* carg = (CommonArgument*)arg;
 		carg->current_id = in->id;
 		carg->context = new ClientContext();
+		config_client_context(carg->context);
 	}
 }
 
@@ -61,6 +71,10 @@ int32_t TtsReqHandler::handle(shared_ptr<TtsReqInfo> in, void* arg) {
 
 void TtsReqHandler::end_handle(shared_ptr<TtsReqInfo> in, void* arg) {
 	// do nothing
+}
+
+void TtsReqHandler::close() {
+	stub_.reset();
 }
 
 bool TtsReqHandler::closed() {

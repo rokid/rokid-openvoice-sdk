@@ -39,14 +39,14 @@ public:
 	std::shared_ptr<OutType> poll() {
 		std::unique_lock<std::mutex> locker(mutex_);
 		while (!closed_) {
+			std::shared_ptr<OutType> res = poll_not_block();
+			if (res.get() != NULL)
+				return res;
 			if (!cancelled_.empty()) {
 				std::shared_ptr<OutType> r = generate_cancel_result(cancelled_.front());
 				cancelled_.pop_front();
 				return r;
 			}
-			std::shared_ptr<OutType> res = poll_not_block();
-			if (res.get() != NULL)
-				return res;
 			cond_.wait(locker);
 		}
 		return NULL;

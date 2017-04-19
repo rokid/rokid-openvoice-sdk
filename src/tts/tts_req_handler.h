@@ -18,6 +18,8 @@ public:
 
 	std::shared_ptr<TtsRespStream> poll();
 
+	void close();
+
 	bool closed();
 
 	inline void set_cancel_handler(TtsCancelHandler* handler) {

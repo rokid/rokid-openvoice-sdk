@@ -78,8 +78,10 @@ public:
 			last_data_ = in_data;
 
 exit:
-		if ((r & FLAG_NOT_POLL_NEXT) == 0)
+		if ((r & FLAG_NOT_POLL_NEXT) == 0) {
 			end_handle(in_data, arg);
+			last_data_.reset();
+		}
 		last_handle_ret_ = r;
 		return last_handle_ret_;
 	}

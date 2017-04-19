@@ -38,6 +38,10 @@ public class Tts {
 		_sdk_config(_sdk_tts, key, value);
 	}
 
+	public void release() {
+		_sdk_release(_sdk_tts);
+	}
+
 	private void config_tts(String configFile) {
 		FileInputStream is = null;
 		byte[] content;

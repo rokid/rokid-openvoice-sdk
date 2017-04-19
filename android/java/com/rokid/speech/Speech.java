@@ -61,6 +61,10 @@ public class Speech {
 		_sdk_config(_sdk_speech, key, value);
 	}
 
+	public void release() {
+		_sdk_release(_sdk_speech);
+	}
+
 	private void config_speech(String configFile) {
 		FileInputStream is = null;
 		byte[] content;

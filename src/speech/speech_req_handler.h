@@ -34,6 +34,10 @@ public:
 		cancel_handler_ = handler;
 	}
 
+	inline void close_grpc() {
+		stub_.reset();
+	}
+
 private:
 	std::list<std::shared_ptr<SpeechRespInfo> > responses_;
 	std::mutex mutex_;

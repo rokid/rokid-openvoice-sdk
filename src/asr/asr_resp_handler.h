@@ -8,7 +8,7 @@
 namespace rokid {
 namespace speech {
 
-class AsrRespHandler : public PipelineHandler<AsrClientStream, AsrResult> {
+class AsrRespHandler : public PipelineHandler<AsrRespInfo, AsrResult> {
 public:
 	AsrRespHandler();
 
@@ -17,11 +17,11 @@ public:
 	bool closed();
 
 protected:
-	void start_handle(AsrClientStreamSp in, void* arg);
+	void start_handle(std::shared_ptr<AsrRespInfo> in, void* arg);
 
-	int32_t handle(AsrClientStreamSp in, void* arg);
+	int32_t handle(std::shared_ptr<AsrRespInfo> in, void* arg);
 
-	void end_handle(AsrClientStreamSp in, void* arg);
+	void end_handle(std::shared_ptr<AsrRespInfo> in, void* arg);
 
 private:
 	StreamQueue<std::string> responses_;

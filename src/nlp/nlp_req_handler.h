@@ -21,6 +21,8 @@ public:
 
 	std::shared_ptr<NlpResult> poll();
 
+	void close();
+
 	bool closed();
 
 protected:

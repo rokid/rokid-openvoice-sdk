@@ -165,24 +165,29 @@
 		'target_name': 'demo',
 		'type': 'executable',
 		'dependencies': [
-			'tts',
+			'speech',
 			'asr',
 			'nlp',
-			'speech',
+			'tts',
+			'common',
 		],
 		'include_dirs': [
 			'include',
+			'src/common',
 		],
 		'sources': [
 			'demo/demo.cc',
-			'demo/tts_demo.cc',
+			'demo/speech_demo.cc',
 			'demo/asr_demo.cc',
 			'demo/nlp_demo.cc',
-			'demo/speech_demo.cc',
+			'demo/tts_demo.cc',
 			'demo/common.h',
 		],
 		'link_settings': {
-			'libraries': [ '-L<(deps_dir)/lib', '-lgrpc', '-Wl,-rpath,<(deps_dir)/lib' ],
+			'libraries': [
+				'-L<(deps_dir)/lib',
+				'-lgrpc', '-Wl,-rpath,<(deps_dir)/lib',
+			],
 		},
 	}, # target 'demo'
 	]

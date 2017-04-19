@@ -9,12 +9,11 @@ import com.rokid.speech.TtsCallback;
 // import com.rokid.speech.pus;
 
 public class TtsPlayerDemo implements TtsCallback {
-	public TtsPlayerDemo(Service svc) {
+	public TtsPlayerDemo() {
 		// _opus = new Opus(SAMPLE_RATE, PLAY_CHANNEL, 16000,
 		//		Opus.OpusApplication.OPUS_AUDIO);
 		_audioTrack = createAudioTrack();
 		_audioTrack.play();
-		_thisService = svc;
 	}
 
 	@Override
@@ -27,7 +26,7 @@ public class TtsPlayerDemo implements TtsCallback {
 
 	@Override
 	public void onVoice(int id, byte[] data) {
-		Log.d(TAG, "onVoice data " + data.length);
+		Log.d(TAG, "onVoice(" + id + ") data " + data.length);
 		// data = _opus.decode(data);
 		// Log.d(TAG, "onVoice decoded data " + data.length);
 
@@ -47,17 +46,14 @@ public class TtsPlayerDemo implements TtsCallback {
 
 	@Override
 	public void onCancel(int id) {
-		doComplete();
 	}
 
 	@Override
 	public void onComplete(int id) {
-		doComplete();
 	}
 
 	@Override
 	public void onError(int id, int err) {
-		doComplete();
 	}
 
 	private AudioTrack createAudioTrack() {
@@ -77,10 +73,6 @@ public class TtsPlayerDemo implements TtsCallback {
 			.build();
 	}
 
-	private void doComplete() {
-		_thisService.stopSelf();
-	}
-
 	// private static final Opus.OpusSampleRate SAMPLE_RATE = Opus.OpusSampleRate.SR_24K;
 	private static final int SAMPLE_RATE = 24000;
 	private static final int PLAY_CHANNEL = 1;
@@ -89,5 +81,4 @@ public class TtsPlayerDemo implements TtsCallback {
 
 	private AudioTrack _audioTrack;
 	// private Opus _opus;
-	private Service _thisService;
 }

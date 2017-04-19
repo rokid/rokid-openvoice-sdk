@@ -19,16 +19,12 @@ using grpc::ClientContext;
 namespace rokid {
 namespace speech {
 
+static const uint32_t grpc_timeout_ = 5;
+
 SpeechReqHandler::SpeechReqHandler() : closed_(false) {
 }
 
 void SpeechReqHandler::start_handle(shared_ptr<SpeechReqInfo> in, void* arg) {
-	assert(arg);
-
-	if (in.get()) {
-		CommonArgument* carg = (CommonArgument*)arg;
-		carg->current_id = in->id;
-	}
 }
 
 static void prepare_header(SpeechHeader* header, int32_t id, const SpeechConfig& config) {
@@ -37,6 +33,12 @@ static void prepare_header(SpeechHeader* header, int32_t id, const SpeechConfig&
 	header->set_codec(config.get("codec", "pcm"));
 	header->set_vt(config.get("vt", "zh"));
 	header->set_cdomain(config.get("cdomain", ""));
+}
+
+static void config_client_context(ClientContext* ctx) {
+	std::chrono::system_clock::time_point deadline =
+		std::chrono::system_clock::now() + std::chrono::seconds(grpc_timeout_);
+	ctx->set_deadline(deadline);
 }
 
 int32_t SpeechReqHandler::handle(shared_ptr<SpeechReqInfo> in, void* arg) {
@@ -54,6 +56,7 @@ int32_t SpeechReqHandler::handle(shared_ptr<SpeechReqInfo> in, void* arg) {
 			SpeechResponse resp;
 			shared_ptr<SpeechRespInfo> resp_info(new SpeechRespInfo());
 
+			config_client_context(&ctx);
 			prepare_header(req.mutable_header(), in->id, carg->config);
 			req.set_asr(*in->data);
 			Status status = stub_->speecht(&ctx, req, &resp);
@@ -85,14 +88,17 @@ int32_t SpeechReqHandler::handle(shared_ptr<SpeechReqInfo> in, void* arg) {
 		case 1: {
 			shared_ptr<SpeechRespInfo> resp_info(new SpeechRespInfo());
 			VoiceSpeechRequest req;
+			shared_ptr<ClientContext> ctx(new ClientContext);
 
+			config_client_context(ctx.get());
 			prepare_header(req.mutable_header(), in->id, carg->config);
 			resp_info->type = 1;
-			carg->context.reset(new ClientContext());
 			Log::d(tag__, "call speechv for %d", in->id);
-			resp_info->stream = stub_->speechv(carg->context.get());
+			resp_info->stream = stub_->speechv(ctx.get());
 			carg->stream = resp_info->stream;
 			carg->stream->Write(req);
+			resp_info->id = in->id;
+			resp_info->context = ctx;
 			lock_guard<mutex> locker(mutex_);
 			responses_.push_back(resp_info);
 			cond_.notify_one();
@@ -107,6 +113,10 @@ int32_t SpeechReqHandler::handle(shared_ptr<SpeechReqInfo> in, void* arg) {
 		case 3: {
 			Log::d(tag__, "ReqHandler: cancel %d", in->id);
 			cancel_handler_->cancel(in->id);
+			if (carg->stream.get()) {
+				carg->stream->WritesDone();
+				carg->stream.reset();
+			}
 			cancel_handler_->cancelled(in->id);
 			break;
 		}

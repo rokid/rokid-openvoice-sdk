@@ -30,14 +30,14 @@ typedef struct {
 	// 0  result of text request
 	// 1  grpc client stream
 	uint32_t type;
+	int32_t id;
+	std::shared_ptr<grpc::ClientContext> context;
 	SpeechClientStreamSp stream;
 	SpeechResult result;
 } SpeechRespInfo;
 
 typedef struct {
-	int32_t current_id;
 	SpeechClientStreamSp stream;
-	std::shared_ptr<grpc::ClientContext> context;
 	SpeechConfig config;
 } CommonArgument;
 

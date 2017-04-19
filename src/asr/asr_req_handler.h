@@ -12,11 +12,11 @@
 namespace rokid {
 namespace speech {
 
-class AsrReqHandler : public PipelineHandler<AsrReqInfo, AsrClientStream> {
+class AsrReqHandler : public PipelineHandler<AsrReqInfo, AsrRespInfo> {
 public:
 	AsrReqHandler();
 
-	AsrClientStreamSp poll();
+	std::shared_ptr<AsrRespInfo> poll();
 
 	void close();
 
@@ -26,6 +26,10 @@ public:
 
 	inline void set_cancel_handler(AsrCancelHandler* handler) {
 		cancel_handler_ = handler;
+	}
+
+	inline void close_grpc() {
+		stub_.reset();
 	}
 
 	bool closed();
@@ -39,7 +43,7 @@ protected:
 
 private:
 	std::unique_ptr<rokid::open::Speech::Stub> stub_;
-	std::list<AsrClientStreamSp> resp_streams_;
+	std::list<std::shared_ptr<AsrRespInfo> > resp_streams_;
 	std::mutex mutex_;
 	std::condition_variable cond_;
 	bool closed_;

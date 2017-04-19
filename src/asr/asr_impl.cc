@@ -38,6 +38,8 @@ void AsrImpl::release() {
 		req_handler_.close();
 		cancel_handler_.close();
 		close();
+		// at last, close grpc connection
+		req_handler_.close_grpc();
 	}
 }
 
@@ -69,9 +71,7 @@ void AsrImpl::end(int32_t id) {
 void AsrImpl::cancel(int32_t id) {
 	Log::d(tag__, "AsrImpl: cancel %d", id);
 	if (id > 0) {
-		if (requests_->erase(id))
-			cancel_handler_.cancelled(id);
-		else
+		if (!requests_->erase(id))
 			cancel_handler_.cancel(id);
 	} else {
 		int32_t min_id;

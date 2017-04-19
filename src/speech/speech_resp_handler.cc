@@ -53,7 +53,7 @@ int32_t SpeechRespHandler::handle(shared_ptr<SpeechRespInfo> in, void* arg) {
 	assert(in->type == 1);
 	if (start_response_) {
 		start_response_ = false;
-		r->id = carg->current_id;
+		r->id = in->id;
 		r->type = 1;
 		r->err = 0;
 		Log::d(tag__, "RespHandler: voice req %d, start resp", r->id);
@@ -65,7 +65,7 @@ int32_t SpeechRespHandler::handle(shared_ptr<SpeechRespInfo> in, void* arg) {
 
 	SpeechResponse resp;
 	if (in->stream->Read(&resp)) {
-		r->id = carg->current_id;
+		r->id = in->id;
 		r->type = 0;
 		r->err = 0;
 		r->asr = resp.asr();
@@ -81,11 +81,11 @@ int32_t SpeechRespHandler::handle(shared_ptr<SpeechRespInfo> in, void* arg) {
 
 	Status status = in->stream->Finish();
 	if (status.ok()) {
-		r->id = carg->current_id;
+		r->id = in->id;
 		r->type = 2;
 		r->err = 0;
 	} else {
-		r->id = carg->current_id;
+		r->id = in->id;
 		r->type = 4;
 		Log::d(tag__, "grpc Read failed, %d, %s",
 				status.error_code(), status.error_message().c_str());
@@ -102,9 +102,6 @@ int32_t SpeechRespHandler::handle(shared_ptr<SpeechRespInfo> in, void* arg) {
 }
 
 void SpeechRespHandler::end_handle(shared_ptr<SpeechRespInfo> in, void* arg) {
-	CommonArgument* carg = (CommonArgument*)arg;
-	carg->context.reset();
-	carg->current_id = 0;
 }
 
 shared_ptr<SpeechResult> SpeechRespHandler::poll() {

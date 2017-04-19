@@ -27,6 +27,8 @@ void TtsImpl::release() {
 		requests_->close();
 		cancel_handler_.close();
 		close();
+		// at last, close grpc connection
+		req_handler_.close();
 	}
 }
 
