@@ -9,11 +9,11 @@ void nlp_demo();
 void speech_demo();
 
 int main(int argc, char** argv) {
-	tts_demo();
+	// tts_demo();
 
-	asr_demo();
+	// asr_demo();
 
-	nlp_demo();
+	// nlp_demo();
 
 	speech_demo();
 

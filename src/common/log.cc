@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <chrono>
 #include "log.h"
 
 #ifdef SPEECH_LOG_ANDROID
@@ -78,6 +79,7 @@ void Log::p(LogLevel level, const char* tag, const char* fmt, va_list ap) {
 #ifdef SPEECH_LOG_ANDROID
 	__android_log_vprint(AndroidLogLevels[level], tag, fmt, ap);
 #else  // posix log
+	std::lock_guard<std::mutex> locker(mutex_);
 	printf("%c [%s] ", PosixLogLevels[level], tag);
 	vprintf(fmt, ap);
 	printf("\n");

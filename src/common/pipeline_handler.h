@@ -2,6 +2,10 @@
 
 #include <stdint.h>
 #include <memory>
+#include "log.h"
+
+namespace rokid {
+namespace speech {
 
 template <typename OutType>
 class PipelineOutHandler {
@@ -105,3 +109,6 @@ protected:
 	std::shared_ptr<InType> last_data_;
 	int32_t last_handle_ret_;
 };
+
+} // namespace speech
+} // namespace rokid

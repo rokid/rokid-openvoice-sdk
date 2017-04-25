@@ -121,3 +121,12 @@ LOCAL_CXX_STL := libc++
 LOCAL_SHARED_LIBRARIES := libspeech_common libgrpc++ libprotobuf-rokid-cpp-full
 
 include $(BUILD_SHARED_LIBRARY)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := speech_demo
+LOCAL_MODULE_TAGS := optional
+LOCAL_CPP_EXTENSION := .cc
+LOCAL_SRC_FILES := $(call all-named-files-under,*.cc,demo)
+LOCAL_C_INCLUDES := $(LOCAL_PATH)/include
+LOCAL_SHARED_LIBRARIES := libspeech_common libspeech
+include $(BUILD_EXECUTABLE)

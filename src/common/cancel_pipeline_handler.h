@@ -5,6 +5,7 @@
 #include <condition_variable>
 #include <chrono>
 #include "pipeline_handler.h"
+#include "log.h"
 
 namespace rokid {
 namespace speech {
@@ -105,7 +106,9 @@ private:
 				return &(*it);
 			// the cancel info expired, remove it
 			if (id > (*it).id) {
-				cancel_infos_.erase(it);
+				std::list<CancelInfo>::iterator rmit = it;
+				++it;
+				cancel_infos_.erase(rmit);
 				continue;
 			}
 			++it;

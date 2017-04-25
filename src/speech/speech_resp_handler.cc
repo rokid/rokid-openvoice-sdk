@@ -52,11 +52,11 @@ int32_t SpeechRespHandler::handle(shared_ptr<SpeechRespInfo> in, void* arg) {
 	CommonArgument* carg = (CommonArgument*)arg;
 	assert(in->type == 1);
 	if (start_response_) {
+		Log::d(tag__, "RespHandler: voice req %d, start resp", in->id);
 		start_response_ = false;
 		r->id = in->id;
 		r->type = 1;
 		r->err = 0;
-		Log::d(tag__, "RespHandler: voice req %d, start resp", r->id);
 		lock_guard<mutex> locker(mutex_);
 		responses_.push_back(r);
 		cond_.notify_one();

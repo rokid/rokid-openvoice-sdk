@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdarg.h>
+#include <mutex>
 
 namespace rokid {
 namespace speech {
@@ -35,6 +36,7 @@ private:
 
 private:
 	static Log* instance_;
+	std::mutex mutex_;
 };
 
 } // namespace speech
