@@ -141,6 +141,8 @@ protected:
 	bool closed_;
 }; // class PendingQueue
 
+#define STREAM_QUEUE_TAG "speech.StreamQueue"
+
 template <typename T>
 class StreamQueue {
 public:
@@ -172,23 +174,28 @@ public:
 		int32_t id;
 		// only meaningful when 'type' is 'data'
 		T_sp content;
+		uint32_t data_count;
 	};
 
 	typedef shared_ptr<QueueItem> QueueItemSp;
 	typedef typename list<QueueItemSp>::iterator StreamingItemPos;
 
 	bool start(int32_t id) {
-		if (item_tags_.find(id) != item_tags_.end())
+		if (item_tags_.find(id) != item_tags_.end()) {
+			Log::d(STREAM_QUEUE_TAG, "add tag for %d failed, already existed", id);
 			return false;
+		}
 
 		QueueItemSp item(new QueueItem());
 		item->type = QueueItem::uncompleted;
 		item->polling = 0;
 		item->id = id;
+		item->data_count = 0;
 		StreamingItemPos it;
 		it = queue_.insert(queue_.end(), item);
 		item_tags_.insert(pair<int, StreamingItemPos>(item->id, it));
 		tag_queue_.push_back(it);
+		Log::d(STREAM_QUEUE_TAG, "add tag for id %d", id);
 		return true;
 	}
 
@@ -196,13 +203,20 @@ public:
 		typename map<int, StreamingItemPos>::iterator it;
 		it = item_tags_.find(id);
 		if (it == item_tags_.end()
-				|| (*it->second)->type != QueueItem::uncompleted)
+				|| (*it->second)->type != QueueItem::uncompleted) {
+			if (it == item_tags_.end())
+				Log::d(STREAM_QUEUE_TAG, "add data for id %d failed, the tag not existed", id);
+			else
+				Log::d(STREAM_QUEUE_TAG, "add data for id %d failed, the tag type is %d", id, (*it->second)->type);
 			return false;
+		}
 
 		QueueItemSp item(new QueueItem());
 		item->type = QueueItem::data;
 		item->content = data;
 		queue_.insert(it->second, item);
+		++(*it->second)->data_count;
+		Log::d(STREAM_QUEUE_TAG, "add data for id %d, data count is %d", id, (*it->second)->data_count);
 		return true;
 	}
 
@@ -210,9 +224,12 @@ public:
 		typename map<int32_t, StreamingItemPos>::iterator it;
 
 		it = item_tags_.find(id);
-		if (it == item_tags_.end())
+		if (it == item_tags_.end()) {
+			Log::d(STREAM_QUEUE_TAG, "complete tag for id %d failed, tag not existed", id);
 			return false;
+		}
 		(*it->second)->type = QueueItem::completed;
+		Log::d(STREAM_QUEUE_TAG, "complete tag for id %d, data count is %d", id, (*it->second)->data_count);
 		return true;
 	}
 
@@ -224,6 +241,7 @@ public:
 		typename map<int32_t, StreamingItemPos>::iterator it;
 		typename list<QueueItemSp>::iterator first_it;
 		typename list<QueueItemSp>::iterator last_it;
+		uint32_t c = 0;
 
 		it = item_tags_.find(id);
 		if (it != item_tags_.end()) {
@@ -237,6 +255,7 @@ public:
 						++first_it;
 						break;
 					}
+					++c;
 				} while (first_it != queue_.begin());
 			}
 			assert((*last_it)->type != QueueItem::data);
@@ -246,6 +265,9 @@ public:
 			} else
 				(*last_it)->type = QueueItem::deleted;
 			if (first_it != last_it) {
+				(*last_it)->data_count -= c;
+				Log::d(STREAM_QUEUE_TAG, "erase %d data for id %d, data count is %d, err %d",
+						c, id, (*last_it)->data_count, err);
 				queue_.erase(first_it, last_it);
 			}
 			return true;
@@ -255,18 +277,29 @@ public:
 
 	void clear(int32_t* min_id, int32_t* max_id) {
 		typename list<QueueItemSp>::iterator it;
+		typename list<QueueItemSp>::iterator tmpit;
 		int32_t min = 0;
 		int32_t max = 0;
+		uint32_t c = 0;
 
 		if (tag_queue_.size()) {
 			min = (*tag_queue_.front())->id;
 			max = (*tag_queue_.back())->id;
 		}
-		for (it = queue_.begin(); it != queue_.end(); ++it) {
-			if ((*it)->type == QueueItem::data)
-				queue_.erase(it);
-			else
+		it = queue_.begin();
+		while (it != queue_.end()) {
+			if ((*it)->type == QueueItem::data) {
+				tmpit = it;
+				++it;
+				queue_.erase(tmpit);
+				++c;
+			} else {
 				(*it)->type = QueueItem::deleted;
+				(*it)->data_count -= c;
+				Log::d(STREAM_QUEUE_TAG, "clear queue, erase %d data for id %d, finally count is %d",
+						c, (*it)->id, (*it)->data_count);
+				++it;
+			}
 		}
 		if (min_id)
 			*min_id = min;
@@ -298,8 +331,10 @@ public:
 	}
 
 	int32_t pop(int32_t& id, T_sp& res, uint32_t& err) {
-		if (tag_queue_.empty())
+		if (tag_queue_.empty()) {
+			Log::d(STREAM_QUEUE_TAG, "pop return -1, queue is empty");
 			return -1;
+		}
 		StreamingItemPos ip = tag_queue_.front();
 		QueueItemSp item = *ip;
 		assert(item->type != QueueItem::data);
@@ -309,22 +344,28 @@ public:
 				id = item->id;
 				item->polling = 1;
 				// return 'stream start'
+				Log::d(STREAM_QUEUE_TAG, "pop return start for id %d, data count %d", id, item->data_count);
 				return 1;
 			}
 			if (ip == queue_.begin()) {
-				if (item->type == QueueItem::uncompleted)
+				if (item->type == QueueItem::uncompleted) {
 					// if ip == queue_.begin(),
 					// the stream no data available now,
 					// not end, wait for more data.
+					Log::d(STREAM_QUEUE_TAG, "pop return -1, id %d, data count = %d", item->id, item->data_count);
 					return -1;
+				}
 				id = item->id;
 				item_tags_.erase(item->id);
 				tag_queue_.pop_front();
 				queue_.pop_front();
 				// return 'stream end'
+				Log::d(STREAM_QUEUE_TAG, "pop return complete for id %d, data count %d", item->id, item->data_count);
 				return 2;
 			}
 			id = item->id;
+			--item->data_count;
+			Log::d(STREAM_QUEUE_TAG, "pop return data for id %d, data count %d", item->id, item->data_count);
 			item = queue_.front();
 			assert(item->type == QueueItem::data);
 			queue_.pop_front();
@@ -337,6 +378,7 @@ public:
 			tag_queue_.pop_front();
 			queue_.pop_front();
 			// return 'stream deleted'
+			Log::d(STREAM_QUEUE_TAG, "pop return deleted for id %d, data count %d", item->id, item->data_count);
 			return 3;
 		}
 		id = item->id;
@@ -345,6 +387,7 @@ public:
 		tag_queue_.pop_front();
 		queue_.pop_front();
 		// return 'stream error'
+		Log::d(STREAM_QUEUE_TAG, "pop return error for id %d, data count %d", item->id, item->data_count);
 		return 4;
 	}
 
