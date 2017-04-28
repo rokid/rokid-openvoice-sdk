@@ -15,10 +15,6 @@ AsrImpl::AsrImpl() : Pipeline(tag__), requests_(req_provider_.queue()), next_id_
 }
 
 bool AsrImpl::prepare() {
-	unique_ptr<Speech::Stub> stub = std::move(SpeechConnection::connect(&pipeline_arg_.config, "asr"));
-	if (stub.get() == NULL)
-		return false;
-	req_handler_.set_grpc_stub(stub);
 	req_handler_.set_cancel_handler(&cancel_handler_);
 	set_head(&req_provider_);
 	add(&req_handler_, &pipeline_arg_);
@@ -39,7 +35,7 @@ void AsrImpl::release() {
 		cancel_handler_.close();
 		close();
 		// at last, close grpc connection
-		req_handler_.close_grpc();
+		pipeline_arg_.reset_stub();
 	}
 }
 
@@ -101,6 +97,18 @@ Asr* new_asr() {
 void delete_asr(Asr* asr) {
 	if (asr)
 		delete asr;
+}
+
+shared_ptr<rokid::open::Speech::Stub> CommonArgument::stub() {
+	lock_guard<mutex> locker(mutex_);
+	if (stub_.get() == NULL)
+		stub_ = SpeechConnection::connect(&config, "asr");
+	return stub_;
+}
+
+void CommonArgument::reset_stub() {
+	lock_guard<mutex> locker(mutex_);
+	stub_.reset();
 }
 
 } // namespace speech

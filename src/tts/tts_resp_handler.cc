@@ -76,6 +76,9 @@ int32_t TtsRespHandler::handle(shared_ptr<TtsRespStream> in, void* arg) {
 	switch (status.error_code()) {
 		case grpc::StatusCode::UNAVAILABLE:
 			err = 1;
+			// service connection losed, clear the stub,
+			// try reconnect in next request
+			carg->reset_stub();
 			break;
 		default:
 			// undefined error

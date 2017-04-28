@@ -103,30 +103,6 @@
 		],
 	}, # target 'asr'
 	{
-		'target_name': 'nlp',
-		'type': 'shared_library',
-		'dependencies': [
-			'common',
-		],
-		'sources': [
-			'<(src_dir)/common/pending_queue.h',
-			'<(src_dir)/common/pipeline.h',
-			'<(src_dir)/common/pipeline_handler.h',
-			'<(src_dir)/common/cancel_pipeline_handler.h',
-			'<(src_dir)/nlp/nlp_impl.h',
-			'<(src_dir)/nlp/nlp_impl.cc',
-			'<(src_dir)/nlp/nlp_req_provider.h',
-			'<(src_dir)/nlp/nlp_req_provider.cc',
-			'<(src_dir)/nlp/nlp_req_handler.h',
-			'<(src_dir)/nlp/nlp_req_handler.cc',
-			'<(src_dir)/nlp/nlp_cancel_handler.h',
-			'<(src_dir)/nlp/nlp_cancel_handler.cc',
-		],
-		'include_dirs': [
-			'include',
-		],
-	}, # target 'nlp'
-	{
 		'target_name': 'speech',
 		'type': 'shared_library',
 		'dependencies': [
@@ -167,7 +143,6 @@
 		'dependencies': [
 			'speech',
 			'asr',
-			'nlp',
 			'tts',
 			'common',
 		],
@@ -179,7 +154,6 @@
 			'demo/demo.cc',
 			'demo/speech_demo.cc',
 			'demo/asr_demo.cc',
-			'demo/nlp_demo.cc',
 			'demo/tts_demo.cc',
 			'demo/common.h',
 		],

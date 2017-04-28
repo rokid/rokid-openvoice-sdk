@@ -86,25 +86,6 @@ include $(BUILD_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)
 
-LOCAL_MODULE := libspeech_nlp
-LOCAL_MODULE_CLASS := SHARED_LIBRARIES
-LOCAL_MODULE_TAGS := optional
-LOCAL_CPP_EXTENSION := .cc
-
-LOCAL_SRC_FILES := $(call all-named-files-under,*.cc,src/nlp)
-
-LOCAL_C_INCLUDES := \
-	$(PROTOC_OUT_DIR) \
-	$(LOCAL_PATH)/include
-
-LOCAL_CFLAGS := -std=c++11 $(IGNORED_WARNINGS) -frtti
-LOCAL_CXX_STL := libc++
-LOCAL_SHARED_LIBRARIES := libspeech_common libgrpc++ libprotobuf-rokid-cpp-full
-
-include $(BUILD_SHARED_LIBRARY)
-
-include $(CLEAR_VARS)
-
 LOCAL_MODULE := libspeech
 LOCAL_MODULE_CLASS := SHARED_LIBRARIES
 LOCAL_MODULE_TAGS := optional
@@ -128,5 +109,5 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_SRC_FILES := $(call all-named-files-under,*.cc,demo)
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/include
-LOCAL_SHARED_LIBRARIES := libspeech_common libspeech
+LOCAL_SHARED_LIBRARIES := libspeech_common libspeech libspeech_tts libspeech_asr
 include $(BUILD_EXECUTABLE)

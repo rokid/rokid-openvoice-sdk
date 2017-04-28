@@ -53,6 +53,7 @@ int32_t AsrRespHandler::handle(shared_ptr<AsrRespInfo> in, void* arg) {
 	switch (status.error_code()) {
 		case grpc::StatusCode::UNAVAILABLE:
 			err = 1;
+			carg->reset_stub();
 			break;
 		default:
 			// undefined error

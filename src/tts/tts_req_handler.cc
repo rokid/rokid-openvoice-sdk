@@ -9,6 +9,7 @@ using std::shared_ptr;
 using grpc::ClientContext;
 using rokid::open::TtsRequest;
 using rokid::open::TtsHeader;
+using rokid::open::Speech;
 
 namespace rokid {
 namespace speech {
@@ -16,15 +17,6 @@ namespace speech {
 const uint32_t grpc_timeout_ = 5;
 
 TtsReqHandler::TtsReqHandler() : cancel_handler_(NULL) {
-}
-
-bool TtsReqHandler::prepare(SpeechConfig* config) {
-	stub_ = SpeechConnection::connect(config, "tts");
-	if (stub_.get() == NULL) {
-		Log::d(tag__, "SpeechConnection for tts failed");
-		return false;
-	}
-	return true;
 }
 
 shared_ptr<TtsRespStream> TtsReqHandler::poll() {
@@ -65,16 +57,17 @@ int32_t TtsReqHandler::handle(shared_ptr<TtsReqInfo> in, void* arg) {
 	v = carg->config.get("declaimer", "zh");
 	header->set_declaimer(v);
 	req.set_text(*in->data);
-	stream_ = stub_->tts(carg->context, req);
+	shared_ptr<Speech::Stub> stub = carg->stub();
+	// stub is NULL, config incorrect or auth failed
+	// discard this request, try again at next request
+	if (stub.get() == NULL)
+		return FLAG_BREAK_LOOP;
+	stream_ = stub->tts(carg->context, req);
 	return 0;
 }
 
 void TtsReqHandler::end_handle(shared_ptr<TtsReqInfo> in, void* arg) {
 	// do nothing
-}
-
-void TtsReqHandler::close() {
-	stub_.reset();
 }
 
 bool TtsReqHandler::closed() {

@@ -26,16 +26,8 @@ public:
 
 	bool closed();
 
-	inline void set_grpc_stub(std::unique_ptr<rokid::open::Speech::Stub>& stub) {
-		stub_ = std::move(stub);
-	}
-
 	inline void set_cancel_handler(SpeechCancelHandler* handler) {
 		cancel_handler_ = handler;
-	}
-
-	inline void close_grpc() {
-		stub_.reset();
 	}
 
 private:
@@ -43,7 +35,6 @@ private:
 	std::mutex mutex_;
 	std::condition_variable cond_;
 	bool closed_;
-	std::unique_ptr<rokid::open::Speech::Stub> stub_;
 	SpeechCancelHandler* cancel_handler_;
 };
 

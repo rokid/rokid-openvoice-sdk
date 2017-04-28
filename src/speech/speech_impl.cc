@@ -1,8 +1,11 @@
+#include <chrono>
 #include "speech_impl.h"
 #include "speech.grpc.pb.h"
 #include "speech_connection.h"
 
-using std::unique_ptr;
+using std::shared_ptr;
+using std::mutex;
+using std::lock_guard;
 
 namespace rokid {
 namespace speech {
@@ -11,10 +14,6 @@ SpeechImpl::SpeechImpl() : Pipeline(tag__), next_id_(0) {
 }
 
 bool SpeechImpl::prepare() {
-	unique_ptr<rokid::open::Speech::Stub> stub = std::move(SpeechConnection::connect(&pipeline_arg_.config, "speech"));
-	if (stub.get() == NULL)
-		return false;
-	req_handler_.set_grpc_stub(stub);
 	req_handler_.set_cancel_handler(&cancel_handler_);
 	req_provider_.set_cancel_handler(&cancel_handler_);
 	set_head(&req_provider_);
@@ -39,7 +38,7 @@ void SpeechImpl::release() {
 		cancel_handler_.close();
 		close();
 		// at last, close grpc connection
-		req_handler_.close_grpc();
+		pipeline_arg_.reset_stub();
 	}
 }
 
@@ -91,6 +90,18 @@ void delete_speech(Speech* speech) {
 	if (speech) {
 		delete speech;
 	}
+}
+
+shared_ptr<rokid::open::Speech::Stub> CommonArgument::stub() {
+	lock_guard<mutex> locker(mutex_);
+	if (stub_.get() == NULL)
+		stub_ = SpeechConnection::connect(&config, "speech");
+	return stub_;
+}
+
+void CommonArgument::reset_stub() {
+	lock_guard<mutex> locker(mutex_);
+	stub_.reset();
 }
 
 } // namespace speech

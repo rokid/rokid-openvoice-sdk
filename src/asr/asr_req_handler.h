@@ -20,16 +20,8 @@ public:
 
 	void close();
 
-	inline void set_grpc_stub(std::unique_ptr<rokid::open::Speech::Stub>& stub) {
-		stub_ = std::move(stub);
-	}
-
 	inline void set_cancel_handler(AsrCancelHandler* handler) {
 		cancel_handler_ = handler;
-	}
-
-	inline void close_grpc() {
-		stub_.reset();
 	}
 
 	bool closed();
@@ -42,7 +34,6 @@ protected:
 	void end_handle(std::shared_ptr<AsrReqInfo> in, void* arg);
 
 private:
-	std::unique_ptr<rokid::open::Speech::Stub> stub_;
 	std::list<std::shared_ptr<AsrRespInfo> > resp_streams_;
 	std::mutex mutex_;
 	std::condition_variable cond_;

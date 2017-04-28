@@ -89,9 +89,10 @@ int32_t SpeechRespHandler::handle(shared_ptr<SpeechRespInfo> in, void* arg) {
 		r->type = 4;
 		Log::d(tag__, "grpc Read failed, %d, %s",
 				status.error_code(), status.error_message().c_str());
-		if (status.error_code() == grpc::StatusCode::UNAVAILABLE)
+		if (status.error_code() == grpc::StatusCode::UNAVAILABLE) {
 			r->err = 1;
-		else
+			carg->reset_stub();
+		} else
 			r->err = 2;
 	}
 	Log::d(tag__, "RespHandler: voice req %d, end resp, err %u", r->id, r->err);

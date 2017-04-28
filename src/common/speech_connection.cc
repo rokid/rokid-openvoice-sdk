@@ -9,6 +9,10 @@
 #include "md5.h"
 #include "log.h"
 
+#define CONN_TAG "speech.Connection"
+
+using std::string;
+using std::shared_ptr;
 using grpc::Status;
 using grpc::ClientContext;
 using rokid::open::AuthRequest;
@@ -21,7 +25,7 @@ namespace speech {
 static const char* tag_ = "speech.SpeechConnection";
 
 static std::string get_ssl_roots_pem(const char* pem_file) {
-	Log::d(tag_, "ssl_roots_pem is %s", pem_file);
+	Log::d(CONN_TAG, "ssl_roots_pem is %s", pem_file);
 	if (pem_file == NULL)
 		return "";
 	std::ifstream stream(pem_file);
@@ -31,16 +35,19 @@ static std::string get_ssl_roots_pem(const char* pem_file) {
 	return ss.str();
 }
 
-unique_ptr<Speech::Stub> SpeechConnection::connect(SpeechConfig* config, const char* svc) {
+shared_ptr<Speech::Stub> SpeechConnection::connect(SpeechConfig* config, const char* svc) {
 	// shared_ptr<grpc::ChannelCredentials> insecure(grpc::InsecureChannelCredentials());
 	grpc::SslCredentialsOptions options;
 	options.pem_root_certs = get_ssl_roots_pem(config->get("ssl_roots_pem"));
-	if (options.pem_root_certs.empty())
+	if (options.pem_root_certs.empty()) {
+		Log::w(CONN_TAG, "configuration ssl_roots_pem not found, \
+				connect to service %s failed", svc);
 		return NULL;
+	}
 	shared_ptr<grpc::ChannelCredentials> creds = grpc::SslCredentials(options);
-	Log::d(tag_, "server address is %s", config->get("server_address", ""));
+	Log::d(CONN_TAG, "server address is %s", config->get("server_address", ""));
 	shared_ptr<grpc::Channel> channel = grpc::CreateChannel(config->get("server_address", ""), creds);
-	unique_ptr<Speech::Stub> stub = Speech::NewStub(channel);
+	shared_ptr<Speech::Stub> stub(Speech::NewStub(channel));
 	if (!auth(stub.get(), config, svc))
 		return NULL;
 	return stub;
@@ -57,7 +64,7 @@ bool SpeechConnection::auth(Speech::Stub* stub, SpeechConfig* config, const char
 	std::string ts = timestamp();
 	if (auth_key == NULL || device_type == NULL || device_id == NULL
 			|| secret == NULL) {
-		Log::d(tag_, "auth return false: %p, %p, %p, %p", auth_key, device_type, device_id, secret);
+		Log::w(CONN_TAG, "auth return false: %p, %p, %p, %p", auth_key, device_type, device_id, secret);
 		return false;
 	}
 
@@ -75,11 +82,11 @@ bool SpeechConnection::auth(Speech::Stub* stub, SpeechConfig* config, const char
 	ClientContext ctx;
 	Status status = stub->auth(&ctx, req, &resp);
 	if (status.ok()) {
-		Log::d(tag_, "auth result %d", resp.result());
+		Log::d(CONN_TAG, "auth result %d", resp.result());
 		if (resp.result() == 0)
 			return true;
 	}
-	Log::d(tag_, "auth failed, %d, %s",
+	Log::w(CONN_TAG, "auth failed, %d, %s",
 			status.error_code(), status.error_message().c_str());
 	return false;
 }
@@ -125,7 +132,7 @@ string SpeechConnection::generate_sign(const char* key, const char* devtype,
 			md5_res[4], md5_res[5], md5_res[6], md5_res[7],
 			md5_res[8], md5_res[9], md5_res[10], md5_res[11],
 			md5_res[12], md5_res[13], md5_res[14], md5_res[15]);
-	Log::d("SpeechConnection", "md5 src = %s, md5 result = %s", sign_src.c_str(), buf);
+	Log::d(CONN_TAG, "md5 src = %s, md5 result = %s", sign_src.c_str(), buf);
 	return string(buf);
 }
 

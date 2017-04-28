@@ -1,4 +1,7 @@
 #include "tts_impl.h"
+#include "speech_connection.h"
+
+using rokid::open::Speech;
 
 namespace rokid {
 namespace speech {
@@ -9,8 +12,6 @@ TtsImpl::TtsImpl() : Pipeline(tag__)
 }
 
 bool TtsImpl::prepare() {
-	if (!req_handler_.prepare(&pipeline_arg_.config))
-		return false;
 	req_handler_.set_cancel_handler(&cancel_handler_);
 	set_head(&req_provider_);
 	add(&req_handler_, &pipeline_arg_);
@@ -28,7 +29,7 @@ void TtsImpl::release() {
 		cancel_handler_.close();
 		close();
 		// at last, close grpc connection
-		req_handler_.close();
+		pipeline_arg_.reset_stub();
 	}
 }
 
@@ -77,6 +78,12 @@ Tts* new_tts() {
 void delete_tts(Tts* tts) {
 	if (tts)
 		delete tts;
+}
+
+shared_ptr<Speech::Stub> CommonArgument::stub() {
+	if (stub_.get() == NULL)
+		stub_ = SpeechConnection::connect(&config, "tts");
+	return stub_;
 }
 
 } // namespace speech

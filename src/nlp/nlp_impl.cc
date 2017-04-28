@@ -16,11 +16,11 @@ NlpImpl::NlpImpl() : Pipeline(tag__), requests_(req_provider_.queue()), next_id_
 }
 
 bool NlpImpl::prepare() {
-	unique_ptr<Speech::Stub> stub =
-		std::move(SpeechConnection::connect(&pipeline_arg_.config, "nlp"));
-	if (stub.get() == NULL)
-		return false;
-	req_handler_.set_grpc_stub(stub);
+	// unique_ptr<Speech::Stub> stub =
+	// std::move(SpeechConnection::connect(&pipeline_arg_.config, "nlp"));
+	// if (stub.get() == NULL)
+	//	return false;
+	// req_handler_.set_grpc_stub(stub);
 	req_handler_.set_cancel_handler(&cancel_handler_);
 	set_head(&req_provider_);
 	add(&req_handler_, &pipeline_arg_);

@@ -14,11 +14,7 @@ class TtsReqHandler : public PipelineHandler<TtsReqInfo, TtsRespStream> {
 public:
 	TtsReqHandler();
 
-	bool prepare(SpeechConfig* config);
-
 	std::shared_ptr<TtsRespStream> poll();
-
-	void close();
 
 	bool closed();
 
@@ -34,7 +30,6 @@ protected:
 	void end_handle(std::shared_ptr<TtsReqInfo> in, void* arg);
 
 private:
-	std::unique_ptr<rokid::open::Speech::Stub> stub_;
 	std::shared_ptr<TtsRespStream> stream_;
 	TtsCancelHandler* cancel_handler_;
 };

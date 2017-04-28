@@ -55,11 +55,14 @@ int32_t SpeechReqHandler::handle(shared_ptr<SpeechReqInfo> in, void* arg) {
 			ClientContext ctx;
 			SpeechResponse resp;
 			shared_ptr<SpeechRespInfo> resp_info(new SpeechRespInfo());
+			shared_ptr<rokid::open::Speech::Stub> stub = carg->stub();
+			if (stub.get() == NULL)
+				return FLAG_BREAK_LOOP;
 
 			config_client_context(&ctx);
 			prepare_header(req.mutable_header(), in->id, carg->config);
 			req.set_asr(*in->data);
-			Status status = stub_->speecht(&ctx, req, &resp);
+			Status status = stub->speecht(&ctx, req, &resp);
 			resp_info->type = 0;
 			resp_info->result.id = in->id;
 			if (status.ok()) {
@@ -75,9 +78,10 @@ int32_t SpeechReqHandler::handle(shared_ptr<SpeechReqInfo> in, void* arg) {
 				Log::d(tag__, "call speecht failed, %d, %s",
 						status.error_code(), status.error_message().c_str());
 				resp_info->result.type = 4;
-				if (status.error_code() == grpc::StatusCode::UNAVAILABLE)
+				if (status.error_code() == grpc::StatusCode::UNAVAILABLE) {
 					resp_info->result.err = 1;
-				else
+					carg->reset_stub();
+				} else
 					resp_info->result.err = 2;
 			}
 			lock_guard<mutex> locker(mutex_);
@@ -89,14 +93,20 @@ int32_t SpeechReqHandler::handle(shared_ptr<SpeechReqInfo> in, void* arg) {
 			shared_ptr<SpeechRespInfo> resp_info(new SpeechRespInfo());
 			VoiceSpeechRequest req;
 			shared_ptr<ClientContext> ctx(new ClientContext);
+			shared_ptr<rokid::open::Speech::Stub> stub = carg->stub();
+			if (stub.get() == NULL)
+				return FLAG_BREAK_LOOP;
 
 			config_client_context(ctx.get());
 			prepare_header(req.mutable_header(), in->id, carg->config);
 			resp_info->type = 1;
 			Log::d(tag__, "call speechv for %d", in->id);
-			resp_info->stream = stub_->speechv(ctx.get());
+			resp_info->stream = stub->speechv(ctx.get());
 			carg->stream = resp_info->stream;
-			carg->stream->Write(req);
+			if (!carg->stream->Write(req)) {
+				Log::w(tag__, "ReqHandler: send voice header failed, stream closed");
+				return FLAG_BREAK_LOOP;
+			}
 			resp_info->id = in->id;
 			resp_info->context = ctx;
 			lock_guard<mutex> locker(mutex_);
@@ -126,7 +136,8 @@ int32_t SpeechReqHandler::handle(shared_ptr<SpeechReqInfo> in, void* arg) {
 					in->id, in->data->length());
 			VoiceSpeechRequest req;
 			req.set_voice(*in->data);
-			carg->stream->Write(req);
+			if (!carg->stream->Write(req))
+				Log::w(tag__, "ReqHandler: send voice data failed, stream closed");
 			break;
 		}
 		default: {

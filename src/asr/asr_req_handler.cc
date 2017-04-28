@@ -11,6 +11,7 @@ using std::unique_lock;
 using grpc::ClientContext;
 using rokid::open::AsrRequest;
 using rokid::open::AsrHeader;
+using rokid::open::Speech;
 
 namespace rokid {
 namespace speech {
@@ -68,6 +69,8 @@ int32_t AsrReqHandler::handle(shared_ptr<AsrReqInfo> in, void* arg) {
 			if (stream.get()) {
 				req.set_voice(*in->voice);
 				if (!stream->Write(req)) {
+					Log::w(tag__, "AsrReqHandler: asr send voice, id is %d, \
+							stream broken", in->id);
 					// stream broken
 					error_code_ = -1;
 					return FLAG_ERROR;
@@ -78,8 +81,11 @@ int32_t AsrReqHandler::handle(shared_ptr<AsrReqInfo> in, void* arg) {
 			break;
 		case 1: {
 			shared_ptr<ClientContext> ctx(new ClientContext());
+			shared_ptr<Speech::Stub> stub = carg->stub();
+			if (stub.get() == NULL)
+				return FLAG_BREAK_LOOP;
 			config_client_context(ctx.get());
-			stream = stub_->asr(ctx.get());
+			stream = stub->asr(ctx.get());
 			assert(stream.get());
 			header = req.mutable_header();
 			header->set_id(in->id);
@@ -89,7 +95,7 @@ int32_t AsrReqHandler::handle(shared_ptr<AsrReqInfo> in, void* arg) {
 			if (!stream->Write(req)) {
 				// stream broken
 				error_code_ = -1;
-				Log::d(tag__, "AsrReqHandler: asr begin, id is %d, stream broken",
+				Log::w(tag__, "AsrReqHandler: asr begin, id is %d, stream broken",
 						in->id);
 				return FLAG_ERROR;
 			}
