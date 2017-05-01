@@ -19,7 +19,7 @@ using grpc::ClientContext;
 namespace rokid {
 namespace speech {
 
-static const uint32_t grpc_timeout_ = 5;
+static const uint32_t grpc_timeout_ = 10;
 
 SpeechReqHandler::SpeechReqHandler() : closed_(false) {
 }

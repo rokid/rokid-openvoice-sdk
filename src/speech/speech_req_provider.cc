@@ -104,20 +104,29 @@ void SpeechReqProvider::cancel(int32_t id) {
 			if ((*it)->id == id) {
 				text_reqs_.erase(it);
 				cancel_handler_->cancelled(id);
+				cond_.notify_one();
 				return;
 			}
 		}
-		if (voice_reqs_.erase(id))
+		if (voice_reqs_.erase(id)) {
+			cond_.notify_one();
 			return;
+		}
 		cancel_handler_->cancel(id);
 	} else {
+		bool need_notify = false;
 		for (it = text_reqs_.begin(); it != text_reqs_.end(); ++it)
 			cancel_handler_->cancelled((*it)->id);
+		need_notify = !text_reqs_.empty();
 		text_reqs_.clear();
 		int32_t min_id;
 		voice_reqs_.clear(&min_id, NULL);
-		if (min_id > 1)
+		if (min_id > 1) {
 			cancel_handler_->cancel(min_id - 1);
+			need_notify = true;
+		}
+		if (need_notify)
+			cond_.notify_one();
 	}
 }
 
