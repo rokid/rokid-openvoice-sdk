@@ -12,6 +12,14 @@ LOCAL_C_INCLUDES := \
 
 LOCAL_CFLAGS := -frtti
 LOCAL_LDFLAGS := -Wl,-hash-style=sysv
+ifneq ($(SDK_VERSION_23), true)
+LOCAL_SDK_VERSION := 14
+LOCAL_NDK_STL_VARIANT := gnustl_static
+LOCAL_CPPFLAGS := -std=c++11
+LOCAL_C_INCLUDES += libnativehelper/include/nativehelper
+else
+LOCAL_CXX_STL := libc++
+endif
 
 LOCAL_SRC_FILES := \
 		$(JNI_DIR)/com_rokid_speech_Tts.cc
@@ -40,6 +48,14 @@ LOCAL_C_INCLUDES := \
 
 LOCAL_CFLAGS := -frtti
 LOCAL_LDFLAGS := -Wl,-hash-style=sysv
+ifneq ($(SDK_VERSION_23), true)
+LOCAL_SDK_VERSION := 14
+LOCAL_NDK_STL_VARIANT := gnustl_static
+LOCAL_CPPFLAGS := -std=c++11
+LOCAL_C_INCLUDES += libnativehelper/include/nativehelper
+else
+LOCAL_CXX_STL := libc++
+endif
 
 LOCAL_SRC_FILES := \
 		$(JNI_DIR)/com_rokid_speech_Speech.cc

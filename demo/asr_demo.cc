@@ -16,7 +16,7 @@ static void asr_req(Asr* asr) {
 		return;
 	}
 	int32_t id = asr->start();
-	uint8_t buf[256];
+	uint8_t buf[4096];
 	while (true) {
 		size_t r = fread(buf, 1, sizeof(buf), fp);
 		if (r > 0)
@@ -68,11 +68,5 @@ void asr_demo() {
 	prepare(asr);
 	asr->config("codec", "pcm");
 	run(asr, asr_req, asr_poll);
-
-	quit_ = false;
-	last_id_ = 0xffffffff;
-	prepare(asr);
-	run(asr, asr_req, asr_poll);
-
 	delete_asr(asr);
 }

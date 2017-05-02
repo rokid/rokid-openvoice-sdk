@@ -1,5 +1,7 @@
 LOCAL_PATH := $(call my-dir)
 
+SDK_VERSION_23 = $(shell if [ $(PLATFORM_SDK_VERSION) -ge 23 ]; then echo true; fi)
+
 include $(LOCAL_PATH)/core.mk
 
 include $(LOCAL_PATH)/JavaLibrary.mk

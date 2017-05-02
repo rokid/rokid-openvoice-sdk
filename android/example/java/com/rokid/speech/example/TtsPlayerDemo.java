@@ -3,7 +3,8 @@ package com.rokid.speech.example;
 import android.app.Service;
 import android.media.AudioTrack;
 import android.media.AudioFormat;
-import android.media.AudioAttributes;
+// android 6.0 import android.media.AudioAttributes;
+import android.media.AudioManager;
 import android.util.Log;
 import com.rokid.speech.TtsCallback;
 // import com.rokid.speech.pus;
@@ -57,6 +58,14 @@ public class TtsPlayerDemo implements TtsCallback {
 	}
 
 	private AudioTrack createAudioTrack() {
+		// android 4.4 AudioTrack
+		int bufSize = AudioTrack.getMinBufferSize(SAMPLE_RATE,
+				AudioFormat.CHANNEL_OUT_MONO, AUDIO_ENCODING) * 2;
+		return new AudioTrack(AudioManager.STREAM_ALARM,
+				SAMPLE_RATE, AudioFormat.CHANNEL_OUT_MONO,
+				AUDIO_ENCODING, bufSize, AudioTrack.MODE_STREAM);
+
+		/** android 6.0 AudioTrack
 		int bufSize = AudioTrack.getMinBufferSize(SAMPLE_RATE,
 				AudioFormat.CHANNEL_OUT_MONO, AUDIO_ENCODING) * 2;
 		return new AudioTrack.Builder()
@@ -71,6 +80,7 @@ public class TtsPlayerDemo implements TtsCallback {
 					.build())
 			.setBufferSizeInBytes(bufSize)
 			.build();
+			*/
 	}
 
 	// private static final Opus.OpusSampleRate SAMPLE_RATE = Opus.OpusSampleRate.SR_24K;

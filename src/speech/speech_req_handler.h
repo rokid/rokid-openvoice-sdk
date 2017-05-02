@@ -4,7 +4,6 @@
 #include <condition_variable>
 #include "pipeline_handler.h"
 #include "types.h"
-#include "speech.grpc.pb.h"
 #include "speech_cancel_handler.h"
 
 namespace rokid {
@@ -31,6 +30,9 @@ public:
 	inline void set_cancel_handler(SpeechCancelHandler* handler) {
 		cancel_handler_ = handler;
 	}
+
+private:
+	void put_response(int32_t id, SpeechError err);
 
 private:
 	std::list<std::shared_ptr<SpeechRespInfo> > responses_;

@@ -1,14 +1,10 @@
 #pragma once
 
 #include <memory>
-#include "grpc++/impl/codegen/sync_stream.h"
-#include "grpc++/impl/codegen/client_context.h"
 #include "speech.pb.h"
-#include "speech.grpc.pb.h"
 #include "speech_config.h"
-
-typedef grpc::ClientReaderWriter<rokid::open::AsrRequest, rokid::open::AsrResponse> AsrClientStream;
-typedef std::shared_ptr<AsrClientStream> AsrClientStreamSp;
+#include "ws_keepalive.h"
+#include "asr.h"
 
 namespace rokid {
 namespace speech {
@@ -23,23 +19,22 @@ public:
 class AsrRespInfo {
 public:
 	int32_t id;
-	AsrClientStreamSp stream;
-	std::shared_ptr<grpc::ClientContext> context;
+	AsrError err;
+	// 0: wait handle
+	// 1: handling
+	// 2: handled
+	uint32_t status;
 };
 
 class AsrCommonArgument {
 public:
 	SpeechConfig config;
-	AsrClientStreamSp stream;
 
-	// see implementation in speech_impl.cc
-	std::shared_ptr<rokid::open::Speech::Stub> stub();
+	WSKeepAlive keepalive_;
 
-	void reset_stub();
-
-private:
-	std::shared_ptr<rokid::open::Speech::Stub> stub_;
-	std::mutex mutex_;
+	inline void start_keepalive(uint32_t interval) {
+		keepalive_.start(interval, &config, "asr");
+	}
 };
 
 #define tag__ "speech.asr"

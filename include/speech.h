@@ -6,6 +6,18 @@
 namespace rokid {
 namespace speech {
 
+enum SpeechError {
+	SPEECH_SUCCESS = 0,
+	SPEECH_UNAUTHENTICATED = 2,
+	SPEECH_CONNECTION_EXCEED,
+	SPEECH_SERVER_RESOURCE_EXHASTED,
+	SPEECH_SERVER_BUSY,
+	SPEECH_SERVER_INTERNAL,
+
+	SPEECH_SERVICE_UNAVAILABLE = 101,
+	SPEECH_SDK_CLOSED,
+};
+
 typedef struct {
 	int32_t id;
 	// 0  speech result
@@ -14,7 +26,7 @@ typedef struct {
 	// 3  speech cancelled
 	// 4  speech occurs error
 	uint32_t type;
-	uint32_t err;
+	SpeechError err;
 	std::string asr;
 	std::string nlp;
 	std::string action;

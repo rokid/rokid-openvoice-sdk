@@ -4,19 +4,17 @@
 #include "asr_req_handler.h"
 #include "log.h"
 
+#define WS_SEND_TIMEOUT 5
+
 using std::shared_ptr;
 using std::mutex;
 using std::lock_guard;
 using std::unique_lock;
-using grpc::ClientContext;
 using rokid::open::AsrRequest;
-using rokid::open::AsrHeader;
-using rokid::open::Speech;
+using rokid::open::ReqType;
 
 namespace rokid {
 namespace speech {
-
-static uint32_t grpc_timeout_ = 5;
 
 AsrReqHandler::AsrReqHandler() : closed_(false) {
 }
@@ -49,92 +47,85 @@ bool AsrReqHandler::closed() {
 	return closed_;
 }
 
-static void config_client_context(ClientContext* ctx) {
-	std::chrono::system_clock::time_point deadline =
-		std::chrono::system_clock::now() + std::chrono::seconds(grpc_timeout_);
-	ctx->set_deadline(deadline);
-}
-
 void AsrReqHandler::start_handle(shared_ptr<AsrReqInfo> in, void* arg) {
 }
 
 int32_t AsrReqHandler::handle(shared_ptr<AsrReqInfo> in, void* arg) {
 	AsrCommonArgument* carg = (AsrCommonArgument*)arg;
-	AsrClientStreamSp stream;
 	AsrRequest req;
-	AsrHeader* header;
 
+	Log::d(tag__, "AsrReqHandler: handle req type %u", in->type);
 	assert(arg);
 	if (!in.get())
 		return FLAG_ERROR;
 	switch (in->type) {
-		case 0:
-			stream = carg->stream;
-			if (stream.get()) {
-				req.set_voice(*in->voice);
-				if (!stream->Write(req)) {
-					Log::w(tag__, "AsrReqHandler: asr send voice, id is %d, \
-							stream broken", in->id);
-					// stream broken
-					error_code_ = -1;
-					return FLAG_ERROR;
-				}
-			}
-			Log::d(tag__, "AsrReqHandler: send voice %u bytes, stream is %p",
-					in->voice->length(), stream.get());
-			break;
-		case 1: {
-			shared_ptr<ClientContext> ctx(new ClientContext());
-			shared_ptr<Speech::Stub> stub = carg->stub();
-			if (stub.get() == NULL)
-				return FLAG_BREAK_LOOP;
-			config_client_context(ctx.get());
-			stream = stub->asr(ctx.get());
-			assert(stream.get());
-			header = req.mutable_header();
-			header->set_id(in->id);
-			header->set_lang(carg->config.get("lang", "zh"));
-			header->set_codec(carg->config.get("codec", "pcm"));
-			header->set_vt(carg->config.get("vt", ""));
-			if (!stream->Write(req)) {
-				// stream broken
-				error_code_ = -1;
-				Log::w(tag__, "AsrReqHandler: asr begin, id is %d, stream broken",
-						in->id);
+		case 0: {
+			shared_ptr<SpeechConnection> conn = carg->keepalive_.get_conn(0);
+			if (conn.get() == NULL)
+				return FLAG_ERROR;
+			req.set_id(in->id);
+			req.set_type(ReqType::VOICE);
+			req.set_voice(*in->voice);
+			if (!conn->send(req, WS_SEND_TIMEOUT)) {
+				Log::w(tag__, "AsrReqHandler: send asr voice failed");
+				carg->keepalive_.shutdown(conn.get());
 				return FLAG_ERROR;
 			}
-			carg->stream = stream;
-			Log::d(tag__, "AsrReqHandler: asr begin, id is %d, stream is %p",
-					in->id, stream.get());
-			shared_ptr<AsrRespInfo> resp_info(new AsrRespInfo());
-			resp_info->id = in->id;
-			resp_info->stream = stream;
-			resp_info->context = ctx;
-			unique_lock<mutex> locker(mutex_);
-			resp_streams_.push_back(resp_info);
-			cond_.notify_one();
-			locker.unlock();
+			Log::d(tag__, "AsrReqHandler: send asr voice %u bytes",
+					in->voice->length());
 			break;
 		}
-		case 2:
-			stream = carg->stream;
-			if (stream.get()) {
-				stream->WritesDone();
-				carg->stream.reset();
+		case 1: {
+			shared_ptr<SpeechConnection> conn = carg->keepalive_.get_conn(0);
+			if (conn.get() == NULL) {
+				put_response(in->id, AsrError::ASR_SDK_CLOSED);
+				break;
 			}
-			Log::d(tag__, "AsrReqHandler: asr end, id is %d, stream is %p",
-					in->id, stream.get());
+			req.set_id(in->id);
+			req.set_type(ReqType::START);
+			req.set_lang(carg->config.get("lang", "zh"));
+			req.set_codec(carg->config.get("codec", "pcm"));
+			req.set_vt(carg->config.get("vt", ""));
+			if (!conn->send(req, WS_SEND_TIMEOUT)) {
+				Log::w(tag__, "AsrReqHandler: send asr begin failed");
+				put_response(in->id, AsrError::ASR_SERVICE_UNAVAILABLE);
+				carg->keepalive_.shutdown(conn.get());
+				break;
+			}
+			Log::d(tag__, "AsrReqHandler: asr begin, id is %d", in->id);
+			put_response(in->id, AsrError::ASR_SUCCESS);
 			break;
-		case 3:
+		}
+		case 2: {
+			shared_ptr<SpeechConnection> conn = carg->keepalive_.get_conn(0);
+			if (conn.get() == NULL)
+				return FLAG_ERROR;
+			req.set_id(in->id);
+			req.set_type(ReqType::END);
+			if (!conn->send(req, WS_SEND_TIMEOUT)) {
+				Log::w(tag__, "AsrReqHandler: send asr end failed");
+				carg->keepalive_.shutdown(conn.get());
+				return FLAG_ERROR;
+			}
+			Log::d(tag__, "AsrReqHandler: asr end, id is %d", in->id);
+			break;
+		}
+		case 3: {
 			cancel_handler_->cancel(in->id);
-			stream = carg->stream;
-			if (stream.get()) {
-				stream->WritesDone();
-				carg->stream.reset();
+			shared_ptr<SpeechConnection> conn = carg->keepalive_.get_conn(0);
+			if (conn.get() == NULL)
+				return FLAG_ERROR;
+			req.set_id(in->id);
+			req.set_type(ReqType::END);
+			if (!conn->send(req, WS_SEND_TIMEOUT)) {
+				Log::w(tag__, "AsrReqHandler: cancel, send asr end failed");
+				carg->keepalive_.shutdown(conn.get());
+				return FLAG_ERROR;
 			}
 			cancel_handler_->cancelled(in->id);
 			Log::d(tag__, "AsrReqHandler: asr cancel, id is %d", in->id);
 			return FLAG_BREAK_LOOP;
+		}
 		default:
 			// unkown error, impossible happens
 			error_code_ = -2;
@@ -147,6 +138,16 @@ int32_t AsrReqHandler::handle(shared_ptr<AsrReqInfo> in, void* arg) {
 
 void AsrReqHandler::end_handle(shared_ptr<AsrReqInfo> in, void* arg) {
 	// do nothing
+}
+
+void AsrReqHandler::put_response(int32_t id, AsrError err) {
+	shared_ptr<AsrRespInfo> resp(new AsrRespInfo());
+	resp->id = id;
+	resp->err = err;
+	resp->status = 0;
+	lock_guard<mutex> locker(mutex_);
+	resp_streams_.push_back(resp);
+	cond_.notify_one();
 }
 
 } // namespace speech

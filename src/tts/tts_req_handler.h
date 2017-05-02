@@ -3,18 +3,17 @@
 #include <memory>
 #include "pipeline_handler.h"
 #include "speech_config.h"
-#include "speech.grpc.pb.h"
 #include "types.h"
 #include "tts_cancel_handler.h"
 
 namespace rokid {
 namespace speech {
 
-class TtsReqHandler : public PipelineHandler<TtsReqInfo, TtsRespStream> {
+class TtsReqHandler : public PipelineHandler<TtsReqInfo, TtsRespInfo> {
 public:
 	TtsReqHandler();
 
-	std::shared_ptr<TtsRespStream> poll();
+	std::shared_ptr<TtsRespInfo> poll();
 
 	bool closed();
 
@@ -30,7 +29,7 @@ protected:
 	void end_handle(std::shared_ptr<TtsReqInfo> in, void* arg);
 
 private:
-	std::shared_ptr<TtsRespStream> stream_;
+	std::shared_ptr<TtsRespInfo> current_resp_;
 	TtsCancelHandler* cancel_handler_;
 };
 

@@ -1,11 +1,11 @@
-#include <grpc++/grpc++.h>
-#include <grpc++/impl/codegen/proto_utils.h>
 #include "tts_resp_handler.h"
 #include "log.h"
 
+#define WS_RECV_TIMEOUT 10
+
 using std::shared_ptr;
-using grpc::Status;
 using rokid::open::TtsResponse;
+using rokid::open::SpeechErrorCode;
 
 namespace rokid {
 namespace speech {
@@ -26,7 +26,7 @@ shared_ptr<TtsResult> TtsRespHandler::poll() {
 			id, r);
 	shared_ptr<TtsResult> res(new TtsResult());
 	res->type = r;
-	res->err = err;
+	res->err = (TtsError)err;
 	res->id = id;
 	res->voice = voice;
 	return res;
@@ -36,62 +36,66 @@ bool TtsRespHandler::closed() {
 	return false;
 }
 
-void TtsRespHandler::start_handle(shared_ptr<TtsRespStream> in, void* arg) {
+void TtsRespHandler::start_handle(shared_ptr<TtsRespInfo> in, void* arg) {
 	start_stream_ = true;
 }
 
-int32_t TtsRespHandler::handle(shared_ptr<TtsRespStream> in, void* arg) {
+int32_t TtsRespHandler::handle(shared_ptr<TtsRespInfo> in, void* arg) {
 	TtsResponse resp;
 	TtsCommonArgument* carg = (TtsCommonArgument*)arg;
 
 	if (start_stream_) {
 		start_stream_ = false;
-		responses_.start(carg->current_id);
+		responses_.start(in->id);
 		Log::d(tag__, "TtsRespHandler: %d start voice",
-				carg->current_id);
+				in->id);
 		return FLAG_NOT_POLL_NEXT | FLAG_AS_HEAD;
 	}
-	if (in->Read(&resp)) {
-		string* tmp = resp.release_voice();
-		if (tmp) {
-			shared_ptr<string> voice(tmp);
-			responses_.stream(carg->current_id, voice);
-			Log::d(tag__, "TtsRespHandler: %d read voice %d bytes",
-					carg->current_id, voice->length());
-			return FLAG_NOT_POLL_NEXT | FLAG_AS_HEAD;
-		}
-		return FLAG_NOT_POLL_NEXT | FLAG_AS_HEAD | FLAG_BREAK_LOOP;
-	}
 
-	Status status = in->Finish();
-	if (status.ok()) {
-		responses_.end(carg->current_id);
-		Log::d(tag__, "TtsRespHandler: %d read voice end",
-				carg->current_id);
+	if (in->err != TtsError::TTS_SUCCESS) {
+		responses_.erase(in->id, in->err);
 		return 0;
 	}
-	Log::d(tag__, "TtsRespHandler: grpc status %d:%s",
-			status.error_code(), status.error_message().c_str());
-	uint32_t err;
-	switch (status.error_code()) {
-		case grpc::StatusCode::UNAVAILABLE:
-			err = 1;
-			// service connection losed, clear the stub,
-			// try reconnect in next request
-			carg->reset_stub();
-			break;
-		default:
-			// undefined error
-			err = 2;
-			break;
+
+	shared_ptr<SpeechConnection> conn = carg->keepalive_.get_conn(0);
+	Log::d(tag__, "TtsRespHandler: get speech connection %p", conn.get());
+	if (conn.get() == NULL) {
+		responses_.erase(in->id, TtsError::TTS_SDK_CLOSED);
+		return 0;
 	}
-	responses_.erase(carg->current_id, err);
+	if (!conn->recv(resp, WS_RECV_TIMEOUT)) {
+		Log::d(tag__, "TtsRespHandler: recv tts data failed, shutdown "
+				"connection and try reconnect");
+		carg->keepalive_.shutdown(conn.get());
+		responses_.erase(in->id, TtsError::TTS_SERVICE_UNAVAILABLE);
+		return 0;
+	}
+	SpeechErrorCode result = resp.result();
+	if (result == SpeechErrorCode::SUCCESS) {
+		int32_t r = FLAG_NOT_POLL_NEXT | FLAG_AS_HEAD | FLAG_BREAK_LOOP;
+		if (resp.has_voice()) {
+#ifdef LOW_PB_VERSION
+			shared_ptr<string> voice(new string(resp.voice()));
+#else
+			shared_ptr<string> voice(resp.release_voice());
+#endif
+			responses_.stream(in->id, voice);
+			Log::d(tag__, "TtsRespHandler: %d read voice %d bytes",
+					in->id, voice->length());
+			r = FLAG_NOT_POLL_NEXT | FLAG_AS_HEAD;
+		}
+		if (resp.has_finish() && resp.finish()) {
+			responses_.end(in->id);
+			Log::d(tag__, "TtsRespHandler: %d read voice end", in->id);
+			r = 0;
+		}
+		return r;
+	}
+	responses_.erase(in->id, result);
 	return 0;
 }
 
-void TtsRespHandler::end_handle(shared_ptr<TtsRespStream> in, void* arg) {
-	TtsCommonArgument* carg = (TtsCommonArgument*)arg;
-	delete carg->context;
+void TtsRespHandler::end_handle(shared_ptr<TtsRespInfo> in, void* arg) {
 }
 
 } // namespace speech

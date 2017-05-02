@@ -29,9 +29,10 @@ protected:
 
 	void end_handle(std::shared_ptr<SpeechRespInfo> in, void* arg);
 
+	void put_response(std::shared_ptr<SpeechResult> r);
+
 private:
 	std::list<std::shared_ptr<SpeechResult> > responses_;
-	bool start_response_;
 	std::mutex mutex_;
 	std::condition_variable cond_;
 	bool closed_;

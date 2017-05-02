@@ -5,7 +5,6 @@
 root_gyp := speech.gyp
 
 PROTOC := ${deps_dir}/bin/protoc
-GRPC_CPP_PLUGIN := ${deps_dir}/bin/grpc_cpp_plugin
 proto_path := proto
 proto_file := ${proto_path}/speech.proto
 proto_gen_sources := speech.pb.h speech.pb.cc speech.grpc.pb.h speech.grpc.pb.cc
@@ -17,7 +16,6 @@ all: ${proto_gen_files}
 
 ${proto_gen_files}: ${proto_file}
 	mkdir -p gen
-	${PROTOC} -I${proto_path} --grpc_out=${proto_gen_dir} --plugin=protoc-gen-grpc=${GRPC_CPP_PLUGIN} $<
 	${PROTOC} -I${proto_path} --cpp_out=${proto_gen_dir} $<
 
 clean:

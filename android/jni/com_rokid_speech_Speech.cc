@@ -1,5 +1,6 @@
 #include <jni.h>
 #include <thread>
+#include <assert.h>
 #include "log.h"
 #include "speech.h"
 #include "JNIHelp.h"
@@ -40,7 +41,6 @@ public:
 	}
 
 	void close() {
-		env_->DeleteGlobalRef(speech_obj_);
 		thread_->join();
 		delete thread_;
 	}
@@ -49,6 +49,7 @@ protected:
 	void run() {
 		vm_->AttachCurrentThread(&env_, NULL);
 		do_poll();
+		env_->DeleteGlobalRef(speech_obj_);
 		vm_->DetachCurrentThread();
 	}
 

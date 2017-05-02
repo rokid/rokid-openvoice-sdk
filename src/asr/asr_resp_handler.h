@@ -10,8 +10,6 @@ namespace speech {
 
 class AsrRespHandler : public PipelineHandler<AsrRespInfo, AsrResult> {
 public:
-	AsrRespHandler();
-
 	std::shared_ptr<AsrResult> poll();
 
 	bool closed();
@@ -25,7 +23,6 @@ protected:
 
 private:
 	StreamQueue<std::string> responses_;
-	bool start_stream_;
 };
 
 } // namespace speech

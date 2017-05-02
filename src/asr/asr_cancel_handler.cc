@@ -24,7 +24,7 @@ shared_ptr<AsrResult> AsrCancelHandler::generate_cancel_result(int32_t id) {
 	shared_ptr<AsrResult> res(new AsrResult());
 	res->id = id;
 	res->type = 3;
-	res->err = 0;
+	res->err = AsrError::ASR_SUCCESS;
 	return res;
 }
 

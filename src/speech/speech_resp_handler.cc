@@ -2,104 +2,88 @@
 #include "speech_resp_handler.h"
 #include "speech.pb.h"
 #include "log.h"
-#include "grpc++/impl/codegen/proto_utils.h"
+
+#define WS_RECV_TIMEOUT 10
 
 using std::shared_ptr;
 using std::lock_guard;
 using std::unique_lock;
 using std::mutex;
 using rokid::open::SpeechResponse;
-using grpc::Status;
+using rokid::open::SpeechErrorCode;
 
 namespace rokid {
 namespace speech {
 
-SpeechRespHandler::SpeechRespHandler() : start_response_(false), closed_(false) {
+SpeechRespHandler::SpeechRespHandler() : closed_(false) {
 }
 
 void SpeechRespHandler::start_handle(shared_ptr<SpeechRespInfo> in, void* arg) {
-	assert(arg);
-	if (in.get() && in->type == 1)
-		start_response_ = true;
 }
 
 int32_t SpeechRespHandler::handle(shared_ptr<SpeechRespInfo> in, void* arg) {
 	assert(arg);
+	SpeechCommonArgument* carg = (SpeechCommonArgument*)arg;
 
 	if (!in.get())
 		return FLAG_ERROR;
 	shared_ptr<SpeechResult> r(new SpeechResult());
-	if (in->type == 0) {
-		Log::d(tag__, "RespHandler: text req %d, resp\n\tasr: %s\n\tnlp: %s\n\taction: %s",
-				r->id, r->asr.c_str(), r->nlp.c_str(), r->action.c_str());
-		lock_guard<mutex> locker(mutex_);
-		r->id = in->result.id;
+	if (in->err != SpeechError::SPEECH_SUCCESS) {
+		r->id = in->id;
+		r->type = 4;
+		r->err = in->err;
+		put_response(r);
+		return 0;
+	}
+	if (in->status == 0) {
+		in->status = 1;
+		r->id = in->id;
 		r->type = 1;
-		r->err = 0;
-		responses_.push_back(r);
-		r.reset(new SpeechResult());
-		*r = in->result;
-		responses_.push_back(r);
-		r.reset(new SpeechResult());
-		r->id = in->result.id;
+		r->err = SpeechError::SPEECH_SUCCESS;
+		put_response(r);
+		return FLAG_NOT_POLL_NEXT;
+	} else if (in->status == 2) {
+		r->id = in->id;
 		r->type = 2;
-		r->err = 0;
-		responses_.push_back(r);
-		cond_.notify_one();
+		r->err = SpeechError::SPEECH_SUCCESS;
+		put_response(r);
 		return 0;
 	}
 
-	SpeechCommonArgument* carg = (SpeechCommonArgument*)arg;
-	assert(in->type == 1);
-	if (start_response_) {
-		Log::d(tag__, "RespHandler: voice req %d, start resp", in->id);
-		start_response_ = false;
-		r->id = in->id;
-		r->type = 1;
-		r->err = 0;
-		lock_guard<mutex> locker(mutex_);
-		responses_.push_back(r);
-		cond_.notify_one();
-		return FLAG_NOT_POLL_NEXT;
-	}
-
-	SpeechResponse resp;
-	if (in->stream->Read(&resp)) {
-		r->id = in->id;
-		r->type = 0;
-		r->err = 0;
-		r->asr = resp.asr();
-		r->nlp = resp.nlp();
-		r->action = resp.action();
-		Log::d(tag__, "RespHandler: voice req %d, data resp\n\tasr: %s\n\tnlp: %s\n\taction: %s",
-				r->id, r->asr.c_str(), r->nlp.c_str(), r->action.c_str());
-		lock_guard<mutex> locker(mutex_);
-		responses_.push_back(r);
-		cond_.notify_one();
-		return FLAG_NOT_POLL_NEXT;
-	}
-
-	Status status = in->stream->Finish();
-	if (status.ok()) {
-		r->id = in->id;
-		r->type = 2;
-		r->err = 0;
-	} else {
+	shared_ptr<SpeechConnection> conn = carg->keepalive_.get_conn(0);
+	if (conn.get() == NULL) {
 		r->id = in->id;
 		r->type = 4;
-		Log::d(tag__, "grpc Read failed, %d, %s",
-				status.error_code(), status.error_message().c_str());
-		if (status.error_code() == grpc::StatusCode::UNAVAILABLE) {
-			r->err = 1;
-			carg->reset_stub();
-		} else
-			r->err = 2;
+		r->err = SpeechError::SPEECH_SDK_CLOSED;
+		put_response(r);
+		return 0;
 	}
-	Log::d(tag__, "RespHandler: voice req %d, end resp, err %u", r->id, r->err);
-	lock_guard<mutex> locker(mutex_);
-	responses_.push_back(r);
-	cond_.notify_one();
-	return 0;
+	SpeechResponse resp;
+	if (!conn->recv(resp, WS_RECV_TIMEOUT)) {
+		r->id = in->id;
+		r->type = 4;
+		r->err = SpeechError::SPEECH_SERVICE_UNAVAILABLE;
+		put_response(r);
+		return 0;
+	}
+	if (resp.result() != SpeechErrorCode::SUCCESS) {
+		r->id = in->id;
+		r->type = 4;
+		r->err = (SpeechError)resp.result();
+		put_response(r);
+		return 0;
+	}
+	assert(resp.id() == in->id);
+	r->id = resp.id();
+	r->type = 0;
+	r->err = SpeechError::SPEECH_SUCCESS;
+	r->asr = resp.asr();
+	r->nlp = resp.nlp();
+	r->action = resp.action();
+	put_response(r);
+	if (resp.has_finish() && resp.finish())
+		in->status = 2;
+	return FLAG_NOT_POLL_NEXT;
 }
 
 void SpeechRespHandler::end_handle(shared_ptr<SpeechRespInfo> in, void* arg) {
@@ -130,6 +114,12 @@ void SpeechRespHandler::reset() {
 
 bool SpeechRespHandler::closed() {
 	return closed_;
+}
+
+void SpeechRespHandler::put_response(shared_ptr<SpeechResult> r) {
+	lock_guard<mutex> locker(mutex_);
+	responses_.push_back(r);
+	cond_.notify_one();
 }
 
 } // namespace speech

@@ -8,22 +8,20 @@
 namespace rokid {
 namespace speech {
 
-class TtsRespHandler : public PipelineHandler<TtsRespStream, TtsResult> {
+class TtsRespHandler : public PipelineHandler<TtsRespInfo, TtsResult> {
 public:
 	TtsRespHandler();
-
-	void set_current_id(int32_t id);
 
 	std::shared_ptr<TtsResult> poll();
 
 	bool closed();
 
 protected:
-	void start_handle(std::shared_ptr<TtsRespStream> in, void* arg);
+	void start_handle(std::shared_ptr<TtsRespInfo> in, void* arg);
 
-	int32_t handle(std::shared_ptr<TtsRespStream> in, void* arg);
+	int32_t handle(std::shared_ptr<TtsRespInfo> in, void* arg);
 
-	void end_handle(std::shared_ptr<TtsRespStream> in, void* arg);
+	void end_handle(std::shared_ptr<TtsRespInfo> in, void* arg);
 
 private:
 	StreamQueue<std::string> responses_;

@@ -7,6 +7,18 @@
 namespace rokid {
 namespace speech {
 
+enum AsrError {
+	ASR_SUCCESS = 0,
+	ASR_UNAUTHENTICATED = 2,
+	ASR_CONNECTION_EXCEED,
+	ASR_SERVER_RESOURCE_EXHASTED,
+	ASR_SERVER_BUSY,
+	ASR_SERVER_INTERNAL,
+
+	ASR_SERVICE_UNAVAILABLE = 101,
+	ASR_SDK_CLOSED,
+};
+
 struct AsrResult {
 	// 0  asr result
 	// 1  stream result start
@@ -15,7 +27,7 @@ struct AsrResult {
 	// 4  asr occurs error, see AsrResult.err
 	uint32_t type;
 	int32_t id;
-	uint32_t err;
+	AsrError err;
 	std::string asr;
 };
 

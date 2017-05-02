@@ -4,7 +4,10 @@
 
 template <typename T>
 bool prepare(T* inst) {
-	inst->config("server_address", "apigw.open.rokid.com:443");
+	inst->config("host", "apigwws.open.rokid.com");
+	// inst->config("host", "10.88.128.34");
+	inst->config("port", "443");
+	inst->config("branch", "/api");
 	inst->config("ssl_roots_pem", "etc/roots.pem");
 	inst->config("key", "rokid_test_key");
 	inst->config("device_type_id", "rokid_test_device_type_id");

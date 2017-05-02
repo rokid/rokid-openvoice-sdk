@@ -1,12 +1,12 @@
 #include "asr_impl.h"
 #include "speech_connection.h"
-#include "speech.grpc.pb.h"
 #include "log.h"
+
+#define PING_INTERVAL 20000
 
 using std::unique_ptr;
 using std::shared_ptr;
 using std::string;
-using rokid::open::Speech;
 
 namespace rokid {
 namespace speech {
@@ -18,6 +18,7 @@ bool AsrImpl::prepare() {
 	requests_->reset();
 	req_handler_.reset();
 	cancel_handler_.reset();
+	pipeline_arg_.start_keepalive(PING_INTERVAL);
 	req_handler_.set_cancel_handler(&cancel_handler_);
 	set_head(&req_provider_);
 	add(&req_handler_, &pipeline_arg_);
@@ -37,8 +38,7 @@ void AsrImpl::release() {
 		req_handler_.close();
 		cancel_handler_.close();
 		close();
-		// at last, close grpc connection
-		pipeline_arg_.reset_stub();
+		pipeline_arg_.keepalive_.close();
 	}
 }
 
@@ -100,18 +100,6 @@ Asr* new_asr() {
 void delete_asr(Asr* asr) {
 	if (asr)
 		delete asr;
-}
-
-shared_ptr<rokid::open::Speech::Stub> AsrCommonArgument::stub() {
-	lock_guard<mutex> locker(mutex_);
-	if (stub_.get() == NULL)
-		stub_ = SpeechConnection::connect(&config, "asr");
-	return stub_;
-}
-
-void AsrCommonArgument::reset_stub() {
-	lock_guard<mutex> locker(mutex_);
-	stub_.reset();
 }
 
 } // namespace speech

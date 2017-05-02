@@ -1,20 +1,38 @@
 # Rokid Speech SDK
-## C++ sdk 编译
+## sdk 编译 (Ubuntu平台)
 
 **sdk依赖模块编译安装**
 
+* 安装openssl
+
 ```
-git clone https://github.com/grpc/grpc.git
-cd grpc
-git submodule update --init
-git checkout v1.2.0
-cd third_party/protobuf
-./autogen.sh
-./configure --prefix=<your_grpc_install_path>
+sudo apt-get install libssl-dev
+```
+
+* 编译安装poco
+
+[下载链接](https://pocoproject.org/releases/poco-1.7.8/poco-1.7.8p2-all.tar.gz)
+
+```
+tar xvfz poco-1.7.8p2-all.tar.gz
+cd poco-1.7.8p2-all
+./configure --config=Linux --shared --no-tests --no-samples --omit=CppUnit,CppParser,CodeGeneration,PageCompiler,Remoting,Data/MySQL,Data/ODBC,Zip,XML --prefix=${your_deps_dir}
 make
 make install
-cd ../..
-make prefix=<your_grpc_install_path>
+```
+
+**重要：${your\_deps\_dir}是speech sdk所有依赖项的安装目录，protobuf及poco都应安装在这里，由你指定。**
+
+* 安装protobuf
+
+```
+git clone https://github.com/google/protobuf.git
+cd protobuf
+git checkout v2.6.1
+编辑autogen.sh，删除安装gtest的命令。否则会出错，该url已经不存在了。
+./autogen.sh
+./configure --prefix=${your_deps_dir}
+make
 make install
 ```
 
@@ -23,24 +41,21 @@ make install
 ```
 git clone https://github.com/Rokid/rokid-openvoice-sdk.git
 cd rokid-openvoice-sdk
-./autogen.sh <your_grpc_install_path>
+./autogen.sh <your_deps_dir>
 make
 ```
 
-## Android sdk 编译
+## sdk 编译 (Android平台）
 **sdk依赖模块下载**
 
 ```
 git clone https://github.com/Rokid/rokid-openvoice-sdk-deps-fastjson.git
 
-git clone https://github.com/Rokid/rokid-openvoice-sdk-deps-protobuf.git
+git clone https://github.com/Rokid/rokid-openvoice-sdk-deps-poco.git
 
-git clone https://github.com/Rokid/rokid-openvoice-sdk-deps-grpc.git
-
-将以上三个模块目录放入android工程任意位置
-如 <android_project>/openvoice/protobuf
-<android_project>/openvoice/grpc
-<android_project>/openvoice/fastjson
+将以上两个模块目录放入android工程任意位置
+如 <android_project>/openvoice/poco
+  <android_project>/openvoice/fastjson
 ```
 
 **sdk编译**
@@ -52,9 +67,12 @@ git clone https://github.com/Rokid/rokid-openvoice-sdk.git
 
 将以下模块加入android工程makefile
 PRODUCT_PACKAGES += \
-	rprotoc \
-	grpc_cpp_plugin \
+	libpoco \
 	roots.pem \
+	libspeech_common \
+	libspeech_tts \
+	libspeech_asr \
+	libspeech \
 	librokid_tts_jni \
 	librokid_speech_jni \
 	tts_sdk.json \
@@ -67,8 +85,6 @@ PRODUCT_PACKAGES += \
 cd <android_project>
 . build/envsetup.sh
 lunch <your_conf>
-make rprotoc
-make grpc_cpp_plugin
 make
 ```
 ### Tts接口定义 (android)
@@ -150,7 +166,7 @@ import com.rokid.speech.Speech;
 // 构造函数传入配置文件路径名
 // 配置文件格式与Tts类似
 Speech speech = new Speech("/system/etc/speech_sdk.json")
-// 编译格式: "pcm", "opu"
+// 音频格式: "pcm", "opu"
 // 默认为"pcm"
 speech.config("codec", "opu");
 speech.putText("若琪你好", new SpeechCallback() {

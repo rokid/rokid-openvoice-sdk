@@ -1,43 +1,25 @@
 #include <chrono>
-#include <grpc++/client_context.h>
 #include "speech_connection.h"
 #include "log.h"
 #include "tts_req_handler.h"
 #include "tts_impl.h"
 
+#define WS_SEND_TIMEOUT 5
+
 using std::shared_ptr;
-using grpc::ClientContext;
 using rokid::open::TtsRequest;
-using rokid::open::TtsHeader;
-using rokid::open::Speech;
 
 namespace rokid {
 namespace speech {
 
-const uint32_t grpc_timeout_ = 5;
-
 TtsReqHandler::TtsReqHandler() : cancel_handler_(NULL) {
 }
 
-shared_ptr<TtsRespStream> TtsReqHandler::poll() {
-	shared_ptr<TtsRespStream> tmp = stream_;
-	stream_.reset();
-	return tmp;
-}
-
-static void config_client_context(ClientContext* ctx) {
-	std::chrono::system_clock::time_point deadline =
-		std::chrono::system_clock::now() + std::chrono::seconds(grpc_timeout_);
-	ctx->set_deadline(deadline);
+shared_ptr<TtsRespInfo> TtsReqHandler::poll() {
+	return current_resp_;
 }
 
 void TtsReqHandler::start_handle(shared_ptr<TtsReqInfo> in, void* arg) {
-	if (in.get() && !in->deleted) {
-		TtsCommonArgument* carg = (TtsCommonArgument*)arg;
-		carg->current_id = in->id;
-		carg->context = new ClientContext();
-		config_client_context(carg->context);
-	}
 }
 
 int32_t TtsReqHandler::handle(shared_ptr<TtsReqInfo> in, void* arg) {
@@ -50,19 +32,31 @@ int32_t TtsReqHandler::handle(shared_ptr<TtsReqInfo> in, void* arg) {
 	}
 
 	TtsRequest req;
-	TtsHeader* header = req.mutable_header();
-	header->set_id(in->id);
+	req.set_id(in->id);
 	const char* v = carg->config.get("codec", "pcm");
-	header->set_codec(v);
+	req.set_codec(v);
 	v = carg->config.get("declaimer", "zh");
-	header->set_declaimer(v);
+	req.set_declaimer(v);
 	req.set_text(*in->data);
-	shared_ptr<Speech::Stub> stub = carg->stub();
-	// stub is NULL, config incorrect or auth failed
-	// discard this request, try again at next request
-	if (stub.get() == NULL)
-		return FLAG_BREAK_LOOP;
-	stream_ = stub->tts(carg->context, req);
+	shared_ptr<SpeechConnection> conn = carg->keepalive_.get_conn(0);
+	Log::i(tag__, "TtsReqHandler: get speech conneciton %p", conn.get());
+	TtsError err = TtsError::TTS_SUCCESS;
+	if (conn.get() == NULL) {
+		err = TtsError::TTS_SDK_CLOSED;
+		goto exit;
+	}
+	if (!conn->send(req, WS_SEND_TIMEOUT)) {
+		Log::i(tag__, "TtsReqHandler: send request failed, shutdown"
+				"connection, try reconnect");
+		carg->keepalive_.shutdown(conn.get());
+		err = TtsError::TTS_SERVICE_UNAVAILABLE;
+		goto exit;
+	}
+
+exit:
+	current_resp_.reset(new TtsRespInfo());
+	current_resp_->id = in->id;
+	current_resp_->err = err;
 	return 0;
 }
 

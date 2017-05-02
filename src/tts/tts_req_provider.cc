@@ -3,9 +3,6 @@
 
 using std::string;
 using std::shared_ptr;
-using grpc::ClientContext;
-using rokid::open::TtsRequest;
-using rokid::open::TtsHeader;
 
 namespace rokid {
 namespace speech {

@@ -10,6 +10,8 @@ namespace speech {
 template <typename OutType>
 class PipelineOutHandler {
 public:
+	virtual ~PipelineOutHandler() {}
+
 	virtual std::shared_ptr<OutType> poll() = 0;
 
 	virtual bool closed() = 0;

@@ -1,10 +1,9 @@
 #pragma once
 
-#include <grpc++/client_context.h>
-#include "grpc++/impl/codegen/sync_stream.h"
 #include "speech.pb.h"
-#include "speech.grpc.pb.h"
 #include "speech_config.h"
+#include "ws_keepalive.h"
+#include "tts.h"
 
 namespace rokid {
 namespace speech {
@@ -15,24 +14,21 @@ typedef struct {
 	std::shared_ptr<std::string> data;
 } TtsReqInfo;
 
+typedef struct {
+	int32_t id;
+	TtsError err;
+} TtsRespInfo;
+
 class TtsCommonArgument {
 public:
 	int32_t current_id;
-	grpc::ClientContext* context;
 	SpeechConfig config;
+	WSKeepAlive keepalive_;
 
-	// see implementation in tts_impl.cc
-	std::shared_ptr<rokid::open::Speech::Stub> stub();
-
-	inline void reset_stub() {
-		stub_.reset();
+	inline void start_keepalive(uint32_t interval) {
+		keepalive_.start(interval, &config, "tts");
 	}
-
-private:
-	std::shared_ptr<rokid::open::Speech::Stub> stub_;
 };
-
-typedef grpc::ClientReader<rokid::open::TtsResponse> TtsRespStream;
 
 #define tag__ "speech.tts"
 

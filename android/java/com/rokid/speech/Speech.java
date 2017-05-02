@@ -89,7 +89,9 @@ public class Speech {
 		}
 		SpeechConfig config = JSON.parseObject(content, SpeechConfig.class);
 		Log.d(TAG, "config file parse result = " + config);
-		_sdk_config(_sdk_speech, "server_address", config.server_address);
+		_sdk_config(_sdk_speech, "host", config.host);
+		_sdk_config(_sdk_speech, "port", config.port);
+		_sdk_config(_sdk_speech, "branch", config.branch);
 		_sdk_config(_sdk_speech, "ssl_roots_pem", config.ssl_roots_pem);
 		_sdk_config(_sdk_speech, "key", config.key);
 		_sdk_config(_sdk_speech, "device_type_id", config.device_type_id);
@@ -189,7 +191,11 @@ public class Speech {
 }
 
 class SpeechConfig {
-	public String server_address;
+	public String host;
+
+	public String port;
+
+	public String branch;
 
 	public String ssl_roots_pem;
 
@@ -204,7 +210,9 @@ class SpeechConfig {
 	public String api_version;
 
 	public String toString() {
-		return "server_address=" + server_address
+		return "host=" + host
+			+ ":" + port
+			+ "" + branch
 			+ ", ssl_roots_pem=" + ssl_roots_pem
 			+ ", key=" + key
 			+ ", device_type_id=" + device_type_id

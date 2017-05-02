@@ -3,12 +3,10 @@
 #include <stdint.h>
 #include <memory>
 #include <string>
-#include "grpc++/impl/codegen/sync_stream.h"
-#include "grpc++/impl/codegen/client_context.h"
 #include "speech.pb.h"
-#include "speech.grpc.pb.h"
 #include "speech_config.h"
 #include "speech.h"
+#include "ws_keepalive.h"
 
 namespace rokid {
 namespace speech {
@@ -24,32 +22,24 @@ typedef struct {
 	std::shared_ptr<std::string> data;
 } SpeechReqInfo;
 
-typedef grpc::ClientReaderWriter<rokid::open::VoiceSpeechRequest, rokid::open::SpeechResponse> SpeechClientStream;
-typedef std::shared_ptr<SpeechClientStream> SpeechClientStreamSp;
-
 typedef struct {
-	// 0  result of text request
-	// 1  grpc client stream
-	uint32_t type;
 	int32_t id;
-	std::shared_ptr<grpc::ClientContext> context;
-	SpeechClientStreamSp stream;
-	SpeechResult result;
+	SpeechError err;
+	// 0: wait handle
+	// 1: handling
+	// 2: handled
+	uint32_t status;
 } SpeechRespInfo;
 
 class SpeechCommonArgument {
 public:
-	SpeechClientStreamSp stream;
 	SpeechConfig config;
 
-	// see implementation in speech_impl.cc
-	std::shared_ptr<rokid::open::Speech::Stub> stub();
+	WSKeepAlive keepalive_;
 
-	void reset_stub();
-
-private:
-	std::shared_ptr<rokid::open::Speech::Stub> stub_;
-	std::mutex mutex_;
+	inline void start_keepalive(uint32_t interval) {
+		keepalive_.start(interval, &config, "speech");
+	}
 };
 
 #define tag__ "speech.speech"

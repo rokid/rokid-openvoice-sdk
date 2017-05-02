@@ -27,7 +27,7 @@ shared_ptr<TtsResult> TtsCancelHandler::generate_cancel_result(int32_t id) {
 	shared_ptr<TtsResult> res(new TtsResult());
 	res->id = id;
 	res->type = 3;
-	res->err = 0;
+	res->err = TtsError::TTS_SUCCESS;
 	return res;
 }
 

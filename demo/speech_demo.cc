@@ -1,10 +1,13 @@
 #include <time.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <vector>
 #include "speech.h"
 #include "common.h"
 #include "log.h"
 
 using namespace rokid::speech;
+using std::vector;
 
 #define OPU_FILE_COUNT 12
 #ifdef ANDROID
@@ -12,9 +15,23 @@ using namespace rokid::speech;
 #else
 #define OPU_RES_DIR "./demo/res"
 #endif
+#define TOTAL_REQ_NUM 100
 
-static int32_t last_id_ = 0xffffffff;
+static int32_t last_id_ = TOTAL_REQ_NUM;
 static bool quit_ = false;
+
+class SpeechRespStatus {
+public:
+	uint8_t start_count;
+	uint8_t complete_count;
+	uint8_t cancel_count;
+	uint8_t error_count;
+
+	SpeechRespStatus() : start_count(0), complete_count(0)
+						, cancel_count(0), error_count(0) {
+	}
+};
+static vector<SpeechRespStatus> all_resp_status_;
 
 static void send_opu_file(Speech* speech, int32_t id, uint32_t idx) {
 	char fname[64];
@@ -49,27 +66,18 @@ static int32_t one_speech(Speech* speech, uint32_t repeat) {
 	}
 	speech->end_voice(id);
 	Log::i("demo.speech.info", "one speech req finish, id %d", id);
+	sleep(1);
 	return id;
 }
 
 static void speech_req(Speech* speech) {
 	uint32_t i;
 	int32_t id;
-	for (i = 0; i < 100; ++i) {
-		one_speech(speech, 1);
-		one_speech(speech, 3);
-		one_speech(speech, 1);
-		one_speech(speech, 4);
-		one_speech(speech, 2);
-		one_speech(speech, 1);
-		one_speech(speech, 2);
-		one_speech(speech, 4);
-		id = one_speech(speech, 3);
-		Log::i("demo.speech.info", "9 speech req loop finish, idx %d", i);
+	for (i = 0; i < TOTAL_REQ_NUM; ++i) {
+		id = one_speech(speech, rand() % 4 + 1);
 		if (rand() & 1)
 			speech->cancel(id);
 	}
-	last_id_ = one_speech(speech, 1);
 
 	/**
 	speech->put_text("你好");
@@ -102,17 +110,25 @@ static void speech_poll(Speech* speech) {
 						res.action.c_str());
 				break;
 			case 1:
+				if (res.id > 0 && res.id < all_resp_status_.size())
+					++all_resp_status_[res.id].start_count;
 				Log::i("demo.speech.info", "%u: speech onStart", res.id);
 				break;
 			case 2:
+				if (res.id > 0 && res.id < all_resp_status_.size())
+					++all_resp_status_[res.id].complete_count;
 				Log::i("demo.speech.info", "%u: speech onComplete", res.id);
 				speech_req_done(res.id);
 				break;
 			case 3:
+				if (res.id > 0 && res.id < all_resp_status_.size())
+					++all_resp_status_[res.id].cancel_count;
 				Log::i("demo.speech.info", "%u: speech onCancel", res.id);
 				speech_req_done(res.id);
 				break;
 			case 4:
+				if (res.id > 0 && res.id < all_resp_status_.size())
+					++all_resp_status_[res.id].error_count;
 				Log::i("demo.speech.info", "%u: speech onError %u", res.id, res.err);
 				speech_req_done(res.id);
 				break;
@@ -122,22 +138,39 @@ static void speech_poll(Speech* speech) {
 	speech->release();
 }
 
+static void trace_resp_status() {
+	uint32_t i;
+	for (i = 0; i <= TOTAL_REQ_NUM; ++i) {
+		if (all_resp_status_[i].start_count > 1) {
+			Log::i("demo.speech.respstatus", "[%d]: start count %u",
+					i, all_resp_status_[i].start_count);
+			continue;
+		}
+		if (all_resp_status_[i].complete_count
+				+ all_resp_status_[i].cancel_count
+				+ all_resp_status_[i].error_count > 1) {
+			Log::i("demo.speech.respstatus", "[%d]: complete count %u, "
+					"cancel count %u, error count %u", i,
+					all_resp_status_[i].complete_count,
+					all_resp_status_[i].cancel_count,
+					all_resp_status_[i].error_count);
+		}
+	}
+}
+
 void speech_demo() {
 	struct timespec ts;
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	srand(ts.tv_nsec);
 
+	all_resp_status_.resize(TOTAL_REQ_NUM + 1);
 	Speech* speech = new_speech();
 	prepare(speech);
 	speech->config("codec", "opu");
 	run(speech, speech_req, speech_poll);
-
-	last_id_ = 0xffffffff;
-	quit_ = false;
-	prepare(speech);
-	run(speech, speech_req, speech_poll);
-
 	delete_speech(speech);
+
+	trace_resp_status();
 	/**
 	Speech* speech = new_speech();
 	prepare(speech);

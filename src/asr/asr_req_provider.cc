@@ -3,9 +3,6 @@
 
 using std::string;
 using std::shared_ptr;
-using grpc::ClientContext;
-using rokid::open::AsrRequest;
-using rokid::open::AsrHeader;
 
 namespace rokid {
 namespace speech {

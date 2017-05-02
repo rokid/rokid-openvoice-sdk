@@ -1,7 +1,8 @@
 #include <chrono>
 #include "speech_impl.h"
-#include "speech.grpc.pb.h"
 #include "speech_connection.h"
+
+#define PING_INTERVAL 20000
 
 using std::shared_ptr;
 using std::mutex;
@@ -20,15 +21,14 @@ bool SpeechImpl::prepare() {
 	cancel_handler_.reset();
 	req_handler_.set_cancel_handler(&cancel_handler_);
 	req_provider_.set_cancel_handler(&cancel_handler_);
+	pipeline_arg_.start_keepalive(PING_INTERVAL);
 	set_head(&req_provider_);
 	add(&req_handler_, &pipeline_arg_);
 	add(&resp_handler_, &pipeline_arg_);
 	add(&cancel_handler_, NULL);
 	// worker for req handler
 	add_worker(1);
-	// worker for resp handler
-	add_worker(1);
-	// worker for cancel handler
+	// worker for resp handler + cancel handler
 	add_worker(0);
 	run();
 	return true;
@@ -41,8 +41,7 @@ void SpeechImpl::release() {
 		resp_handler_.close();
 		cancel_handler_.close();
 		close();
-		// at last, close grpc connection
-		pipeline_arg_.reset_stub();
+		pipeline_arg_.keepalive_.close();
 	}
 }
 
@@ -94,18 +93,6 @@ void delete_speech(Speech* speech) {
 	if (speech) {
 		delete speech;
 	}
-}
-
-shared_ptr<rokid::open::Speech::Stub> SpeechCommonArgument::stub() {
-	lock_guard<mutex> locker(mutex_);
-	if (stub_.get() == NULL)
-		stub_ = SpeechConnection::connect(&config, "speech");
-	return stub_;
-}
-
-void SpeechCommonArgument::reset_stub() {
-	lock_guard<mutex> locker(mutex_);
-	stub_.reset();
 }
 
 } // namespace speech

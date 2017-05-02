@@ -6,7 +6,6 @@
 #include <condition_variable>
 #include "pipeline_handler.h"
 #include "types.h"
-#include "speech.grpc.pb.h"
 #include "asr_cancel_handler.h"
 
 namespace rokid {
@@ -34,6 +33,8 @@ protected:
 	int32_t handle(std::shared_ptr<AsrReqInfo> in, void* arg);
 
 	void end_handle(std::shared_ptr<AsrReqInfo> in, void* arg);
+
+	void put_response(int32_t id, AsrError err);
 
 private:
 	std::list<std::shared_ptr<AsrRespInfo> > resp_streams_;

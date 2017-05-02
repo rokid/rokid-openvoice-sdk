@@ -56,11 +56,5 @@ void tts_demo() {
 	prepare(tts);
 	tts->config("codec", "opu2");
 	run(tts, tts_req, tts_poll);
-
-	quit_ = false;
-	last_id_ = 0xffffffff;
-	prepare(tts);
-	run(tts, tts_req, tts_poll);
-
 	delete_tts(tts);
 }

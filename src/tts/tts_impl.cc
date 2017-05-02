@@ -1,7 +1,7 @@
 #include "tts_impl.h"
 #include "speech_connection.h"
 
-using rokid::open::Speech;
+#define PING_INTERVAL_TIME 20000
 
 namespace rokid {
 namespace speech {
@@ -14,6 +14,7 @@ TtsImpl::TtsImpl() : Pipeline(tag__)
 bool TtsImpl::prepare() {
 	requests_->reset();
 	cancel_handler_.reset();
+	pipeline_arg_.start_keepalive(PING_INTERVAL_TIME);
 	req_handler_.set_cancel_handler(&cancel_handler_);
 	set_head(&req_provider_);
 	add(&req_handler_, &pipeline_arg_);
@@ -30,8 +31,7 @@ void TtsImpl::release() {
 		requests_->close();
 		cancel_handler_.close();
 		close();
-		// at last, close grpc connection
-		pipeline_arg_.reset_stub();
+		pipeline_arg_.keepalive_.close();
 	}
 }
 
@@ -41,11 +41,6 @@ int32_t TtsImpl::speak(const char* text) {
 	if (!requests_->add(id, content))
 		return -1;
 	return id;
-}
-
-static void put_cancel_result(int32_t id, shared_ptr<string>& unused, void* arg) {
-	TtsCancelHandler *c = (TtsCancelHandler*)arg;
-	c->cancelled(id);
 }
 
 void TtsImpl::cancel(int32_t id) {
@@ -80,12 +75,6 @@ Tts* new_tts() {
 void delete_tts(Tts* tts) {
 	if (tts)
 		delete tts;
-}
-
-shared_ptr<Speech::Stub> TtsCommonArgument::stub() {
-	if (stub_.get() == NULL)
-		stub_ = SpeechConnection::connect(&config, "tts");
-	return stub_;
 }
 
 } // namespace speech

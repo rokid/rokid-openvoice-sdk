@@ -1,25 +1,21 @@
 #include <chrono>
 #include "speech_req_handler.h"
 #include "speech.pb.h"
-#include "grpc++/impl/codegen/client_context.h"
 #include "log.h"
+
+#define WS_SEND_TIMEOUT 5
 
 using std::shared_ptr;
 using std::unique_ptr;
 using std::mutex;
 using std::lock_guard;
 using std::unique_lock;
-using rokid::open::SpeechHeader;
 using rokid::open::SpeechResponse;
-using rokid::open::TextSpeechRequest;
-using rokid::open::VoiceSpeechRequest;
-using grpc::Status;
-using grpc::ClientContext;
+using rokid::open::SpeechRequest;
+using rokid::open::ReqType;
 
 namespace rokid {
 namespace speech {
-
-static const uint32_t grpc_timeout_ = 10;
 
 SpeechReqHandler::SpeechReqHandler() : closed_(false) {
 }
@@ -27,18 +23,30 @@ SpeechReqHandler::SpeechReqHandler() : closed_(false) {
 void SpeechReqHandler::start_handle(shared_ptr<SpeechReqInfo> in, void* arg) {
 }
 
-static void prepare_header(SpeechHeader* header, int32_t id, const SpeechConfig& config) {
-	header->set_id(id);
-	header->set_lang(config.get("lang", "zh"));
-	header->set_codec(config.get("codec", "pcm"));
-	header->set_vt(config.get("vt", "zh"));
-	header->set_cdomain(config.get("cdomain", ""));
+static void config_req(SpeechRequest* req, SpeechConfig* config) {
+	req->set_lang(config->get("lang", "zh"));
+	req->set_vt(config->get("vt", ""));
+	req->set_stack(config->get("stack", ""));
+	req->set_device(config->get("device", ""));
 }
 
-static void config_client_context(ClientContext* ctx) {
-	std::chrono::system_clock::time_point deadline =
-		std::chrono::system_clock::now() + std::chrono::seconds(grpc_timeout_);
-	ctx->set_deadline(deadline);
+static bool send_voice_end(SpeechCommonArgument* carg, int32_t id) {
+	SpeechRequest req;
+	shared_ptr<SpeechConnection> conn = carg->keepalive_.get_conn(0);
+
+	if (conn.get() == NULL)
+		return false;
+	req.set_id(id);
+	req.set_type(ReqType::END);
+	if (!conn->send(req, WS_SEND_TIMEOUT)) {
+		Log::w(tag__, "SpeechReqHandler: send voice end for id "
+				"%d failed", id);
+		carg->keepalive_.shutdown(conn.get());
+		return false;
+	}
+	Log::d(tag__, "SpeechReqHandler: send voice end for id "
+			"%d success", id);
+	return true;
 }
 
 int32_t SpeechReqHandler::handle(shared_ptr<SpeechReqInfo> in, void* arg) {
@@ -51,93 +59,75 @@ int32_t SpeechReqHandler::handle(shared_ptr<SpeechReqInfo> in, void* arg) {
 	SpeechCommonArgument* carg = (SpeechCommonArgument*)arg;
 	switch (in->type) {
 		case 0: {
-			TextSpeechRequest req;
-			ClientContext ctx;
+			SpeechRequest req;
 			SpeechResponse resp;
-			shared_ptr<SpeechRespInfo> resp_info(new SpeechRespInfo());
-			shared_ptr<rokid::open::Speech::Stub> stub = carg->stub();
-			if (stub.get() == NULL)
-				return FLAG_BREAK_LOOP;
+			shared_ptr<SpeechConnection> conn = carg->keepalive_.get_conn(0);
 
-			config_client_context(&ctx);
-			prepare_header(req.mutable_header(), in->id, carg->config);
-			req.set_asr(*in->data);
-			Status status = stub->speecht(&ctx, req, &resp);
-			resp_info->type = 0;
-			resp_info->result.id = in->id;
-			if (status.ok()) {
-				resp_info->result.type = 0;
-				resp_info->result.err = 0;
-				resp_info->result.asr = resp.asr();
-				resp_info->result.nlp = resp.nlp();
-				resp_info->result.action = resp.action();
-				Log::d(tag__, "call speecht sucess, %d\n\tasr: %s\n\tnlp: %s\n\taction: %s",
-						in->id, resp.asr().c_str(),
-						resp.nlp().c_str(), resp.action().c_str());
-			} else {
-				Log::d(tag__, "call speecht failed, %d, %s",
-						status.error_code(), status.error_message().c_str());
-				resp_info->result.type = 4;
-				if (status.error_code() == grpc::StatusCode::UNAVAILABLE) {
-					resp_info->result.err = 1;
-					carg->reset_stub();
-				} else
-					resp_info->result.err = 2;
+			if (conn.get() == NULL) {
+				put_response(in->id, SpeechError::SPEECH_SDK_CLOSED);
+				break;
 			}
-			lock_guard<mutex> locker(mutex_);
-			responses_.push_back(resp_info);
-			cond_.notify_one();
+			req.set_id(in->id);
+			req.set_type(ReqType::TEXT);
+			req.set_asr(*in->data);
+			config_req(&req, &carg->config);
+			if (!conn->send(req, WS_SEND_TIMEOUT)) {
+				put_response(in->id, SpeechError::SPEECH_SERVICE_UNAVAILABLE);
+				carg->keepalive_.shutdown(conn.get());
+				break;
+			}
+			put_response(in->id, SpeechError::SPEECH_SUCCESS);
 			break;
 		}
 		case 1: {
-			shared_ptr<SpeechRespInfo> resp_info(new SpeechRespInfo());
-			VoiceSpeechRequest req;
-			shared_ptr<ClientContext> ctx(new ClientContext);
-			shared_ptr<rokid::open::Speech::Stub> stub = carg->stub();
-			if (stub.get() == NULL)
-				return FLAG_BREAK_LOOP;
+			SpeechRequest req;
+			shared_ptr<SpeechConnection> conn = carg->keepalive_.get_conn(0);
 
-			config_client_context(ctx.get());
-			prepare_header(req.mutable_header(), in->id, carg->config);
-			resp_info->type = 1;
-			Log::d(tag__, "call speechv for %d", in->id);
-			resp_info->stream = stub->speechv(ctx.get());
-			carg->stream = resp_info->stream;
-			if (!carg->stream->Write(req)) {
-				Log::w(tag__, "ReqHandler: send voice header failed, stream closed");
-				return FLAG_BREAK_LOOP;
+			if (conn.get() == NULL) {
+				put_response(in->id, SpeechError::SPEECH_SDK_CLOSED);
+				break;
 			}
-			resp_info->id = in->id;
-			resp_info->context = ctx;
-			lock_guard<mutex> locker(mutex_);
-			responses_.push_back(resp_info);
-			cond_.notify_one();
+			req.set_id(in->id);
+			req.set_type(ReqType::START);
+			req.set_codec(carg->config.get("codec", "pcm"));
+			config_req(&req, &carg->config);
+			if (!conn->send(req, WS_SEND_TIMEOUT)) {
+				put_response(in->id, SpeechError::SPEECH_SERVICE_UNAVAILABLE);
+				carg->keepalive_.shutdown(conn.get());
+				break;
+			}
+			put_response(in->id, SpeechError::SPEECH_SUCCESS);
 			break;
 		}
 		case 2: {
-			Log::d(tag__, "call WritesDone for %d", in->id);
-			carg->stream->WritesDone();
-			carg->stream.reset();
+			if (!send_voice_end(carg, in->id))
+				return FLAG_ERROR;
 			break;
 		}
 		case 3: {
 			Log::d(tag__, "ReqHandler: cancel %d", in->id);
 			cancel_handler_->cancel(in->id);
-			if (carg->stream.get()) {
-				carg->stream->WritesDone();
-				carg->stream.reset();
-			}
-			cancel_handler_->cancelled(in->id);
+			if (!send_voice_end(carg, in->id))
+				return FLAG_ERROR;
 			break;
 		}
 		case 4: {
-			assert(carg->stream.get());
-			Log::d(tag__, "ReqHandler: %d  send voice data %u bytes",
-					in->id, in->data->length());
-			VoiceSpeechRequest req;
+			SpeechRequest req;
+			shared_ptr<SpeechConnection> conn = carg->keepalive_.get_conn(0);
+
+			if (conn.get() == NULL)
+				return FLAG_ERROR;
+			req.set_id(in->id);
+			req.set_type(ReqType::VOICE);
 			req.set_voice(*in->data);
-			if (!carg->stream->Write(req))
-				Log::w(tag__, "ReqHandler: send voice data failed, stream closed");
+			if (!conn->send(req, WS_SEND_TIMEOUT)) {
+				Log::w(tag__, "SpeechReqHandler: send voice data for "
+						"id %d failed", in->id);
+				carg->keepalive_.shutdown(conn.get());
+				return FLAG_ERROR;
+			}
+			Log::d(tag__, "SpeechReqHandler: send voice data for "
+					"id %d success", in->id);
 			break;
 		}
 		default: {
@@ -178,6 +168,16 @@ void SpeechReqHandler::reset() {
 
 bool SpeechReqHandler::closed() {
 	return closed_;
+}
+
+void SpeechReqHandler::put_response(int32_t id, SpeechError err) {
+	shared_ptr<SpeechRespInfo> resp(new SpeechRespInfo());
+	resp->id = id;
+	resp->err = err;
+	resp->status = 0;
+	lock_guard<mutex> locker(mutex_);
+	responses_.push_back(resp);
+	cond_.notify_one();
 }
 
 } // namespace speech

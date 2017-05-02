@@ -24,7 +24,7 @@ shared_ptr<SpeechResult> SpeechCancelHandler::generate_cancel_result(int32_t id)
 	shared_ptr<SpeechResult> res(new SpeechResult());
 	res->id = id;
 	res->type = 3;
-	res->err = 0;
+	res->err = SpeechError::SPEECH_SUCCESS;
 	return res;
 }
 
