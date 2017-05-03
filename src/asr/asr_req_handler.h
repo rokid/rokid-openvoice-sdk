@@ -20,6 +20,8 @@ public:
 
 	void close();
 
+	void reset();
+
 	inline void set_cancel_handler(AsrCancelHandler* handler) {
 		cancel_handler_ = handler;
 	}

@@ -27,7 +27,7 @@ public:
 	std::shared_ptr<grpc::ClientContext> context;
 };
 
-class CommonArgument {
+class AsrCommonArgument {
 public:
 	SpeechConfig config;
 	AsrClientStreamSp stream;

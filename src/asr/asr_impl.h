@@ -53,7 +53,7 @@ private:
 	inline int32_t next_id() { return ++next_id_; }
 
 private:
-	CommonArgument pipeline_arg_;
+	AsrCommonArgument pipeline_arg_;
 	AsrReqProvider req_provider_;
 	AsrReqHandler req_handler_;
 	AsrRespHandler resp_handler_;

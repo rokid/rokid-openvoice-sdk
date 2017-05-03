@@ -12,6 +12,8 @@ TtsImpl::TtsImpl() : Pipeline(tag__)
 }
 
 bool TtsImpl::prepare() {
+	requests_->reset();
+	cancel_handler_.reset();
 	req_handler_.set_cancel_handler(&cancel_handler_);
 	set_head(&req_provider_);
 	add(&req_handler_, &pipeline_arg_);
@@ -80,7 +82,7 @@ void delete_tts(Tts* tts) {
 		delete tts;
 }
 
-shared_ptr<Speech::Stub> CommonArgument::stub() {
+shared_ptr<Speech::Stub> TtsCommonArgument::stub() {
 	if (stub_.get() == NULL)
 		stub_ = SpeechConnection::connect(&config, "tts");
 	return stub_;

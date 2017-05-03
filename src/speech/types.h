@@ -37,7 +37,7 @@ typedef struct {
 	SpeechResult result;
 } SpeechRespInfo;
 
-class CommonArgument {
+class SpeechCommonArgument {
 public:
 	SpeechClientStreamSp stream;
 	SpeechConfig config;

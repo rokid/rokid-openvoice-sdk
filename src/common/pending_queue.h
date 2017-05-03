@@ -31,10 +31,9 @@ public:
 
 	typedef shared_ptr<QueueItem> QueueItemSp;
 
-	PendingQueue() {
+	PendingQueue() : closed_(false) {
 		pthread_mutex_init(&mutex_, NULL);
 		pthread_cond_init(&cond_, NULL);
-		closed_ = false;
 	}
 
 	~PendingQueue() {
@@ -99,6 +98,10 @@ public:
 		closed_ = true;
 		pthread_cond_signal(&cond_);
 		pthread_mutex_unlock(&mutex_);
+	}
+
+	void reset() {
+		closed_ = false;
 	}
 
 	uint32_t size() {
@@ -490,6 +493,10 @@ public:
 		closed_ = true;
 		pthread_cond_signal(&cond_);
 		pthread_mutex_unlock(&mutex_);
+	}
+
+	void reset() {
+		closed_ = false;
 	}
 
 	uint32_t size() {

@@ -3,7 +3,7 @@
 
 using namespace rokid::speech;
 
-static int32_t last_id_ = 0;
+static int32_t last_id_ = 0xffffffff;
 static bool quit_ = false;
 // static const char* OPU_FILE = "demo/hello.opu";
 static const char* PCM_FILE = "demo/hello.pcm";
@@ -68,5 +68,11 @@ void asr_demo() {
 	prepare(asr);
 	asr->config("codec", "pcm");
 	run(asr, asr_req, asr_poll);
+
+	quit_ = false;
+	last_id_ = 0xffffffff;
+	prepare(asr);
+	run(asr, asr_req, asr_poll);
+
 	delete_asr(asr);
 }

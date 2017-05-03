@@ -14,6 +14,10 @@ SpeechImpl::SpeechImpl() : Pipeline(tag__), next_id_(0) {
 }
 
 bool SpeechImpl::prepare() {
+	req_provider_.reset();
+	req_handler_.reset();
+	resp_handler_.reset();
+	cancel_handler_.reset();
 	req_handler_.set_cancel_handler(&cancel_handler_);
 	req_provider_.set_cancel_handler(&cancel_handler_);
 	set_head(&req_provider_);
@@ -92,14 +96,14 @@ void delete_speech(Speech* speech) {
 	}
 }
 
-shared_ptr<rokid::open::Speech::Stub> CommonArgument::stub() {
+shared_ptr<rokid::open::Speech::Stub> SpeechCommonArgument::stub() {
 	lock_guard<mutex> locker(mutex_);
 	if (stub_.get() == NULL)
 		stub_ = SpeechConnection::connect(&config, "speech");
 	return stub_;
 }
 
-void CommonArgument::reset_stub() {
+void SpeechCommonArgument::reset_stub() {
 	lock_guard<mutex> locker(mutex_);
 	stub_.reset();
 }

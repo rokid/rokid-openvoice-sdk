@@ -131,6 +131,12 @@ void speech_demo() {
 	prepare(speech);
 	speech->config("codec", "opu");
 	run(speech, speech_req, speech_poll);
+
+	last_id_ = 0xffffffff;
+	quit_ = false;
+	prepare(speech);
+	run(speech, speech_req, speech_poll);
+
 	delete_speech(speech);
 	/**
 	Speech* speech = new_speech();

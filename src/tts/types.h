@@ -15,7 +15,7 @@ typedef struct {
 	std::shared_ptr<std::string> data;
 } TtsReqInfo;
 
-class CommonArgument {
+class TtsCommonArgument {
 public:
 	int32_t current_id;
 	grpc::ClientContext* context;

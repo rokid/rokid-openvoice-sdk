@@ -48,7 +48,7 @@ int32_t SpeechReqHandler::handle(shared_ptr<SpeechReqInfo> in, void* arg) {
 			arg, in.get());
 	if (in.get() == NULL)
 		return FLAG_BREAK_LOOP;
-	CommonArgument* carg = (CommonArgument*)arg;
+	SpeechCommonArgument* carg = (SpeechCommonArgument*)arg;
 	switch (in->type) {
 		case 0: {
 			TextSpeechRequest req;
@@ -170,6 +170,10 @@ void SpeechReqHandler::close() {
 	lock_guard<mutex> locker(mutex_);
 	closed_ = true;
 	cond_.notify_one();
+}
+
+void SpeechReqHandler::reset() {
+	closed_ = false;
 }
 
 bool SpeechReqHandler::closed() {

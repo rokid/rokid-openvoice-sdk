@@ -33,7 +33,7 @@ static void config_client_context(ClientContext* ctx) {
 
 void TtsReqHandler::start_handle(shared_ptr<TtsReqInfo> in, void* arg) {
 	if (in.get() && !in->deleted) {
-		CommonArgument* carg = (CommonArgument*)arg;
+		TtsCommonArgument* carg = (TtsCommonArgument*)arg;
 		carg->current_id = in->id;
 		carg->context = new ClientContext();
 		config_client_context(carg->context);
@@ -43,7 +43,7 @@ void TtsReqHandler::start_handle(shared_ptr<TtsReqInfo> in, void* arg) {
 int32_t TtsReqHandler::handle(shared_ptr<TtsReqInfo> in, void* arg) {
 	if (!in.get())
 		return FLAG_ERROR;
-	CommonArgument* carg = (CommonArgument*)arg;
+	TtsCommonArgument* carg = (TtsCommonArgument*)arg;
 	if (in->deleted) {
 		cancel_handler_->cancelled(in->id);
 		return FLAG_BREAK_LOOP;

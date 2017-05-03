@@ -41,6 +41,10 @@ void AsrReqHandler::close() {
 	cond_.notify_one();
 }
 
+void AsrReqHandler::reset() {
+	closed_ = false;
+}
+
 bool AsrReqHandler::closed() {
 	return closed_;
 }
@@ -55,7 +59,7 @@ void AsrReqHandler::start_handle(shared_ptr<AsrReqInfo> in, void* arg) {
 }
 
 int32_t AsrReqHandler::handle(shared_ptr<AsrReqInfo> in, void* arg) {
-	CommonArgument* carg = (CommonArgument*)arg;
+	AsrCommonArgument* carg = (AsrCommonArgument*)arg;
 	AsrClientStreamSp stream;
 	AsrRequest req;
 	AsrHeader* header;

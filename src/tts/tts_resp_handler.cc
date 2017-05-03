@@ -42,7 +42,7 @@ void TtsRespHandler::start_handle(shared_ptr<TtsRespStream> in, void* arg) {
 
 int32_t TtsRespHandler::handle(shared_ptr<TtsRespStream> in, void* arg) {
 	TtsResponse resp;
-	CommonArgument* carg = (CommonArgument*)arg;
+	TtsCommonArgument* carg = (TtsCommonArgument*)arg;
 
 	if (start_stream_) {
 		start_stream_ = false;
@@ -90,7 +90,7 @@ int32_t TtsRespHandler::handle(shared_ptr<TtsRespStream> in, void* arg) {
 }
 
 void TtsRespHandler::end_handle(shared_ptr<TtsRespStream> in, void* arg) {
-	CommonArgument* carg = (CommonArgument*)arg;
+	TtsCommonArgument* carg = (TtsCommonArgument*)arg;
 	delete carg->context;
 }
 

@@ -52,7 +52,7 @@ private:
 	TtsReqHandler req_handler_;
 	TtsRespHandler resp_handler_;
 	TtsCancelHandler cancel_handler_;
-	CommonArgument pipeline_arg_;
+	TtsCommonArgument pipeline_arg_;
 	int32_t next_id_;
 	PendingQueue<std::string>* requests_;
 };

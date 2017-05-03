@@ -20,7 +20,7 @@ void AsrRespHandler::start_handle(shared_ptr<AsrRespInfo> in, void* arg) {
 
 int32_t AsrRespHandler::handle(shared_ptr<AsrRespInfo> in, void* arg) {
 	AsrResponse resp;
-	CommonArgument* carg = (CommonArgument*)arg;
+	AsrCommonArgument* carg = (AsrCommonArgument*)arg;
 
 	assert(arg);
 	if (!in.get())

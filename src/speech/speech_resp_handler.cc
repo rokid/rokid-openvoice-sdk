@@ -49,7 +49,7 @@ int32_t SpeechRespHandler::handle(shared_ptr<SpeechRespInfo> in, void* arg) {
 		return 0;
 	}
 
-	CommonArgument* carg = (CommonArgument*)arg;
+	SpeechCommonArgument* carg = (SpeechCommonArgument*)arg;
 	assert(in->type == 1);
 	if (start_response_) {
 		Log::d(tag__, "RespHandler: voice req %d, start resp", in->id);
@@ -122,6 +122,10 @@ void SpeechRespHandler::close() {
 	lock_guard<mutex> locker(mutex_);
 	closed_ = true;
 	cond_.notify_one();
+}
+
+void SpeechRespHandler::reset() {
+	closed_ = false;
 }
 
 bool SpeechRespHandler::closed() {

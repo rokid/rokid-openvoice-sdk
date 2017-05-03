@@ -18,6 +18,8 @@ public:
 
 	void close();
 
+	void reset();
+
 	bool closed();
 
 	void put_text(int32_t id, const char* text);

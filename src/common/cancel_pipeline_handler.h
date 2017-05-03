@@ -59,6 +59,10 @@ public:
 		cond_.notify_one();
 	}
 
+	void reset() {
+		closed_ = false;
+	}
+
 	bool closed() {
 		return closed_;
 	}

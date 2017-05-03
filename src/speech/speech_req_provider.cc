@@ -62,6 +62,10 @@ void SpeechReqProvider::close() {
 	cond_.notify_one();
 }
 
+void SpeechReqProvider::reset() {
+	closed_ = false;
+}
+
 bool SpeechReqProvider::closed() {
 	return closed_;
 }

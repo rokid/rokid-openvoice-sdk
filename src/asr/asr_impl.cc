@@ -15,6 +15,9 @@ AsrImpl::AsrImpl() : Pipeline(tag__), requests_(req_provider_.queue()), next_id_
 }
 
 bool AsrImpl::prepare() {
+	requests_->reset();
+	req_handler_.reset();
+	cancel_handler_.reset();
 	req_handler_.set_cancel_handler(&cancel_handler_);
 	set_head(&req_provider_);
 	add(&req_handler_, &pipeline_arg_);
@@ -99,14 +102,14 @@ void delete_asr(Asr* asr) {
 		delete asr;
 }
 
-shared_ptr<rokid::open::Speech::Stub> CommonArgument::stub() {
+shared_ptr<rokid::open::Speech::Stub> AsrCommonArgument::stub() {
 	lock_guard<mutex> locker(mutex_);
 	if (stub_.get() == NULL)
 		stub_ = SpeechConnection::connect(&config, "asr");
 	return stub_;
 }
 
-void CommonArgument::reset_stub() {
+void AsrCommonArgument::reset_stub() {
 	lock_guard<mutex> locker(mutex_);
 	stub_.reset();
 }

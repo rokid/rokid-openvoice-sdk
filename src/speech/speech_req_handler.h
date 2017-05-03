@@ -24,6 +24,8 @@ public:
 
 	void close();
 
+	void reset();
+
 	bool closed();
 
 	inline void set_cancel_handler(SpeechCancelHandler* handler) {

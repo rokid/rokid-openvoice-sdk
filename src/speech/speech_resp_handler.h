@@ -18,6 +18,8 @@ public:
 
 	void close();
 
+	void reset();
+
 	bool closed();
 
 protected:

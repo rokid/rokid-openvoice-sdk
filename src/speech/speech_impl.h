@@ -41,7 +41,7 @@ private:
 	SpeechReqHandler req_handler_;
 	SpeechRespHandler resp_handler_;
 	SpeechCancelHandler cancel_handler_;
-	CommonArgument pipeline_arg_;
+	SpeechCommonArgument pipeline_arg_;
 	int32_t next_id_;
 };
 
