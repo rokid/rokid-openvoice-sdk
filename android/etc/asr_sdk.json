@@ -1,0 +1,11 @@
+{
+	'host': 'apigwws.open.rokid.com',
+	'port': '443',
+	'branch': '/api',
+	'ssl_roots_pem': '/system/etc/roots.pem',
+	'api_version': '1',
+	'key': 'your_auth_key',
+	'device_type_id': 'your_device_type_id',
+	'secret': 'your_secret',
+	'device_id': 'your_device_id',
+}

@@ -11,7 +11,6 @@ LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/include
 
 LOCAL_CFLAGS := -frtti
-LOCAL_LDFLAGS := -Wl,-hash-style=sysv
 ifneq ($(SDK_VERSION_23), true)
 LOCAL_SDK_VERSION := 14
 LOCAL_NDK_STL_VARIANT := gnustl_static
@@ -30,11 +29,36 @@ include $(BUILD_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)
 
+LOCAL_MODULE := librokid_asr_jni
+LOCAL_CPP_EXTENSION := .cc
+LOCAL_C_INCLUDES := \
+	$(LOCAL_PATH)/include
+
+LOCAL_CFLAGS := -frtti
+ifneq ($(SDK_VERSION_23), true)
+LOCAL_SDK_VERSION := 14
+LOCAL_NDK_STL_VARIANT := gnustl_static
+LOCAL_CPPFLAGS := -std=c++11
+LOCAL_C_INCLUDES += libnativehelper/include/nativehelper
+else
+LOCAL_CXX_STL := libc++
+endif
+
+LOCAL_SRC_FILES := \
+		$(JNI_DIR)/com_rokid_speech_Asr.cc
+
+LOCAL_SHARED_LIBRARIES := libnativehelper libspeech_asr libspeech_common liblog
+
+include $(BUILD_SHARED_LIBRARY)
+
+include $(CLEAR_VARS)
+
 LOCAL_MODULE := rokid_tts
 
 LOCAL_SRC_FILES := \
 		$(JAVA_DIR)/com/rokid/speech/Tts.java \
-		$(JAVA_DIR)/com/rokid/speech/TtsCallback.java
+		$(JAVA_DIR)/com/rokid/speech/TtsCallback.java \
+		$(JAVA_DIR)/com/rokid/speech/GenericConfig.java
 LOCAL_STATIC_JAVA_LIBRARIES := fastjson-android
 
 include $(BUILD_STATIC_JAVA_LIBRARY)
@@ -47,7 +71,6 @@ LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/include
 
 LOCAL_CFLAGS := -frtti
-LOCAL_LDFLAGS := -Wl,-hash-style=sysv
 ifneq ($(SDK_VERSION_23), true)
 LOCAL_SDK_VERSION := 14
 LOCAL_NDK_STL_VARIANT := gnustl_static
@@ -66,11 +89,24 @@ include $(BUILD_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)
 
+LOCAL_MODULE := rokid_asr
+
+LOCAL_SRC_FILES := \
+		$(JAVA_DIR)/com/rokid/speech/Asr.java \
+		$(JAVA_DIR)/com/rokid/speech/AsrCallback.java \
+		$(JAVA_DIR)/com/rokid/speech/GenericConfig.java
+LOCAL_STATIC_JAVA_LIBRARIES := fastjson-android
+
+include $(BUILD_STATIC_JAVA_LIBRARY)
+
+include $(CLEAR_VARS)
+
 LOCAL_MODULE := rokid_speech
 
 LOCAL_SRC_FILES := \
 		$(JAVA_DIR)/com/rokid/speech/Speech.java \
-		$(JAVA_DIR)/com/rokid/speech/SpeechCallback.java
+		$(JAVA_DIR)/com/rokid/speech/SpeechCallback.java \
+		$(JAVA_DIR)/com/rokid/speech/GenericConfig.java
 LOCAL_STATIC_JAVA_LIBRARIES := fastjson-android
 
 include $(BUILD_STATIC_JAVA_LIBRARY)
@@ -84,8 +120,9 @@ LOCAL_CERTIFICATE := platform
 LOCAL_SRC_FILES := \
 		$(EXAMPLE_JAVA_DIR)/com/rokid/speech/example/TtsDemo.java \
 		$(EXAMPLE_JAVA_DIR)/com/rokid/speech/example/TtsPlayerDemo.java \
-		$(EXAMPLE_JAVA_DIR)/com/rokid/speech/example/SpeechDemo.java
-LOCAL_STATIC_JAVA_LIBRARIES := rokid_tts rokid_speech
+		$(EXAMPLE_JAVA_DIR)/com/rokid/speech/example/SpeechDemo.java \
+		$(EXAMPLE_JAVA_DIR)/com/rokid/speech/example/AsrDemo.java
+LOCAL_STATIC_JAVA_LIBRARIES := rokid_tts rokid_speech rokid_asr
 
 include $(BUILD_PACKAGE)
 

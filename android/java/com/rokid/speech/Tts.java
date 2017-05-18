@@ -1,16 +1,13 @@
 package com.rokid.speech;
 
-import java.io.FileInputStream;
-import java.io.IOException;
 import android.util.Log;
 import android.util.SparseArray;
-import com.alibaba.fastjson.JSON;
 
-public class Tts {
+public class Tts extends GenericConfig<TtsConfig> {
 	public Tts(String configFile) {
 		_callbacks = new SparseArray<TtsCallback>();
 		_sdk_tts = _sdk_create();
-		config_tts(configFile);
+		config(configFile, TtsConfig.class);
 		_sdk_prepare(_sdk_tts);
 	}
 
@@ -40,41 +37,6 @@ public class Tts {
 
 	public void release() {
 		_sdk_release(_sdk_tts);
-	}
-
-	private void config_tts(String configFile) {
-		FileInputStream is = null;
-		byte[] content;
-
-		try {
-			is = new FileInputStream(configFile);
-			int size = is.available();
-			Log.d(TAG, "config file size = " + size);
-			content = new byte[size];
-			is.read(content);
-			Log.d(TAG, "config file content = " + new String(content));
-		} catch (Exception e) {
-			e.printStackTrace();
-			return;
-		} finally {
-			if (is != null) {
-				try {
-					is.close();
-				} catch (IOException e) {
-				}
-			}
-		}
-		TtsConfig config = JSON.parseObject(content, TtsConfig.class);
-		Log.d(TAG, "config file parse result = " + config);
-		_sdk_config(_sdk_tts, "host", config.host);
-		_sdk_config(_sdk_tts, "port", config.port);
-		_sdk_config(_sdk_tts, "branch", config.branch);
-		_sdk_config(_sdk_tts, "ssl_roots_pem", config.ssl_roots_pem);
-		_sdk_config(_sdk_tts, "key", config.key);
-		_sdk_config(_sdk_tts, "device_type_id", config.device_type_id);
-		_sdk_config(_sdk_tts, "device_id", config.device_id);
-		_sdk_config(_sdk_tts, "secret", config.secret);
-		_sdk_config(_sdk_tts, "api_version", config.api_version);
 	}
 
 	// invoke by native poll thread
@@ -154,34 +116,5 @@ public class Tts {
 	}
 }
 
-class TtsConfig {
-	public String host;
-
-	public String port;
-
-	public String branch;
-
-	public String ssl_roots_pem;
-
-	public String key;
-
-	public String device_type_id;
-
-	public String device_id;
-
-	public String secret;
-
-	public String api_version;
-
-	public String toString() {
-		return "host=" + host
-			+ ":" + port
-			+ "" + branch
-			+ ", ssl_roots_pem=" + ssl_roots_pem
-			+ ", key=" + key
-			+ ", device_type_id=" + device_type_id
-			+ ", device_id=" + device_id
-			+ ", secret=" + secret
-			+ ", api_version=" + api_version;
-	}
+class TtsConfig extends GenericConfigParams {
 }

@@ -33,5 +33,14 @@
                 <action android:name="com.rokid.speech.example.SpeechDemo" />
             </intent-filter>
         </service>
+        <service
+            android:name=".AsrDemo"
+            android:enabled="true"
+            android:exported="true">
+
+            <intent-filter>
+                <action android:name="com.rokid.speech.example.AsrDemo" />
+            </intent-filter>
+        </service>
     </application>
 </manifest>
