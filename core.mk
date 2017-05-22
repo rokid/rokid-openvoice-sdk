@@ -39,16 +39,17 @@ LOCAL_GENERATED_SOURCES := $(PROTOC_GEN_SRC)
 LOCAL_SRC_FILES := $(COMMON_SRC)
 
 LOCAL_CFLAGS := $(COMMON_CFLAGS)
+LOCAL_SHARED_LIBRARIES := liblog libpoco libcrypto
 ifneq ($(SDK_VERSION_23), true)
+LOCAL_STATIC_LIBRARIES := libprotobuf-cpp-2.3.0-full-gnustl-rtti
 LOCAL_SDK_VERSION := 14
 LOCAL_NDK_STL_VARIANT := gnustl_static
 LOCAL_CPPFLAGS := -D__STDC_FORMAT_MACROS
-LOCAL_STATIC_LIBRARIES := libprotobuf-cpp-2.3.0-full-gnustl-rtti
 else
+#LOCAL_STATIC_LIBRARIES := libprotobuf-cpp-full-gnustl-rtti
+LOCAL_SHARED_LIBRARIES += libprotobuf-rokid-cpp-full
 LOCAL_CXX_STL := libc++
-LOCAL_STATIC_LIBRARIES := libprotobuf-cpp-full-gnustl-rtti
 endif
-LOCAL_SHARED_LIBRARIES := liblog libpoco libcrypto
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/src/common $(LOCAL_C_INCLUDES)
 
 include $(BUILD_SHARED_LIBRARY)
@@ -80,11 +81,12 @@ LOCAL_C_INCLUDES := \
 LOCAL_CFLAGS := $(COMMON_CFLAGS)
 LOCAL_SHARED_LIBRARIES := libspeech_common libpoco
 ifneq ($(SDK_VERSION_23), true)
+LOCAL_CPPFLAGS := -DLOW_PB_VERSION
 LOCAL_SDK_VERSION := 14
 LOCAL_NDK_STL_VARIANT := gnustl_static
-LOCAL_CPPFLAGS := -DLOW_PB_VERSION
 else
 LOCAL_CXX_STL := libc++
+LOCAL_SHARED_LIBRARIES += libprotobuf-rokid-cpp-full
 endif
 
 include $(BUILD_SHARED_LIBRARY)
@@ -121,6 +123,7 @@ LOCAL_NDK_STL_VARIANT := gnustl_static
 LOCAL_CPPFLAGS := -DLOW_PB_VERSION
 else
 LOCAL_CXX_STL := libc++
+LOCAL_SHARED_LIBRARIES += libprotobuf-rokid-cpp-full
 endif
 
 include $(BUILD_SHARED_LIBRARY)
@@ -156,6 +159,7 @@ LOCAL_SDK_VERSION := 14
 LOCAL_NDK_STL_VARIANT := gnustl_static
 else
 LOCAL_CXX_STL := libc++
+LOCAL_SHARED_LIBRARIES += libprotobuf-rokid-cpp-full
 endif
 include $(BUILD_SHARED_LIBRARY)
 
@@ -181,6 +185,7 @@ LOCAL_SDK_VERSION := 14
 LOCAL_NDK_STL_VARIANT := gnustl_static
 else
 LOCAL_CXX_STL := libc++
+#LOCAL_SHARED_LIBRARIES += libprotobuf-rokid-cpp-full
 endif
 
 include $(BUILD_EXECUTABLE)
