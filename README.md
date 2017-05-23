@@ -1,4 +1,53 @@
 # Rokid Speech SDK
+## sdk 编译 (Android平台）
+**sdk依赖模块下载**
+
+```
+git clone https://github.com/Rokid/rokid-openvoice-sdk-deps-fastjson.git
+
+git clone https://github.com/Rokid/rokid-openvoice-sdk-deps-protobuf -b android23
+
+git clone https://github.com/Rokid/rokid-openvoice-sdk-deps-poco.git
+
+将以上三个模块目录放入android工程任意位置
+如 <android_project>/openvoice/poco
+  <android_project>/openvoice/protobuf
+```
+
+**sdk编译**
+
+```
+git clone https://github.com/Rokid/rokid-openvoice-sdk.git
+将源码目录放入android工程任意位置
+如<android_project>/openvoice/speech
+
+将以下模块加入android工程makefile
+PRODUCT_PACKAGES += \
+	libprotobuf-rokid-cpp-full \
+	libpoco \
+	roots.pem \
+	libspeech_common \
+	libspeech_tts \
+	libspeech_asr \
+	libspeech \
+	librokid_tts_jni \
+	librokid_asr_jni \
+	librokid_speech_jni \
+	tts_sdk.json \
+	asr_sdk.json \
+	speech_sdk.json \
+	rokid_tts \
+	rokid_asr \
+	rokid_speech \
+	RKSpeechDemo
+
+编译：
+cd <android_project>
+. build/envsetup.sh
+lunch <your_conf>
+make
+```
+
 ## sdk 编译 (Ubuntu平台)
 
 **sdk依赖模块编译安装**
@@ -45,48 +94,6 @@ cd rokid-openvoice-sdk
 make
 ```
 
-## sdk 编译 (Android平台）
-**sdk依赖模块下载**
-
-```
-git clone https://github.com/Rokid/rokid-openvoice-sdk-deps-fastjson.git
-
-git clone https://github.com/Rokid/rokid-openvoice-sdk-deps-poco.git
-
-将以上两个模块目录放入android工程任意位置
-如 <android_project>/openvoice/poco
-  <android_project>/openvoice/fastjson
-```
-
-**sdk编译**
-
-```
-git clone https://github.com/Rokid/rokid-openvoice-sdk.git
-将源码目录放入android工程任意位置
-如<android_project>/openvoice/speech
-
-将以下模块加入android工程makefile
-PRODUCT_PACKAGES += \
-	libpoco \
-	roots.pem \
-	libspeech_common \
-	libspeech_tts \
-	libspeech_asr \
-	libspeech \
-	librokid_tts_jni \
-	librokid_speech_jni \
-	tts_sdk.json \
-	speech_sdk.json \
-	rokid_tts \
-	rokid_speech \
-	RKSpeechDemo
-
-编译：
-cd <android_project>
-. build/envsetup.sh
-lunch <your_conf>
-make
-```
 ### Tts接口定义 (android)
 ```
 //  class Tts
@@ -127,7 +134,7 @@ Tts tts = new Tts("/system/etc/tts_sdk.json");
 		});
 ```
 
-### Speech接口定义
+### Speech接口定义 (android)
 ```
 // class Speech
 int putText(String text, SpeechCallback cb)
@@ -159,7 +166,7 @@ void onCancel(int id)
 
 void onError(int id, int err)
 ```
-### Speech使用示例
+### Speech使用示例 (android)
 ```
 import com.rokid.speech.Speech;
 
