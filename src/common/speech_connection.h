@@ -47,6 +47,7 @@ public:
 		web_socket_->setReceiveTimeout(ts);
 		try {
 			c = web_socket_->receiveFrame(buffer_, buf_size_, flags);
+			Log::d(CONN_TAG, "recv frame %u bytes, flag = %x", c, flags);
 		} catch (Poco::TimeoutException e) {
 			Log::w(CONN_TAG, "recv frame timeout: %s", e.what());
 			return false;

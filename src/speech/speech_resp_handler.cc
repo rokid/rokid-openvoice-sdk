@@ -64,6 +64,7 @@ int32_t SpeechRespHandler::handle(shared_ptr<SpeechRespInfo> in, void* arg) {
 		r->type = 4;
 		r->err = SpeechError::SPEECH_SERVICE_UNAVAILABLE;
 		put_response(r);
+		carg->keepalive_.shutdown(conn.get());
 		return 0;
 	}
 	if (resp.result() != SpeechErrorCode::SUCCESS) {
