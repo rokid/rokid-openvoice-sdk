@@ -17,6 +17,15 @@ enum AsrError {
 
 	ASR_SERVICE_UNAVAILABLE = 101,
 	ASR_SDK_CLOSED,
+	ASR_UNKNOWN,
+};
+
+enum AsrResultType {
+	ASR_RES_ASR = 0,
+	ASR_RES_START,
+	ASR_RES_END,
+	ASR_RES_CANCELLED,
+	ASR_RES_ERROR
 };
 
 struct AsrResult {

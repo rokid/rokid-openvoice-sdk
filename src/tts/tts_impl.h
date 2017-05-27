@@ -1,17 +1,21 @@
 #pragma once
 
+#include <list>
+#include <memory>
+#include <mutex>
+#include <condition_variable>
+#include <thread>
 #include "tts.h"
-#include "pipeline.h"
-#include "tts_req_provider.h"
-#include "tts_req_handler.h"
-#include "tts_resp_handler.h"
-#include "tts_cancel_handler.h"
+#include "speech_config.h"
+#include "speech_connection.h"
+#include "tts_op_ctl.h"
 #include "types.h"
+#include "speech.pb.h"
 
 namespace rokid {
 namespace speech {
 
-class TtsImpl : public Tts, public Pipeline<TtsReqInfo> {
+class TtsImpl : public Tts {
 public:
 	TtsImpl();
 
@@ -47,14 +51,30 @@ public:
 private:
 	inline int32_t next_id() { return ++next_id_; }
 
+	void send_reqs();
+
+	void gen_results();
+
+	void gen_result_by_resp(rokid::open::TtsResponse& resp);
+
+	bool gen_result_by_status();
+
+	void do_request(std::shared_ptr<TtsReqInfo> req);
+
 private:
-	TtsReqProvider req_provider_;
-	TtsReqHandler req_handler_;
-	TtsRespHandler resp_handler_;
-	TtsCancelHandler cancel_handler_;
-	TtsCommonArgument pipeline_arg_;
 	int32_t next_id_;
-	PendingQueue<std::string>* requests_;
+	SpeechConfig config_;
+	SpeechConnection connection_;
+	std::list<std::shared_ptr<TtsReqInfo> > requests_;
+	std::list<std::shared_ptr<TtsResult> > responses_;
+	std::mutex req_mutex_;
+	std::condition_variable req_cond_;
+	std::mutex resp_mutex_;
+	std::condition_variable resp_cond_;
+	TtsOperatorController controller_;
+	std::thread* req_thread_;
+	std::thread* resp_thread_;
+	bool initialized_;
 };
 
 } // namespace speech

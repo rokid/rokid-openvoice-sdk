@@ -8,6 +8,7 @@ namespace rokid {
 namespace speech {
 
 enum TtsError {
+	// server error
 	TTS_SUCCESS = 0,
 	TTS_UNAUTHENTICATED = 2,
 	TTS_CONNECTION_EXCEED,
@@ -15,8 +16,18 @@ enum TtsError {
 	TTS_SERVER_BUSY,
 	TTS_SERVER_INTERNAL,
 
+	// client error
 	TTS_SERVICE_UNAVAILABLE = 101,
 	TTS_SDK_CLOSED,
+	TTS_UNKNOWN,
+};
+
+enum TtsResultType {
+	TTS_RES_VOICE = 0,
+	TTS_RES_START,
+	TTS_RES_END,
+	TTS_RES_CANCELLED,
+	TTS_RES_ERROR
 };
 
 struct TtsResult {
@@ -25,7 +36,7 @@ struct TtsResult {
 	// 2  stream result end
 	// 3  tts cancelled
 	// 4  tts occurs error, see TtsResult.err
-	uint32_t type;
+	TtsResultType type;
 	int32_t id;
 	TtsError err;
 	std::shared_ptr<std::string> voice;

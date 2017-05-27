@@ -1,34 +1,49 @@
 #pragma once
 
-#include "speech.pb.h"
-#include "speech_config.h"
-#include "ws_keepalive.h"
-#include "tts.h"
+#include <string>
 
 namespace rokid {
 namespace speech {
 
+#define SOCKET_BUF_SIZE 0x40000
+
 typedef struct {
 	int32_t id;
 	bool deleted;
-	std::shared_ptr<std::string> data;
+	std::string data;
 } TtsReqInfo;
 
+/**
 typedef struct {
 	int32_t id;
 	TtsError err;
 } TtsRespInfo;
+*/
 
+enum TtsStatus {
+	TTS_STATUS_START = 0,
+	TTS_STATUS_STREAMING,
+	TTS_STATUS_END,
+	TTS_STATUS_CANCELLED,
+	TTS_STATUS_ERROR
+};
+
+/**
 class TtsCommonArgument {
 public:
 	int32_t current_id;
 	SpeechConfig config;
-	WSKeepAlive keepalive_;
+	SpeechConnection connection;
 
-	inline void start_keepalive(uint32_t interval) {
-		keepalive_.start(interval, &config, "tts");
+	inline void init() {
+		connection.initialize(SOCKET_BUF_SIZE, &config, "tts");
+	}
+
+	inline void destroy() {
+		connection.release();
 	}
 };
+*/
 
 #define tag__ "speech.tts"
 

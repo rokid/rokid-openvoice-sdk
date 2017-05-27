@@ -3,8 +3,10 @@
 #include <memory>
 #include "speech.pb.h"
 #include "speech_config.h"
-#include "ws_keepalive.h"
+#include "speech_connection.h"
 #include "asr.h"
+
+#define SOCKET_BUF_SIZE 0x40000
 
 namespace rokid {
 namespace speech {
@@ -16,6 +18,7 @@ public:
 	std::shared_ptr<std::string> voice;
 };
 
+/**
 class AsrRespInfo {
 public:
 	int32_t id;
@@ -25,17 +28,32 @@ public:
 	// 2: handled
 	uint32_t status;
 };
+*/
 
+enum AsrStatus {
+	ASR_STATUS_START = 0,
+	ASR_STATUS_STREAMING,
+	ASR_STATUS_END,
+	ASR_STATUS_CANCELLED,
+	ASR_STATUS_ERROR
+};
+
+/**
 class AsrCommonArgument {
 public:
 	SpeechConfig config;
 
-	WSKeepAlive keepalive_;
+	SpeechConnection connection;
 
-	inline void start_keepalive(uint32_t interval) {
-		keepalive_.start(interval, &config, "asr");
+	inline void init() {
+		connection.initialize(SOCKET_BUF_SIZE, &config, "asr");
+	}
+
+	inline void destroy() {
+		connection.release();
 	}
 };
+*/
 
 #define tag__ "speech.asr"
 

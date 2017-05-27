@@ -6,22 +6,27 @@
 #include "speech.pb.h"
 #include "speech_config.h"
 #include "speech.h"
-#include "ws_keepalive.h"
+
+#define SOCKET_BUF_SIZE 0x40000
 
 namespace rokid {
 namespace speech {
 
+enum class SpeechReqType {
+	TEXT,
+	VOICE_START,
+	VOICE_END,
+	CANCELLED,
+	VOICE_DATA,
+};
+
 typedef struct {
 	int32_t id;
-	// 0  text req
-	// 1  voice req start
-	// 2  voice req end
-	// 3  voice req cancel
-	// 4  voice req data
-	uint32_t type;
+	SpeechReqType type;
 	std::shared_ptr<std::string> data;
 } SpeechReqInfo;
 
+/**
 typedef struct {
 	int32_t id;
 	SpeechError err;
@@ -30,7 +35,17 @@ typedef struct {
 	// 2: handled
 	uint32_t status;
 } SpeechRespInfo;
+*/
 
+enum class SpeechStatus {
+	START = 0,
+	STREAMING,
+	END,
+	CANCELLED,
+	ERROR
+};
+
+/**
 class SpeechCommonArgument {
 public:
 	SpeechConfig config;
@@ -41,6 +56,7 @@ public:
 		keepalive_.start(interval, &config, "speech");
 	}
 };
+*/
 
 #define tag__ "speech.speech"
 

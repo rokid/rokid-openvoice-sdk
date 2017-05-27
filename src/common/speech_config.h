@@ -2,23 +2,22 @@
 
 #include <map>
 #include <string>
-
-using std::map;
-using std::string;
+#include <mutex>
 
 namespace rokid {
 namespace speech {
 
 class SpeechConfig {
 public:
-	SpeechConfig();
-
 	bool set(const char* key, const char* value);
 
-	const char* get(const char* key, const char* default_value = NULL) const;
+	const char* get(const char* key, const char* default_value = NULL);
+
+	void clear();
 
 private:
-	map<string, string> configs_;
+	std::map<std::string, std::string> configs_;
+	std::mutex mutex_;
 };
 
 } // namespace speech

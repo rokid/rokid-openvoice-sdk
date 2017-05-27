@@ -180,6 +180,15 @@ public:
 		uint32_t data_count;
 	};
 
+	enum PopType {
+		POP_TYPE_EMPTY = -1,
+		POP_TYPE_DATA,
+		POP_TYPE_START,
+		POP_TYPE_END,
+		POP_TYPE_REMOVED,
+		POP_TYPE_ERROR
+	};
+
 	typedef shared_ptr<QueueItem> QueueItemSp;
 	typedef typename list<QueueItemSp>::iterator StreamingItemPos;
 
@@ -336,7 +345,7 @@ public:
 	int32_t pop(int32_t& id, T_sp& res, uint32_t& err) {
 		if (tag_queue_.empty()) {
 			Log::d(STREAM_QUEUE_TAG, "pop return -1, queue is empty");
-			return -1;
+			return POP_TYPE_EMPTY;
 		}
 		StreamingItemPos ip = tag_queue_.front();
 		QueueItemSp item = *ip;
@@ -348,7 +357,7 @@ public:
 				item->polling = 1;
 				// return 'stream start'
 				Log::d(STREAM_QUEUE_TAG, "pop return start for id %d, data count %d", id, item->data_count);
-				return 1;
+				return POP_TYPE_START;
 			}
 			if (ip == queue_.begin()) {
 				if (item->type == QueueItem::uncompleted) {
@@ -356,7 +365,7 @@ public:
 					// the stream no data available now,
 					// not end, wait for more data.
 					Log::d(STREAM_QUEUE_TAG, "pop return -1, id %d, data count = %d", item->id, item->data_count);
-					return -1;
+					return POP_TYPE_EMPTY;
 				}
 				id = item->id;
 				item_tags_.erase(item->id);
@@ -364,7 +373,7 @@ public:
 				queue_.pop_front();
 				// return 'stream end'
 				Log::d(STREAM_QUEUE_TAG, "pop return complete for id %d, data count %d", item->id, item->data_count);
-				return 2;
+				return POP_TYPE_END;
 			}
 			id = item->id;
 			--item->data_count;
@@ -374,7 +383,7 @@ public:
 			queue_.pop_front();
 			res = item->content;
 			// return 'stream data'
-			return 0;
+			return POP_TYPE_DATA;
 		} else if (item->type == QueueItem::deleted) {
 			id = item->id;
 			item_tags_.erase(item->id);
@@ -382,7 +391,7 @@ public:
 			queue_.pop_front();
 			// return 'stream deleted'
 			Log::d(STREAM_QUEUE_TAG, "pop return deleted for id %d, data count %d", item->id, item->data_count);
-			return 3;
+			return POP_TYPE_REMOVED;
 		}
 		id = item->id;
 		err = item->err;
@@ -391,7 +400,7 @@ public:
 		queue_.pop_front();
 		// return 'stream error'
 		Log::d(STREAM_QUEUE_TAG, "pop return error for id %d, data count %d", item->id, item->data_count);
-		return 4;
+		return POP_TYPE_ERROR;
 	}
 
 protected:

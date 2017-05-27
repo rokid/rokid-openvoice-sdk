@@ -22,9 +22,7 @@ COMMON_SRC := \
 	src/common/log.cc \
 	src/common/log.h \
 	src/common/speech_connection.cc \
-	src/common/speech_connection.h \
-	src/common/ws_keepalive.cc \
-	src/common/ws_keepalive.h
+	src/common/speech_connection.h
 
 LOCAL_C_INCLUDES := \
 	$(PROTOC_OUT_DIR) \
@@ -63,15 +61,9 @@ LOCAL_CPP_EXTENSION := .cc
 
 LOCAL_SRC_FILES := \
 	src/tts/tts_impl.cc \
-	src/tts/tts_req_provider.cc \
-	src/tts/tts_req_handler.cc \
-	src/tts/tts_resp_handler.cc \
-	src/tts/tts_cancel_handler.cc \
 	src/tts/tts_impl.h \
-	src/tts/tts_req_provider.h \
-	src/tts/tts_req_handler.h \
-	src/tts/tts_resp_handler.h \
-	src/tts/tts_cancel_handler.h \
+	src/tts/tts_op_ctl.h \
+	src/tts/tts_op_ctl.cc \
 	src/tts/types.h
 
 LOCAL_C_INCLUDES := \
@@ -100,15 +92,9 @@ LOCAL_CPP_EXTENSION := .cc
 
 LOCAL_SRC_FILES := \
 	src/asr/asr_impl.cc \
-	src/asr/asr_req_provider.cc \
-	src/asr/asr_req_handler.cc \
-	src/asr/asr_resp_handler.cc \
-	src/asr/asr_cancel_handler.cc \
 	src/asr/asr_impl.h \
-	src/asr/asr_req_provider.h \
-	src/asr/asr_req_handler.h \
-	src/asr/asr_resp_handler.h \
-	src/asr/asr_cancel_handler.h \
+	src/asr/asr_op_ctl.cc \
+	src/asr/asr_op_ctl.h \
 	src/asr/types.h
 
 LOCAL_C_INCLUDES := \
@@ -137,15 +123,9 @@ LOCAL_CPP_EXTENSION := .cc
 
 LOCAL_SRC_FILES := \
 	src/speech/speech_impl.cc \
-	src/speech/speech_req_provider.cc \
-	src/speech/speech_req_handler.cc \
-	src/speech/speech_resp_handler.cc \
-	src/speech/speech_cancel_handler.cc \
 	src/speech/speech_impl.h \
-	src/speech/speech_req_provider.h \
-	src/speech/speech_req_handler.h \
-	src/speech/speech_resp_handler.h \
-	src/speech/speech_cancel_handler.h \
+	src/speech/speech_op_ctl.cc \
+	src/speech/speech_op_ctl.h \
 	src/speech/types.h
 
 LOCAL_C_INCLUDES := \

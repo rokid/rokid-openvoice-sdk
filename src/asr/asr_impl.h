@@ -1,17 +1,14 @@
 #pragma once
 
 #include "asr.h"
-#include "pipeline.h"
+#include "pending_queue.h"
 #include "types.h"
-#include "asr_req_provider.h"
-#include "asr_req_handler.h"
-#include "asr_resp_handler.h"
-#include "asr_cancel_handler.h"
+#include "asr_op_ctl.h"
 
 namespace rokid {
 namespace speech {
 
-class AsrImpl : public Asr, public Pipeline<AsrReqInfo> {
+class AsrImpl : public Asr {
 public:
 	AsrImpl();
 
@@ -52,14 +49,31 @@ public:
 private:
 	inline int32_t next_id() { return ++next_id_; }
 
+	void send_reqs();
+
+	void gen_results();
+
+	void gen_result_by_resp(rokid::open::AsrResponse& resp);
+
+	bool gen_result_by_status();
+
+	int32_t do_request(int32_t id, uint32_t type,
+			std::shared_ptr<std::string>& voice, uint32_t err);
+
 private:
-	AsrCommonArgument pipeline_arg_;
-	AsrReqProvider req_provider_;
-	AsrReqHandler req_handler_;
-	AsrRespHandler resp_handler_;
-	AsrCancelHandler cancel_handler_;
-	PendingStreamQueue<std::string>* requests_;
 	int32_t next_id_;
+	SpeechConfig config_;
+	SpeechConnection connection_;
+	StreamQueue<std::string> requests_;
+	std::list<std::shared_ptr<AsrResult> > responses_;
+	std::mutex req_mutex_;
+	std::condition_variable req_cond_;
+	std::mutex resp_mutex_;
+	std::condition_variable resp_cond_;
+	AsrOperatorController controller_;
+	std::thread* req_thread_;
+	std::thread* resp_thread_;
+	bool initialized_;
 };
 
 } // namespace speech

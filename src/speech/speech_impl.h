@@ -1,17 +1,22 @@
 #pragma once
 
+#include <mutex>
+#include <condition_variable>
+#include <list>
+#include <string>
+#include <memory>
+#include <thread>
 #include "speech.h"
-#include "pipeline.h"
 #include "types.h"
-#include "speech_req_provider.h"
-#include "speech_req_handler.h"
-#include "speech_resp_handler.h"
-#include "speech_cancel_handler.h"
+#include "speech.pb.h"
+#include "speech_op_ctl.h"
+#include "pending_queue.h"
+#include "speech_connection.h"
 
 namespace rokid {
 namespace speech {
 
-class SpeechImpl : public Speech, public Pipeline<SpeechReqInfo> {
+class SpeechImpl : public Speech {
 public:
 	SpeechImpl();
 
@@ -36,13 +41,31 @@ public:
 private:
 	inline int32_t next_id() { return ++next_id_; }
 
+	void send_reqs();
+
+	void gen_results();
+
+	void gen_result_by_resp(rokid::open::SpeechResponse& resp);
+
+	bool gen_result_by_status();
+
+	int32_t do_request(std::shared_ptr<SpeechReqInfo>& req);
+
 private:
-	SpeechReqProvider req_provider_;
-	SpeechReqHandler req_handler_;
-	SpeechRespHandler resp_handler_;
-	SpeechCancelHandler cancel_handler_;
-	SpeechCommonArgument pipeline_arg_;
 	int32_t next_id_;
+	SpeechConfig config_;
+	SpeechConnection connection_;
+	std::list<std::shared_ptr<SpeechReqInfo> > text_reqs_;
+	StreamQueue<std::string> voice_reqs_;
+	std::list<std::shared_ptr<SpeechResult> > responses_;
+	std::mutex req_mutex_;
+	std::condition_variable req_cond_;
+	std::mutex resp_mutex_;
+	std::condition_variable resp_cond_;
+	SpeechOperatorController controller_;
+	std::thread* req_thread_;
+	std::thread* resp_thread_;
+	bool initialized_;
 };
 
 } // namespace speech
