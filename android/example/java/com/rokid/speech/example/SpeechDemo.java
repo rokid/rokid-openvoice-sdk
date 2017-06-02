@@ -11,6 +11,7 @@ public class SpeechDemo extends Service {
 	@Override
 	public void onCreate() {
 		_speech = new Speech("/system/etc/speech_sdk.json");
+		_speech.prepare();
 		_speech.config("codec", "opu");
 	}
 

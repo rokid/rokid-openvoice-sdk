@@ -7,13 +7,21 @@ public class Asr extends GenericConfig<AsrConfig> {
 	public Asr(String configFile) {
 		_callbacks = new SparseArray<AsrCallback>();
 		_sdk_asr = _sdk_create();
-		config(configFile, AsrConfig.class);
-		_sdk_prepare(_sdk_asr);
+		if (configFile != null)
+			config(configFile, AsrConfig.class);
 	}
 
 	public void finalize() {
 		_sdk_release(_sdk_asr);
 		_sdk_delete(_sdk_asr);
+	}
+
+	public void prepare() {
+		_sdk_prepare(_sdk_asr);
+	}
+
+	public void release() {
+		_sdk_release(_sdk_asr);
 	}
 
 	public int startVoice(AsrCallback cb) {
@@ -45,10 +53,6 @@ public class Asr extends GenericConfig<AsrConfig> {
 
 	public void config(String key, String value) {
 		_sdk_config(_sdk_asr, key, value);
-	}
-
-	public void release() {
-		_sdk_release(_sdk_asr);
 	}
 
 	// invoke by native poll thread

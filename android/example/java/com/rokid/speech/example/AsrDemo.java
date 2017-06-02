@@ -13,6 +13,7 @@ public class AsrDemo extends Service {
 	@Override
 	public void onCreate() {
 		_asr = new Asr("/system/etc/asr_sdk.json");
+		_asr.prepare();
 		_asr.config("codec", "pcm");
 	}
 

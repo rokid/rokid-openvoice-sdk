@@ -7,13 +7,21 @@ public class Tts extends GenericConfig<TtsConfig> {
 	public Tts(String configFile) {
 		_callbacks = new SparseArray<TtsCallback>();
 		_sdk_tts = _sdk_create();
-		config(configFile, TtsConfig.class);
-		_sdk_prepare(_sdk_tts);
+		if (configFile != null)
+			config(configFile, TtsConfig.class);
 	}
 
 	public void finalize() {
 		_sdk_release(_sdk_tts);
 		_sdk_delete(_sdk_tts);
+	}
+
+	public void prepare() {
+		_sdk_prepare(_sdk_tts);
+	}
+
+	public void release() {
+		_sdk_release(_sdk_tts);
 	}
 
 	public int speak(String content, TtsCallback cb) {
@@ -33,10 +41,6 @@ public class Tts extends GenericConfig<TtsConfig> {
 
 	public void config(String key, String value) {
 		_sdk_config(_sdk_tts, key, value);
-	}
-
-	public void release() {
-		_sdk_release(_sdk_tts);
 	}
 
 	// invoke by native poll thread

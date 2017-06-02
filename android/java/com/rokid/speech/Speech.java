@@ -7,13 +7,21 @@ public class Speech extends GenericConfig<SpeechConfig> {
 	public Speech(String configFile) {
 		_callbacks = new SparseArray<SpeechCallback>();
 		_sdk_speech = _sdk_create();
-		config(configFile, SpeechConfig.class);
-		_sdk_prepare(_sdk_speech);
+		if (configFile != null)
+			config(configFile, SpeechConfig.class);
 	}
 
 	public void finalize() {
 		_sdk_release(_sdk_speech);
 		_sdk_delete(_sdk_speech);
+	}
+
+	public void prepare() {
+		_sdk_prepare(_sdk_speech);
+	}
+
+	public void release() {
+		_sdk_release(_sdk_speech);
 	}
 
 	public int putText(String content, SpeechCallback cb) {
@@ -56,10 +64,6 @@ public class Speech extends GenericConfig<SpeechConfig> {
 
 	public void config(String key, String value) {
 		_sdk_config(_sdk_speech, key, value);
-	}
-
-	public void release() {
-		_sdk_release(_sdk_speech);
 	}
 
 	// invoke by native poll thread
