@@ -59,7 +59,7 @@ LOCAL_SRC_FILES := \
 		$(JAVA_DIR)/com/rokid/speech/Tts.java \
 		$(JAVA_DIR)/com/rokid/speech/TtsCallback.java \
 		$(JAVA_DIR)/com/rokid/speech/GenericConfig.java
-LOCAL_STATIC_JAVA_LIBRARIES := fastjson-android
+LOCAL_JAVA_LIBRARIES := fastjson-android
 
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
@@ -95,7 +95,7 @@ LOCAL_SRC_FILES := \
 		$(JAVA_DIR)/com/rokid/speech/Asr.java \
 		$(JAVA_DIR)/com/rokid/speech/AsrCallback.java \
 		$(JAVA_DIR)/com/rokid/speech/GenericConfig.java
-LOCAL_STATIC_JAVA_LIBRARIES := fastjson-android
+LOCAL_JAVA_LIBRARIES := fastjson-android
 
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
@@ -107,7 +107,7 @@ LOCAL_SRC_FILES := \
 		$(JAVA_DIR)/com/rokid/speech/Speech.java \
 		$(JAVA_DIR)/com/rokid/speech/SpeechCallback.java \
 		$(JAVA_DIR)/com/rokid/speech/GenericConfig.java
-LOCAL_STATIC_JAVA_LIBRARIES := fastjson-android
+LOCAL_JAVA_LIBRARIES := fastjson-android
 
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
