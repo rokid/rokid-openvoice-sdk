@@ -62,9 +62,9 @@ LOCAL_CPP_EXTENSION := .cc
 LOCAL_SRC_FILES := \
 	src/tts/tts_impl.cc \
 	src/tts/tts_impl.h \
-	src/tts/tts_op_ctl.h \
-	src/tts/tts_op_ctl.cc \
-	src/tts/types.h
+	src/tts/types.h \
+	src/common/pending_queue.h \
+	src/common/op_ctl.h
 
 LOCAL_C_INCLUDES := \
 	$(PROTOC_OUT_DIR) \
@@ -93,9 +93,9 @@ LOCAL_CPP_EXTENSION := .cc
 LOCAL_SRC_FILES := \
 	src/asr/asr_impl.cc \
 	src/asr/asr_impl.h \
-	src/asr/asr_op_ctl.cc \
-	src/asr/asr_op_ctl.h \
-	src/asr/types.h
+	src/asr/types.h \
+	src/common/pending_queue.h \
+	src/common/op_ctl.h
 
 LOCAL_C_INCLUDES := \
 	$(PROTOC_OUT_DIR) \
@@ -124,9 +124,9 @@ LOCAL_CPP_EXTENSION := .cc
 LOCAL_SRC_FILES := \
 	src/speech/speech_impl.cc \
 	src/speech/speech_impl.h \
-	src/speech/speech_op_ctl.cc \
-	src/speech/speech_op_ctl.h \
-	src/speech/types.h
+	src/speech/types.h \
+	src/common/pending_queue.h \
+	src/common/op_ctl.h
 
 LOCAL_C_INCLUDES := \
 	$(PROTOC_OUT_DIR) \
@@ -158,7 +158,7 @@ LOCAL_C_INCLUDES := \
 	$(PROTOC_OUT_DIR) \
 	external/protobuf/src \
 	external/boringssl/include
-LOCAL_SHARED_LIBRARIES := libpoco libspeech_tts libspeech_asr libspeech
+LOCAL_SHARED_LIBRARIES := libpoco libspeech_common libspeech_tts libspeech_asr libspeech
 LOCAL_CPPFLAGS := $(COMMON_CFLAGS)
 ifneq ($(SDK_VERSION_23), true)
 LOCAL_SDK_VERSION := 14

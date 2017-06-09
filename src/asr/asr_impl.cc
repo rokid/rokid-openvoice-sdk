@@ -44,7 +44,7 @@ void AsrImpl::release() {
 
 		// notify resp thread to exit
 		unique_lock<mutex> resp_locker(resp_mutex_);
-		responses_.clear();
+		responses_.close();
 		controller_.finish_op();
 		resp_cond_.notify_one();
 		resp_locker.unlock();
@@ -93,7 +93,7 @@ void AsrImpl::end(int32_t id) {
 }
 
 void AsrImpl::cancel(int32_t id) {
-	unique_lock<mutex> req_locker(req_mutex_);
+	lock_guard<mutex> req_locker(req_mutex_);
 	if (!initialized_)
 		return;
 	Log::d(tag__, "AsrImpl: cancel %d", id);
@@ -101,7 +101,6 @@ void AsrImpl::cancel(int32_t id) {
 		if (requests_.erase(id))
 			req_cond_.notify_one();
 		else {
-			req_locker.unlock();
 			lock_guard<mutex> resp_locker(resp_mutex_);
 			controller_.cancel_op(id, resp_cond_);
 		}
@@ -110,7 +109,6 @@ void AsrImpl::cancel(int32_t id) {
 		requests_.clear(&min_id, NULL);
 		if (min_id > 0)
 			req_cond_.notify_one();
-		req_locker.unlock();
 		lock_guard<mutex> resp_locker(resp_mutex_);
 		controller_.cancel_op(0, resp_cond_);
 	}
@@ -120,21 +118,94 @@ void AsrImpl::config(const char* key, const char* value) {
 	config_.set(key, value);
 }
 
+static AsrResultType poptype_to_restype(int32_t type) {
+	static AsrResultType _tps[] = {
+		ASR_RES_ASR,
+		ASR_RES_START,
+		ASR_RES_END,
+	};
+	assert(type >= 0 && type < sizeof(_tps)/sizeof(AsrResultType));
+	return _tps[type];
+}
+
+static AsrError integer_to_reserr(uint32_t err) {
+	switch (err) {
+		case 0:
+			return ASR_SUCCESS;
+		case 2:
+			return ASR_UNAUTHENTICATED;
+		case 3:
+			return ASR_CONNECTION_EXCEED;
+		case 4:
+			return ASR_SERVER_RESOURCE_EXHASTED;
+		case 5:
+			return ASR_SERVER_BUSY;
+		case 6:
+			return ASR_SERVER_INTERNAL;
+		case 101:
+			return ASR_SERVICE_UNAVAILABLE;
+		case 102:
+			return ASR_SDK_CLOSED;
+	}
+	return ASR_UNKNOWN;
+}
+
 bool AsrImpl::poll(AsrResult& res) {
+	shared_ptr<AsrOperationController::Operation> op;
+	int32_t id;
+	shared_ptr<string> asr;
+	int32_t poptype;
+	uint32_t err;
 	unique_lock<mutex> locker(resp_mutex_);
 	while (initialized_) {
-		if (!responses_.empty()) {
-			res = *responses_.front();
-			responses_.pop_front();
-			Log::d(tag__, "AsrImpl.poll return result %d", res.id);
-			return true;
+		op = controller_.front_op();
+		if (op.get()) {
+			if (op->status == AsrStatus::CANCELLED) {
+				if (responses_.erase(op->id)) {
+					responses_.pop(id, asr, err);
+					assert(id == op->id);
+				}
+				res.id = op->id;
+				res.type = ASR_RES_CANCELLED;
+				res.err = ASR_SUCCESS;
+				controller_.remove_front_op();
+				Log::d(tag__, "AsrImpl.poll (%d) cancelled, "
+						"remove front op", op->id);
+				return true;
+			} else if (op->status == AsrStatus::ERROR) {
+				if (responses_.erase(op->id)) {
+					responses_.pop(id, asr, err);
+					assert(id == op->id);
+				}
+				res.id = op->id;
+				res.type = ASR_RES_ERROR;
+				res.err = op->error;
+				controller_.remove_front_op();
+				Log::d(tag__, "AsrImpl.poll (%d) error, "
+						"remove front op", op->id);
+				return true;
+			} else {
+				poptype = responses_.pop(id, asr, err);
+				if (poptype != StreamQueue<string>::POP_TYPE_EMPTY) {
+					assert(id == op->id);
+					res.id = id;
+					res.type = poptype_to_restype(poptype);
+					res.err = integer_to_reserr(err);
+					if (res.type == ASR_RES_ASR)
+						res.asr = *asr;
+					Log::d(tag__, "AsrImpl.poll return result %d", res.id);
+					if (res.type == ASR_RES_END) {
+						Log::d(tag__, "AsrImpl.poll (%d) end", res.id);
+						controller_.remove_front_op();
+					}
+					return true;
+				}
+			}
 		}
-		if (gen_result_by_status())
-			continue;
 		Log::d(tag__, "AsrImpl.poll wait");
 		resp_cond_.wait(locker);
 	}
-	Log::d(tag__, "AsrImpl.poll return false");
+	Log::d(tag__, "AsrImpl.poll return false, sdk released");
 	return false;
 }
 
@@ -144,6 +215,7 @@ void AsrImpl::send_reqs() {
 	shared_ptr<string> voice;
 	uint32_t err;
 	int32_t rv;
+	bool opr;
 
 	Log::d(tag__, "thread 'send_reqs' begin");
 	while (true) {
@@ -155,46 +227,64 @@ void AsrImpl::send_reqs() {
 			Log::d(tag__, "AsrImpl.send_reqs wait req available");
 			req_cond_.wait(locker);
 		} else {
+			opr = do_ctl_change_op(id, (uint32_t)r);
 			locker.unlock();
 
-			Log::d(tag__, "call do_request %d, %d, %d", id, r, err);
-			rv = do_request(id, (uint32_t)r, voice, err);
-
-			if (rv == 0) {
-				Log::d(tag__, "AsrImpl.send_reqs wait op finish");
-				unique_lock<mutex> resp_locker(resp_mutex_);
-				controller_.wait_op_finish(resp_locker);
+			if (opr) {
+				Log::d(tag__, "call do_request %d, %d, %d", id, r, err);
+				rv = do_request(id, (uint32_t)r, voice, err);
+				if (rv == 0) {
+					Log::d(tag__, "AsrImpl.send_reqs wait op finish");
+					unique_lock<mutex> resp_locker(resp_mutex_);
+					controller_.wait_op_finish(id, resp_locker);
+				}
 			}
 		}
 	}
 	Log::d(tag__, "thread 'send_reqs' quit");
 }
 
+bool AsrImpl::do_ctl_change_op(int32_t id, uint32_t type) {
+	shared_ptr<AsrOperationController::Operation> op =
+		controller_.current_op();
+	if (op.get()) {
+		if (type == StreamQueue<string>::POP_TYPE_REMOVED) {
+			op->status = AsrStatus::CANCELLED;
+			Log::d(tag__, "(%d) is processing, Status --> Cancelled", id);
+		}
+		return true;
+	}
+	if (type == StreamQueue<string>::POP_TYPE_START) {
+		controller_.new_op(id, AsrStatus::START);
+		return true;
+	}
+	if (type == StreamQueue<string>::POP_TYPE_REMOVED) {
+		controller_.new_op(id, AsrStatus::CANCELLED);
+		// no data send to server
+		// notify 'poll' function to generate 'CANCEL' result
+		resp_cond_.notify_one();
+		return false;
+	}
+	Log::d(tag__, "AsrImpl.do_ctl_change_op impossible execute here!\n"
+			"id is %d, type is %u, no current op", id, type);
+	assert(false);
+	return false;
+}
+
 int32_t AsrImpl::do_request(int32_t id, uint32_t type,
 		shared_ptr<string>& voice, uint32_t err) {
 	AsrRequest treq;
-	if (type == StreamQueue<string>::POP_TYPE_REMOVED) {
-		Log::d(tag__, "do_request: cancelled req");
-		unique_lock<mutex> locker(resp_mutex_);
-		controller_.new_op(id, ASR_STATUS_CANCELLED);
-		resp_cond_.notify_one();
-		locker.unlock();
-		return 0;
-	}
 	int32_t rv;
 	if (type == StreamQueue<string>::POP_TYPE_START) {
 		Log::d(tag__, "do_request: send asr start to server. (%d)", id);
-		unique_lock<mutex> locker(resp_mutex_);
-		controller_.new_op(id, ASR_STATUS_START);
-		locker.unlock();
-
 		treq.set_id(id);
 		treq.set_type(ReqType::START);
 		treq.set_lang(config_.get("lang", "zh"));
 		treq.set_codec(config_.get("codec", "pcm"));
 		treq.set_vt(config_.get("vt", ""));
 		rv = 1;
-	} else if (type == StreamQueue<string>::POP_TYPE_END) {
+	} else if (type == StreamQueue<string>::POP_TYPE_END
+			|| type == StreamQueue<string>::POP_TYPE_REMOVED) {
 		Log::d(tag__, "do_request: send asr end to server. (%d)", id);
 		treq.set_id(id);
 		treq.set_type(ReqType::END);
@@ -220,7 +310,8 @@ int32_t AsrImpl::do_request(int32_t id, uint32_t type,
 		Log::d(tag__, "AsrImpl.do_request: (%d) send failed %d, "
 				"set op error", id, r);
 		lock_guard<mutex> locker(resp_mutex_);
-		controller_.set_op_error(err, resp_cond_);
+		controller_.set_op_error(err);
+		resp_cond_.notify_one();
 		return -1;
 	}
 	return rv;
@@ -239,90 +330,60 @@ void AsrImpl::gen_results() {
 		unique_lock<mutex> locker(resp_mutex_);
 		if (r == CO_SUCCESS) {
 			gen_result_by_resp(resp);
-		} else if (r == CO_CONNECTION_BROKEN)
-			controller_.set_op_error(ASR_SERVICE_UNAVAILABLE, resp_cond_);
-		else
-			controller_.set_op_error(ASR_UNKNOWN, resp_cond_);
+		} else if (r == CO_CONNECTION_BROKEN) {
+			controller_.set_op_error(ASR_SERVICE_UNAVAILABLE);
+			resp_cond_.notify_one();
+		} else {
+			controller_.set_op_error(ASR_UNKNOWN);
+			resp_cond_.notify_one();
+		}
 		locker.unlock();
 	}
 	Log::d(tag__, "thread 'gen_results' quit");
 }
 
 void AsrImpl::gen_result_by_resp(AsrResponse& resp) {
-	if (controller_.id_ == resp.id()) {
-		shared_ptr<AsrResult> result;
-
-		if (controller_.status_ == ASR_STATUS_START) {
-			result.reset(new AsrResult());
-			result->id = resp.id();
-			result->type = ASR_RES_START;
-			responses_.push_back(result);
-			controller_.status_ = ASR_STATUS_STREAMING;
+	bool new_data = false;
+	shared_ptr<AsrOperationController::Operation> op;
+	op = controller_.current_op();
+	assert(op.get());
+	if (op->id == resp.id()) {
+		if (op->status == AsrStatus::START) {
+			responses_.start(resp.id());
+			op->status = AsrStatus::STREAMING;
+			new_data = true;
 			Log::d(tag__, "gen_result_by_resp(%d): push start resp, "
-					"Status Start --> Streaming", result->id);
+					"Status Start --> Streaming", resp.id());
 		}
-		if (!gen_result_by_status()) {
-			Log::d(tag__, "AsrResponse has_asr(%d), finish(%d)",
-					resp.has_asr(), resp.finish());
-			assert(controller_.status_ == ASR_STATUS_STREAMING);
-			if (resp.has_asr()) {
-				result.reset(new AsrResult());
-				result->id = resp.id();
-				result->type = ASR_RES_ASR;
-				result->asr = resp.asr();
-				responses_.push_back(result);
-				Log::d(tag__, "gen_result_by_resp(%d): push asr resp "
-						"%s", result->id, result->asr.c_str());
-			}
 
-			if (resp.finish()) {
-				result.reset(new AsrResult());
-				result->id = resp.id();
-				result->type = ASR_RES_END;
-				responses_.push_back(result);
+		Log::d(tag__, "AsrResponse has_asr(%d), finish(%d)",
+				resp.has_asr(), resp.finish());
+		if (resp.has_asr()) {
+			shared_ptr<string> asr(new string(resp.asr()));
+			responses_.stream(resp.id(), asr);
+			new_data = true;
+			Log::d(tag__, "gen_result_by_resp(%d): push asr resp "
+					"%s", resp.id(), asr->c_str());
+		}
+
+		if (resp.finish()) {
+			responses_.end(resp.id());
+			new_data = true;
+			if (op->status != AsrStatus::CANCELLED
+					&& op->status != AsrStatus::ERROR) {
+				op->status = AsrStatus::END;
 				Log::d(tag__, "gen_result_by_resp(%d): push end resp, "
-						"Status Streaming --> End", result->id);
-				controller_.finish_op();
+						"Status Streaming --> End", resp.id());
 			}
+			controller_.finish_op();
 		}
 
-		if (!responses_.empty()) {
+		if (new_data) {
 			Log::d(tag__, "some responses put to queue, "
 					"awake poll thread");
 			resp_cond_.notify_one();
 		}
 	}
-}
-
-bool AsrImpl::gen_result_by_status() {
-	shared_ptr<AsrResult> result;
-	if (controller_.id_ == 0) {
-		Log::d(tag__, "gen_result_by_status: Status End, return false");
-		return false;
-	}
-	if (controller_.status_ == ASR_STATUS_CANCELLED) {
-		result.reset(new AsrResult());
-		result->id = controller_.id_;
-		result->type = ASR_RES_CANCELLED;
-		responses_.push_back(result);
-		Log::d(tag__, "gen_result_by_status(%d) Status Cancelled --> "
-				"End, push result", result->id);
-		controller_.finish_op();
-		return true;
-	} else if (controller_.status_ == ASR_STATUS_ERROR) {
-		result.reset(new AsrResult());
-		result->id = controller_.id_;
-		result->type = ASR_RES_ERROR;
-		result->err = controller_.error_;
-		responses_.push_back(result);
-		Log::d(tag__, "gen_result_by_status(%d) Status Error --> End, "
-				"push result", result->id);
-		controller_.finish_op();
-		return true;
-	}
-	Log::d(tag__, "gen_result_by_status(%d) Other Status, return false",
-			controller_.id_);
-	return false;
 }
 
 Asr* new_asr() {

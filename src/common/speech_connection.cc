@@ -277,15 +277,17 @@ bool SpeechConnection::do_socket_poll() {
 			goto close_conn;
 		}
 		if (c == 0) {
-			push_error_resp();
-			goto close_conn;
+			if ((flags & WebSocket::FRAME_OP_BITMASK) ==
+					WebSocket::FRAME_OP_PONG) {
+				Log::d(CONN_TAG, "recv pong frame");
+				--pending_ping_;
+			} else {
+				push_error_resp();
+				goto close_conn;
+			}
 		} else if (c < 0) {
 			push_error_resp();
 			goto close_conn;
-		} else if ((flags & WebSocket::FRAME_OP_BITMASK) ==
-				WebSocket::FRAME_OP_PONG) {
-			Log::d(CONN_TAG, "recv pong frame");
-			--pending_ping_;
 		} else {
 			bin_resp = (SpeechBinaryResp*)malloc(c + sizeof(SpeechBinaryResp));
 			bin_resp->length = c;

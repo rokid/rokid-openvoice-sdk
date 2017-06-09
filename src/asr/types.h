@@ -30,12 +30,12 @@ public:
 };
 */
 
-enum AsrStatus {
-	ASR_STATUS_START = 0,
-	ASR_STATUS_STREAMING,
-	ASR_STATUS_END,
-	ASR_STATUS_CANCELLED,
-	ASR_STATUS_ERROR
+enum class AsrStatus {
+	START = 0,
+	STREAMING,
+	END,
+	CANCELLED,
+	ERROR
 };
 
 /**

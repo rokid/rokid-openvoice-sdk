@@ -3,10 +3,12 @@
 #include "asr.h"
 #include "pending_queue.h"
 #include "types.h"
-#include "asr_op_ctl.h"
+#include "op_ctl.h"
 
 namespace rokid {
 namespace speech {
+
+typedef OperationController<AsrStatus, AsrError> AsrOperationController;
 
 class AsrImpl : public Asr {
 public:
@@ -60,17 +62,19 @@ private:
 	int32_t do_request(int32_t id, uint32_t type,
 			std::shared_ptr<std::string>& voice, uint32_t err);
 
+	bool do_ctl_change_op(int32_t id, uint32_t type);
+
 private:
 	int32_t next_id_;
 	SpeechConfig config_;
 	SpeechConnection connection_;
 	StreamQueue<std::string> requests_;
-	std::list<std::shared_ptr<AsrResult> > responses_;
+	StreamQueue<std::string> responses_;
 	std::mutex req_mutex_;
 	std::condition_variable req_cond_;
 	std::mutex resp_mutex_;
 	std::condition_variable resp_cond_;
-	AsrOperatorController controller_;
+	AsrOperationController controller_;
 	std::thread* req_thread_;
 	std::thread* resp_thread_;
 	bool initialized_;

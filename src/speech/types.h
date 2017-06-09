@@ -45,6 +45,12 @@ enum class SpeechStatus {
 	ERROR
 };
 
+typedef struct {
+	std::string asr;
+	std::string nlp;
+	std::string action;
+} SpeechResultIn;
+
 /**
 class SpeechCommonArgument {
 public:

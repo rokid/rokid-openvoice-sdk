@@ -7,6 +7,7 @@ namespace rokid {
 namespace speech {
 
 using std::shared_ptr;
+using std::string;
 using std::thread;
 using std::mutex;
 using std::unique_lock;
@@ -45,7 +46,7 @@ void TtsImpl::release() {
 
 		// notify resp thread to exit
 		unique_lock<mutex> resp_locker(resp_mutex_);
-		responses_.clear();
+		responses_.close();
 		controller_.finish_op();
 		resp_cond_.notify_one();
 		resp_locker.unlock();
@@ -73,7 +74,7 @@ void TtsImpl::cancel(int32_t id) {
 	list<shared_ptr<TtsReqInfo> >::iterator it;
 	bool erased = false;
 
-	unique_lock<mutex> locker(req_mutex_);
+	lock_guard<mutex> locker(req_mutex_);
 	if (!initialized_)
 		return;
 	Log::d(tag__, "cancel %d", id);
@@ -85,30 +86,101 @@ void TtsImpl::cancel(int32_t id) {
 		}
 		++it;
 	}
-	locker.unlock();
-
-	lock_guard<mutex> resp_locker(resp_mutex_);
+	unique_lock<mutex> resp_locker(resp_mutex_);
 	if (id <= 0)
 		controller_.cancel_op(0, resp_cond_);
 	else if (!erased)
 		controller_.cancel_op(id, resp_cond_);
+	resp_locker.unlock();
 }
 
 void TtsImpl::config(const char* key, const char* value) {
 	config_.set(key, value);
 }
 
+static TtsResultType poptype_to_restype(int32_t type) {
+	static TtsResultType _tps[] = {
+		TTS_RES_VOICE,
+		TTS_RES_START,
+		TTS_RES_END,
+	};
+	assert(type >= 0 && type < sizeof(_tps)/sizeof(TtsResultType));
+	return _tps[type];
+}
+
+static TtsError integer_to_reserr(uint32_t err) {
+	switch (err) {
+		case 0:
+			return TTS_SUCCESS;
+		case 2:
+			return TTS_UNAUTHENTICATED;
+		case 3:
+			return TTS_CONNECTION_EXCEED;
+		case 4:
+			return TTS_SERVER_RESOURCE_EXHASTED;
+		case 5:
+			return TTS_SERVER_BUSY;
+		case 6:
+			return TTS_SERVER_INTERNAL;
+		case 101:
+			return TTS_SERVICE_UNAVAILABLE;
+		case 102:
+			return TTS_SDK_CLOSED;
+	}
+	return TTS_UNKNOWN;
+}
+
 bool TtsImpl::poll(TtsResult& res) {
+	shared_ptr<TtsOperationController::Operation> op;
+	int32_t id;
+	shared_ptr<string> voice;
+	int32_t poptype;
+	uint32_t err;
 	unique_lock<mutex> locker(resp_mutex_);
 	while (initialized_) {
-		if (!responses_.empty()) {
-			res = *responses_.front();
-			responses_.pop_front();
-			Log::d(tag__, "TtsImpl.poll return result %d", res.id);
-			return true;
+		op = controller_.front_op();
+		if (op.get()) {
+			if (op->status == TtsStatus::CANCELLED) {
+				if (responses_.erase(op->id)) {
+					responses_.pop(id, voice, err);
+					assert(id == op->id);
+				}
+				res.id = op->id;
+				res.type = TTS_RES_CANCELLED;
+				res.err = TTS_SUCCESS;
+				controller_.remove_front_op();
+				Log::d(tag__, "TtsImpl.poll (%d) cancelled, "
+						"remove front op", op->id);
+				return true;
+			} else if (op->status == TtsStatus::ERROR) {
+				if (responses_.erase(op->id)) {
+					responses_.pop(id, voice, err);
+					assert(id == op->id);
+				}
+				res.id = op->id;
+				res.type = TTS_RES_ERROR;
+				res.err = op->error;
+				controller_.remove_front_op();
+				Log::d(tag__, "TtsImpl.poll (%d) error, "
+						"remove front op", op->id);
+				return true;
+			} else {
+				poptype = responses_.pop(id, voice, err);
+				if (poptype != StreamQueue<string>::POP_TYPE_EMPTY) {
+					assert(id == op->id);
+					res.id = id;
+					res.type = poptype_to_restype(poptype);
+					res.err = integer_to_reserr(err);
+					res.voice = voice;
+					Log::d(tag__, "TtsImpl.poll return result %d", res.id);
+					if (res.type == TTS_RES_END) {
+						Log::d(tag__, "TtsImpl.poll (%d) end", res.id);
+						controller_.remove_front_op();
+					}
+					return true;
+				}
+			}
 		}
-		if (gen_result_by_status())
-			continue;
 		Log::d(tag__, "TtsImpl.poll wait");
 		resp_cond_.wait(locker);
 	}
@@ -118,6 +190,7 @@ bool TtsImpl::poll(TtsResult& res) {
 
 void TtsImpl::send_reqs() {
 	shared_ptr<TtsReqInfo> req;
+	TtsStatus status;
 	Log::d(tag__, "thread 'send_reqs' begin");
 	while (true) {
 		unique_lock<mutex> locker(req_mutex_);
@@ -129,47 +202,53 @@ void TtsImpl::send_reqs() {
 		} else {
 			req = requests_.front();
 			requests_.pop_front();
+			status = do_ctl_new_op(req);
 			locker.unlock();
 
-			do_request(req);
-
-			Log::d(tag__, "TtsImpl.send_reqs wait op finish");
-			unique_lock<mutex> resp_locker(resp_mutex_);
-			controller_.wait_op_finish(resp_locker);
+			if (status == TtsStatus::START && do_request(req)) {
+				Log::d(tag__, "TtsImpl.send_reqs wait op finish");
+				unique_lock<mutex> resp_locker(resp_mutex_);
+				controller_.wait_op_finish(req->id, resp_locker);
+			}
 		}
 	}
 	Log::d(tag__, "thread 'send_reqs' quit");
 }
 
-void TtsImpl::do_request(shared_ptr<TtsReqInfo> req) {
-	unique_lock<mutex> locker(resp_mutex_);
+TtsStatus TtsImpl::do_ctl_new_op(shared_ptr<TtsReqInfo>& req) {
+	lock_guard<mutex> locker(resp_mutex_);
 	if (req->deleted) {
-		Log::d(tag__, "do_request: cancelled req");
-		controller_.new_op(req->id, TTS_STATUS_CANCELLED);
+		Log::d(tag__, "do_ctl_new_op: cancelled");
+		controller_.new_op(req->id, TtsStatus::CANCELLED);
 		resp_cond_.notify_one();
-		locker.unlock();
-	} else {
-		Log::d(tag__, "do_request: send req to server. (%d:%s)",
-				req->id, req->data.c_str());
-		controller_.new_op(req->id, TTS_STATUS_START);
-		locker.unlock();
-		TtsRequest treq;
-		treq.set_id(req->id);
-		treq.set_text(req->data.c_str());
-		treq.set_declaimer(config_.get("declaimer", "zh"));
-		treq.set_codec(config_.get("codec", "pcm"));
-		int32_t r = connection_.send(treq, WS_SEND_TIMEOUT);
-		if (r != CO_SUCCESS) {
-			TtsError err = TTS_UNKNOWN;
-			if (r == CO_CONNECTION_NOT_AVAILABLE)
-				err = TTS_SERVICE_UNAVAILABLE;
-			Log::w(tag__, "do_request: (%d) send req failed %d, "
-					"set op error", req->id, r);
-			locker.lock();
-			controller_.set_op_error(err, resp_cond_);
-			locker.unlock();
-		}
+		return TtsStatus::CANCELLED;
 	}
+	Log::d(tag__, "do_ctl_new_op: start");
+	controller_.new_op(req->id, TtsStatus::START);
+	return TtsStatus::START;
+}
+
+bool TtsImpl::do_request(shared_ptr<TtsReqInfo>& req) {
+	Log::d(tag__, "do_request: send req to server. (%d:%s)",
+			req->id, req->data.c_str());
+	TtsRequest treq;
+	treq.set_id(req->id);
+	treq.set_text(req->data.c_str());
+	treq.set_declaimer(config_.get("declaimer", "zh"));
+	treq.set_codec(config_.get("codec", "pcm"));
+	int32_t r = connection_.send(treq, WS_SEND_TIMEOUT);
+	if (r != CO_SUCCESS) {
+		TtsError err = TTS_UNKNOWN;
+		if (r == CO_CONNECTION_NOT_AVAILABLE)
+			err = TTS_SERVICE_UNAVAILABLE;
+		Log::w(tag__, "do_request: (%d) send req failed %d, "
+				"set op error", req->id, r);
+		lock_guard<mutex> locker(resp_mutex_);
+		controller_.set_op_error(err);
+		resp_cond_.notify_one();
+		return false;
+	}
+	return true;
 }
 
 void TtsImpl::gen_results() {
@@ -185,93 +264,65 @@ void TtsImpl::gen_results() {
 		unique_lock<mutex> locker(resp_mutex_);
 		if (r == CO_SUCCESS) {
 			gen_result_by_resp(resp);
-		} else if (r == CO_CONNECTION_BROKEN)
-			controller_.set_op_error(TTS_SERVICE_UNAVAILABLE, resp_cond_);
-		else
-			controller_.set_op_error(TTS_UNKNOWN, resp_cond_);
+		} else if (r == CO_CONNECTION_BROKEN) {
+			controller_.set_op_error(TTS_SERVICE_UNAVAILABLE);
+			resp_cond_.notify_one();
+		} else {
+			controller_.set_op_error(TTS_UNKNOWN);
+			resp_cond_.notify_one();
+		}
 		locker.unlock();
 	}
 	Log::d(tag__, "thread 'gen_results' quit");
 }
 
 void TtsImpl::gen_result_by_resp(TtsResponse& resp) {
-	if (controller_.id_ == resp.id()) {
-		shared_ptr<TtsResult> result;
-
-		if (controller_.status_ == TTS_STATUS_START) {
-			result.reset(new TtsResult());
-			result->id = resp.id();
-			result->type = TTS_RES_START;
-			responses_.push_back(result);
-			controller_.status_ = TTS_STATUS_STREAMING;
+	bool new_data = false;
+	shared_ptr<TtsOperationController::Operation> op;
+	op = controller_.current_op();
+	assert(op.get());
+	if (op->id == resp.id()) {
+		if (op->status == TtsStatus::START) {
+			responses_.start(resp.id());
+			new_data = true;
+			op->status = TtsStatus::STREAMING;
 			Log::d(tag__, "gen_result_by_resp(%d): push start resp, "
-					"Status Start --> Streaming", result->id);
+					"Status Start --> Streaming", resp.id());
 		}
-		if (!gen_result_by_status()) {
-			Log::d(tag__, "TtsResponse has_voice(%d), finish(%d)",
-					resp.has_voice(), resp.finish());
-			assert(controller_.status_ == TTS_STATUS_STREAMING);
-			if (resp.has_voice()) {
-				result.reset(new TtsResult());
-				result->id = resp.id();
-				result->type = TTS_RES_VOICE;
+
+		Log::d(tag__, "TtsResponse has_voice(%d), finish(%d)",
+				resp.has_voice(), resp.finish());
+		if (resp.has_voice()) {
+			shared_ptr<string> voice;
 #ifdef LOW_PB_VERSION
-				result->voice.reset(new string(resp.voice()));
+			voice.reset(new string(resp.voice()));
 #else
-				result->voice.reset(resp.release_voice());
+			voice.reset(resp.release_voice());
 #endif
-				responses_.push_back(result);
-				Log::d(tag__, "gen_result_by_resp(%d): push voice "
-						"resp, %d bytes", result->id,
-						result->voice->length());
-			}
-
-			if (resp.finish()) {
-				result.reset(new TtsResult());
-				result->id = resp.id();
-				result->type = TTS_RES_END;
-				responses_.push_back(result);
-				Log::d(tag__, "gen_result_by_resp(%d): push end resp, "
-						"Status Streaming --> End", result->id);
-				controller_.finish_op();
-			}
+			responses_.stream(resp.id(), voice);
+			new_data = true;
+			Log::d(tag__, "gen_result_by_resp(%d): push voice "
+					"resp, %d bytes", resp.id(), voice->length());
 		}
 
-		if (!responses_.empty()) {
+		if (resp.finish()) {
+			responses_.end(resp.id());
+			new_data = true;
+			if (op->status != TtsStatus::CANCELLED
+					&& op->status != TtsStatus::ERROR) {
+				op->status = TtsStatus::END;
+				Log::d(tag__, "gen_result_by_resp(%d): push end resp, "
+						"Status Streaming --> End", resp.id());
+			}
+			controller_.finish_op();
+		}
+
+		if (new_data) {
+			Log::d(tag__, "some responses put to queue, "
+					"awake poll thread");
 			resp_cond_.notify_one();
 		}
 	}
-}
-
-bool TtsImpl::gen_result_by_status() {
-	shared_ptr<TtsResult> result;
-	if (controller_.id_ == 0) {
-		Log::d(tag__, "gen_result_by_status: Status End, return false");
-		return false;
-	}
-	if (controller_.status_ == TTS_STATUS_CANCELLED) {
-		result.reset(new TtsResult());
-		result->id = controller_.id_;
-		result->type = TTS_RES_CANCELLED;
-		responses_.push_back(result);
-		Log::d(tag__, "gen_result_by_status(%d) Status Cancelled --> "
-				"End, push result", result->id);
-		controller_.finish_op();
-		return true;
-	} else if (controller_.status_ == TTS_STATUS_ERROR) {
-		result.reset(new TtsResult());
-		result->id = controller_.id_;
-		result->type = TTS_RES_ERROR;
-		result->err = controller_.error_;
-		responses_.push_back(result);
-		Log::d(tag__, "gen_result_by_status(%d) Status Error --> "
-				"End, push result", result->id);
-		controller_.finish_op();
-		return true;
-	}
-	Log::d(tag__, "gen_result_by_status(%d) Other Status, "
-			"return false", controller_.id_);
-	return false;
 }
 
 Tts* new_tts() {

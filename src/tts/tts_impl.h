@@ -8,12 +8,15 @@
 #include "tts.h"
 #include "speech_config.h"
 #include "speech_connection.h"
-#include "tts_op_ctl.h"
+#include "op_ctl.h"
 #include "types.h"
 #include "speech.pb.h"
+#include "pending_queue.h"
 
 namespace rokid {
 namespace speech {
+
+typedef OperationController<TtsStatus, TtsError> TtsOperationController;
 
 class TtsImpl : public Tts {
 public:
@@ -59,19 +62,21 @@ private:
 
 	bool gen_result_by_status();
 
-	void do_request(std::shared_ptr<TtsReqInfo> req);
+	bool do_request(std::shared_ptr<TtsReqInfo>& req);
+
+	TtsStatus do_ctl_new_op(std::shared_ptr<TtsReqInfo>& req);
 
 private:
 	int32_t next_id_;
 	SpeechConfig config_;
 	SpeechConnection connection_;
 	std::list<std::shared_ptr<TtsReqInfo> > requests_;
-	std::list<std::shared_ptr<TtsResult> > responses_;
+	StreamQueue<std::string> responses_;
 	std::mutex req_mutex_;
 	std::condition_variable req_cond_;
 	std::mutex resp_mutex_;
 	std::condition_variable resp_cond_;
-	TtsOperatorController controller_;
+	TtsOperationController controller_;
 	std::thread* req_thread_;
 	std::thread* resp_thread_;
 	bool initialized_;

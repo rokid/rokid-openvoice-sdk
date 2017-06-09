@@ -20,12 +20,12 @@ typedef struct {
 } TtsRespInfo;
 */
 
-enum TtsStatus {
-	TTS_STATUS_START = 0,
-	TTS_STATUS_STREAMING,
-	TTS_STATUS_END,
-	TTS_STATUS_CANCELLED,
-	TTS_STATUS_ERROR
+enum class TtsStatus {
+	START = 0,
+	STREAMING,
+	END,
+	CANCELLED,
+	ERROR
 };
 
 /**

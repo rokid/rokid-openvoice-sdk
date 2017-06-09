@@ -55,11 +55,11 @@
 			'include',
 		],
 		'sources': [
+			'<(src_dir)/common/pending_queue.h',
+			'<(src_dir)/common/op_ctl.h',
 			'<(src_dir)/tts/types.h',
 			'<(src_dir)/tts/tts_impl.cc',
 			'<(src_dir)/tts/tts_impl.h',
-			'<(src_dir)/tts/tts_op_ctl.cc',
-			'<(src_dir)/tts/tts_op_ctl.h',
 		],
 	}, # target 'tts'
 	{
@@ -70,11 +70,10 @@
 		],
 		'sources': [
 			'<(src_dir)/common/pending_queue.h',
+			'<(src_dir)/common/op_ctl.h',
 			'<(src_dir)/asr/types.h',
 			'<(src_dir)/asr/asr_impl.cc',
 			'<(src_dir)/asr/asr_impl.h',
-			'<(src_dir)/asr/asr_op_ctl.cc',
-			'<(src_dir)/asr/asr_op_ctl.h',
 		],
 		'include_dirs': [
 			'include',
@@ -91,10 +90,10 @@
 		],
 		'sources': [
 			'<(src_dir)/common/pending_queue.h',
+			'<(src_dir)/common/op_ctl.h',
+			'<(src_dir)/common/pending_queue.h',
 			'<(src_dir)/speech/speech_impl.h',
 			'<(src_dir)/speech/speech_impl.cc',
-			'<(src_dir)/speech/speech_op_ctl.h',
-			'<(src_dir)/speech/speech_op_ctl.cc',
 		],
 		'include_dirs': [
 			'include',

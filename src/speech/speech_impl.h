@@ -9,12 +9,14 @@
 #include "speech.h"
 #include "types.h"
 #include "speech.pb.h"
-#include "speech_op_ctl.h"
+#include "op_ctl.h"
 #include "pending_queue.h"
 #include "speech_connection.h"
 
 namespace rokid {
 namespace speech {
+
+typedef OperationController<SpeechStatus, SpeechError> SpeechOperationController;
 
 class SpeechImpl : public Speech {
 public:
@@ -51,18 +53,20 @@ private:
 
 	int32_t do_request(std::shared_ptr<SpeechReqInfo>& req);
 
+	bool do_ctl_change_op(std::shared_ptr<SpeechReqInfo>& req);
+
 private:
 	int32_t next_id_;
 	SpeechConfig config_;
 	SpeechConnection connection_;
 	std::list<std::shared_ptr<SpeechReqInfo> > text_reqs_;
 	StreamQueue<std::string> voice_reqs_;
-	std::list<std::shared_ptr<SpeechResult> > responses_;
+	StreamQueue<SpeechResultIn> responses_;
 	std::mutex req_mutex_;
 	std::condition_variable req_cond_;
 	std::mutex resp_mutex_;
 	std::condition_variable resp_cond_;
-	SpeechOperatorController controller_;
+	SpeechOperationController controller_;
 	std::thread* req_thread_;
 	std::thread* resp_thread_;
 	bool initialized_;

@@ -44,7 +44,7 @@ void SpeechImpl::release() {
 
 		// notify resp thread to exit
 		unique_lock<mutex> resp_locker(resp_mutex_);
-		responses_.clear();
+		responses_.close();
 		controller_.finish_op();
 		resp_cond_.notify_one();
 		resp_locker.unlock();
@@ -106,7 +106,7 @@ void SpeechImpl::end_voice(int32_t id) {
 }
 
 void SpeechImpl::cancel(int32_t id) {
-	unique_lock<mutex> req_locker(req_mutex_);
+	lock_guard<mutex> req_locker(req_mutex_);
 	if (!initialized_)
 		return;
 	Log::d(tag__, "cancel %d", id);
@@ -122,7 +122,6 @@ void SpeechImpl::cancel(int32_t id) {
 				return;
 			}
 		}
-		req_locker.unlock();
 		lock_guard<mutex> resp_locker(resp_mutex_);
 		controller_.cancel_op(id, resp_cond_);
 	} else {
@@ -134,7 +133,6 @@ void SpeechImpl::cancel(int32_t id) {
 		for (it = text_reqs_.begin(); it != text_reqs_.end(); ++it) {
 			(*it)->type = SpeechReqType::CANCELLED;
 		}
-		req_locker.unlock();
 		lock_guard<mutex> resp_locker(resp_mutex_);
 		controller_.cancel_op(0, resp_cond_);
 	}
@@ -144,21 +142,97 @@ void SpeechImpl::config(const char* key, const char* value) {
 	config_.set(key, value);
 }
 
+static SpeechResultType poptype_to_restype(int32_t type) {
+	static SpeechResultType _tps[] = {
+		SPEECH_RES_NLP,
+		SPEECH_RES_START,
+		SPEECH_RES_END,
+	};
+	assert(type >= 0 && type < sizeof(_tps)/sizeof(SpeechResultType));
+	return _tps[type];
+}
+
+static SpeechError integer_to_reserr(uint32_t err) {
+	switch (err) {
+		case 0:
+			return SPEECH_SUCCESS;
+		case 2:
+			return SPEECH_UNAUTHENTICATED;
+		case 3:
+			return SPEECH_CONNECTION_EXCEED;
+		case 4:
+			return SPEECH_SERVER_RESOURCE_EXHASTED;
+		case 5:
+			return SPEECH_SERVER_BUSY;
+		case 6:
+			return SPEECH_SERVER_INTERNAL;
+		case 101:
+			return SPEECH_SERVICE_UNAVAILABLE;
+		case 102:
+			return SPEECH_SDK_CLOSED;
+	}
+	return SPEECH_UNKNOWN;
+}
+
 bool SpeechImpl::poll(SpeechResult& res) {
+	shared_ptr<SpeechOperationController::Operation> op;
+	int32_t id;
+	shared_ptr<SpeechResultIn> resin;
+	int32_t poptype;
+	uint32_t err;
 	unique_lock<mutex> locker(resp_mutex_);
 	while (initialized_) {
-		if (!responses_.empty()) {
-			res = *responses_.front();
-			responses_.pop_front();
-			Log::d(tag__, "SpeechImpl.poll return result %d", res.id);
-			return true;
+		op = controller_.front_op();
+		if (op.get()) {
+			if (op->status == SpeechStatus::CANCELLED) {
+				if (responses_.erase(op->id)) {
+					responses_.pop(id, resin, err);
+					assert(id == op->id);
+				}
+				res.id = op->id;
+				res.type = SPEECH_RES_CANCELLED;
+				res.err = SPEECH_SUCCESS;
+				controller_.remove_front_op();
+				Log::d(tag__, "SpeechImpl.poll (%d) cancelled, "
+						"remove front op", op->id);
+				return true;
+			} else if (op->status == SpeechStatus::ERROR) {
+				if (responses_.erase(op->id)) {
+					responses_.pop(id, resin, err);
+					assert(id == op->id);
+				}
+				res.id = op->id;
+				res.type = SPEECH_RES_ERROR;
+				res.err = op->error;
+				controller_.remove_front_op();
+				Log::d(tag__, "SpeechImpl.poll (%d) error, "
+						"remove front op", op->id);
+				return true;
+			} else {
+				poptype = responses_.pop(id, resin, err);
+				if (poptype != StreamQueue<string>::POP_TYPE_EMPTY) {
+					assert(id == op->id);
+					res.id = id;
+					res.type = poptype_to_restype(poptype);
+					res.err = integer_to_reserr(err);
+					if (res.type == SPEECH_RES_NLP) {
+						res.asr = resin->asr;
+						res.nlp = resin->nlp;
+						res.action = resin->action;
+					}
+					Log::d(tag__, "SpeechImpl.poll return result %d", res.id);
+					if (res.type == SPEECH_RES_END) {
+						Log::d(tag__, "SpeechImpl.poll (%d) end", res.id);
+						controller_.remove_front_op();
+					}
+					return true;
+				}
+			}
 		}
-		if (gen_result_by_status())
-			continue;
 		Log::d(tag__, "SpeechImpl.poll wait");
 		resp_cond_.wait(locker);
 	}
-	Log::d(tag__, "SpeechImpl.poll return false;");
+	Log::d(tag__, "SpeechImpl.poll return false, sdk released");
 	return false;
 }
 
@@ -180,6 +254,7 @@ void SpeechImpl::send_reqs() {
 	uint32_t err;
 	int32_t rv;
 	shared_ptr<SpeechReqInfo> info;
+	bool opr;
 
 	Log::d(tag__, "thread 'send_reqs' begin");
 	while (true) {
@@ -200,16 +275,48 @@ void SpeechImpl::send_reqs() {
 			req_cond_.wait(locker);
 			continue;
 		}
+		opr = do_ctl_change_op(info);
 		locker.unlock();
 
-		rv = do_request(info);
-		if (rv == 0) {
-			Log::d(tag__, "SpeechImpl.send_reqs wait op finish");
-			unique_lock<mutex> resp_locker(resp_mutex_);
-			controller_.wait_op_finish(resp_locker);
+		if (opr) {
+			rv = do_request(info);
+			if (rv == 0) {
+				Log::d(tag__, "SpeechImpl.send_reqs wait op finish");
+				unique_lock<mutex> resp_locker(resp_mutex_);
+				controller_.wait_op_finish(info->id, resp_locker);
+			}
 		}
 	}
 	Log::d(tag__, "thread 'send_reqs' quit");
+}
+
+bool SpeechImpl::do_ctl_change_op(std::shared_ptr<SpeechReqInfo>& req) {
+	shared_ptr<SpeechOperationController::Operation> op =
+		controller_.current_op();
+	if (req->type == SpeechReqType::TEXT
+			|| req->type == SpeechReqType::VOICE_START) {
+		assert(op.get() == NULL);
+		controller_.new_op(req->id, SpeechStatus::START);
+		return true;
+	}
+	if (op.get()) {
+		if (req->type == SpeechReqType::VOICE_END
+				|| req->type == SpeechReqType::VOICE_DATA)
+			return true;
+		assert(req->type == SpeechReqType::CANCELLED);
+		op->status = SpeechStatus::CANCELLED;
+		Log::d(tag__, "(%d) is processing, Status --> Cancelled",
+				req->id);
+		return true;
+	}
+	if (req->type == SpeechReqType::CANCELLED) {
+		controller_.new_op(req->id, SpeechStatus::CANCELLED);
+		// no data send to server
+		// notify 'poll' function to generate 'CANCEL' result
+		resp_cond_.notify_one();
+		return false;
+	}
+	return false;
 }
 
 static void req_config(SpeechRequest& req, SpeechConfig& config) {
@@ -233,8 +340,6 @@ int32_t SpeechImpl::do_request(shared_ptr<SpeechReqInfo>& req) {
 
 			Log::d(tag__, "SpeechImpl.do_request (%d) send text req",
 					req->id);
-			lock_guard<mutex> locker(resp_mutex_);
-			controller_.new_op(req->id, SpeechStatus::START);
 			break;
 		}
 		case SpeechReqType::VOICE_START: {
@@ -244,25 +349,16 @@ int32_t SpeechImpl::do_request(shared_ptr<SpeechReqInfo>& req) {
 
 			Log::d(tag__, "SpeechImpl.do_request (%d) send voice start",
 					req->id);
-			lock_guard<mutex> locker(resp_mutex_);
-			controller_.new_op(req->id, SpeechStatus::START);
 			break;
 		}	
 		case SpeechReqType::VOICE_END:
+		case SpeechReqType::CANCELLED:
 			treq.set_id(req->id);
 			treq.set_type(ReqType::END);
 			rv = 0;
 			Log::d(tag__, "SpeechImpl.do_request (%d) send voice end",
 					req->id);
 			break;
-		case SpeechReqType::CANCELLED: {
-			lock_guard<mutex> locker(resp_mutex_);
-			Log::d(tag__, "SpeechImpl.do_request (%d) cancel req",
-					req->id);
-			controller_.new_op(req->id, SpeechStatus::CANCELLED);
-			resp_cond_.notify_one();
-			return 0;
-		}
 		case SpeechReqType::VOICE_DATA:
 			treq.set_id(req->id);
 			treq.set_type(ReqType::END);
@@ -285,7 +381,8 @@ int32_t SpeechImpl::do_request(shared_ptr<SpeechReqInfo>& req) {
 		Log::w(tag__, "SpeechImpl.do_request: (%d) send req failed "
 				"%d, set op error", req->id, r);
 		lock_guard<mutex> locker(resp_mutex_);
-		controller_.set_op_error(err, resp_cond_);
+		controller_.set_op_error(err);
+		resp_cond_.notify_one();
 		return -1;
 	}
 	return rv;
@@ -304,89 +401,60 @@ void SpeechImpl::gen_results() {
 		unique_lock<mutex> locker(resp_mutex_);
 		if (r == CO_SUCCESS) {
 			gen_result_by_resp(resp);
-		} else if (r == CO_CONNECTION_BROKEN)
-			controller_.set_op_error(SPEECH_SERVICE_UNAVAILABLE, resp_cond_);
-		else
-			controller_.set_op_error(SPEECH_UNKNOWN, resp_cond_);
+		} else if (r == CO_CONNECTION_BROKEN) {
+			controller_.set_op_error(SPEECH_SERVICE_UNAVAILABLE);
+			resp_cond_.notify_one();
+		} else {
+			controller_.set_op_error(SPEECH_UNKNOWN);
+			resp_cond_.notify_one();
+		}
 		locker.unlock();
 	}
 	Log::d(tag__, "thread 'gen_results' quit");
 }
 
 void SpeechImpl::gen_result_by_resp(SpeechResponse& resp) {
-	if (controller_.id_ == resp.id()) {
-		shared_ptr<SpeechResult> result;
-
-		if (controller_.status_ == SpeechStatus::START) {
-			result.reset(new SpeechResult());
-			result->id = resp.id();
-			result->type = SPEECH_RES_START;
-			responses_.push_back(result);
-			controller_.status_ = SpeechStatus::STREAMING;
+	bool new_data = false;
+	shared_ptr<SpeechOperationController::Operation> op =
+		controller_.current_op();
+	assert(op.get());
+	if (op->id == resp.id()) {
+		if (op->status == SpeechStatus::START) {
+			responses_.start(resp.id());
+			op->status = SpeechStatus::STREAMING;
+			new_data = true;
 			Log::d(tag__, "gen_result_by_resp(%d): push start resp, "
-					"Status Start --> Streaming", result->id);
+					"Status Start --> Streaming", resp.id());
 		}
-		if (!gen_result_by_status()) {
-			Log::d(tag__, "SpeechResponse finish(%d)", resp.finish());
-			assert(controller_.status_ == SpeechStatus::STREAMING);
-			result.reset(new SpeechResult());
-			result->id = resp.id();
-			result->type = SPEECH_RES_NLP;
-			result->asr = resp.asr();
-			result->nlp = resp.nlp();
-			result->action = resp.action();
-			responses_.push_back(result);
-			Log::d(tag__, "gen_result_by_resp(%d): push nlp resp "
-					"%s", result->id, result->action.c_str());
 
-			if (resp.finish()) {
-				result.reset(new SpeechResult());
-				result->id = resp.id();
-				result->type = SPEECH_RES_END;
-				responses_.push_back(result);
+		Log::d(tag__, "SpeechResponse finish(%d)", resp.finish());
+		shared_ptr<SpeechResultIn> resin(new SpeechResultIn());
+		resin->asr = resp.asr();
+		resin->nlp = resp.nlp();
+		resin->action = resp.action();
+		responses_.stream(resp.id(), resin);
+		new_data = true;
+		Log::d(tag__, "gen_result_by_resp(%d): push nlp resp "
+				"%s", resp.id(), resin->action.c_str());
+
+		if (resp.finish()) {
+			responses_.end(resp.id());
+			new_data = true;
+			if (op->status != SpeechStatus::CANCELLED
+					&& op->status != SpeechStatus::ERROR) {
+				op->status = SpeechStatus::END;
 				Log::d(tag__, "gen_result_by_resp(%d): push end resp, "
-						"Status Streaming --> End", result->id);
-				controller_.finish_op();
+						"Status Streaming --> End", resp.id());
 			}
+			controller_.finish_op();
 		}
 
-		if (!responses_.empty()) {
+		if (new_data) {
 			Log::d(tag__, "some responses put to queue, "
 					"awake poll thread");
 			resp_cond_.notify_one();
 		}
 	}
-}
-
-bool SpeechImpl::gen_result_by_status() {
-	if (controller_.id_ == 0) {
-		Log::d(tag__, "gen_result_by_status: Status End, return false");
-		return false;
-	}
-	shared_ptr<SpeechResult> result;
-	if (controller_.status_ == SpeechStatus::CANCELLED) {
-		result.reset(new SpeechResult());
-		result->id = controller_.id_;
-		result->type = SPEECH_RES_CANCELLED;
-		responses_.push_back(result);
-		Log::d(tag__, "gen_result_by_status(%d) Status Cancelled --> "
-				"End, push result", result->id);
-		controller_.finish_op();
-		return true;
-	} else if (controller_.status_ == SpeechStatus::ERROR) {
-		result.reset(new SpeechResult());
-		result->id = controller_.id_;
-		result->type = SPEECH_RES_ERROR;
-		result->err = controller_.error_;
-		responses_.push_back(result);
-		Log::d(tag__, "gen_result_by_status(%d) Status Error --> End, "
-				"push result", result->id);
-		controller_.finish_op();
-		return true;
-	}
-	Log::d(tag__, "gen_result_by_status(%d) Other Status, return false",
-			controller_.id_);
-	return false;
 }
 
 Speech* new_speech() {
