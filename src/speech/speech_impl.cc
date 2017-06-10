@@ -361,7 +361,7 @@ int32_t SpeechImpl::do_request(shared_ptr<SpeechReqInfo>& req) {
 			break;
 		case SpeechReqType::VOICE_DATA:
 			treq.set_id(req->id);
-			treq.set_type(ReqType::END);
+			treq.set_type(ReqType::VOICE);
 			treq.set_voice(*req->data);
 			Log::d(tag__, "SpeechImpl.do_request (%d) send voice data",
 					req->id);
