@@ -265,9 +265,8 @@ bool AsrImpl::do_ctl_change_op(int32_t id, uint32_t type) {
 		resp_cond_.notify_one();
 		return false;
 	}
-	Log::d(tag__, "AsrImpl.do_ctl_change_op impossible execute here!\n"
-			"id is %d, type is %u, no current op", id, type);
-	assert(false);
+	Log::d(tag__, "AsrImpl.do_ctl_change_op id is %d, type is %u, "
+			"no current op, discard req data", id, type);
 	return false;
 }
 

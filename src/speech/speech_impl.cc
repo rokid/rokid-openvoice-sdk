@@ -295,6 +295,8 @@ bool SpeechImpl::do_ctl_change_op(std::shared_ptr<SpeechReqInfo>& req) {
 		controller_.current_op();
 	if (req->type == SpeechReqType::TEXT
 			|| req->type == SpeechReqType::VOICE_START) {
+		Log::d(tag__, "do_ctl_change_op: req type is %d, new op START",
+				req->type);
 		assert(op.get() == NULL);
 		controller_.new_op(req->id, SpeechStatus::START);
 		return true;
@@ -310,6 +312,8 @@ bool SpeechImpl::do_ctl_change_op(std::shared_ptr<SpeechReqInfo>& req) {
 		return true;
 	}
 	if (req->type == SpeechReqType::CANCELLED) {
+		Log::d(tag__, "do_ctl_change_op: req type is %d, new op CANCELLED",
+				req->type);
 		controller_.new_op(req->id, SpeechStatus::CANCELLED);
 		// no data send to server
 		// notify 'poll' function to generate 'CANCEL' result
