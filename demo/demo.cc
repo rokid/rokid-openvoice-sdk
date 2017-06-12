@@ -11,11 +11,9 @@ static void ws_demo();
 int main(int argc, char** argv) {
 	tts_demo();
 
-	// asr_demo();
+	asr_demo();
 
-	// nlp_demo();
-
-	// speech_demo();
+	speech_demo();
 
 	// ws_demo();
 
@@ -34,6 +32,7 @@ int main(int argc, char** argv) {
 #include "Poco/Net/WebSocket.h"
 #include "Poco/Net/HTTPSClientSession.h"
 #include "Poco/Net/Context.h"
+#include "Poco/Exception.h"
 #include "speech.pb.h"
 
 using Poco::SharedPtr;
@@ -48,6 +47,7 @@ using Poco::Net::HTTPRequest;
 using Poco::Net::HTTPResponse;
 using Poco::Net::HTTPMessage;
 using Poco::Net::WebSocket;
+using Poco::Exception;
 using rokid::open::AuthRequest;
 
 static void ws_demo() {
@@ -87,7 +87,7 @@ static void ws_demo() {
 				resp.key().c_str(), resp.device_type_id().c_str(), resp.device_id().c_str(),
 				resp.service().c_str(), resp.version().c_str());
 		ws->close();
-	} catch (std::exception &e) {
-		printf("Exception: %s\n", e.what());
+	} catch (Exception &e) {
+		printf("Exception: %s\n", e.message().c_str());
 	}
 }

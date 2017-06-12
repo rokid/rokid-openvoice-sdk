@@ -10,7 +10,7 @@
 #include "Poco/Net/HTTPRequest.h"
 #include "Poco/Net/HTTPResponse.h"
 #include "Poco/Net/HTTPMessage.h"
-#include "Poco/Net/NetException.h"
+#include "Poco/Exception.h"
 #include "Poco/SharedPtr.h"
 #include "Poco/Net/PrivateKeyPassphraseHandler.h"
 #include "Poco/Net/InvalidCertificateHandler.h"
@@ -40,7 +40,7 @@ using Poco::Net::HTTPRequest;
 using Poco::Net::HTTPResponse;
 using Poco::Net::HTTPMessage;
 using Poco::Net::WebSocket;
-using Poco::Net::NetException;
+using Poco::Exception;
 using Poco::SharedPtr;
 using Poco::Net::PrivateKeyPassphraseHandler;
 using Poco::Net::KeyConsoleHandler;
@@ -174,8 +174,9 @@ shared_ptr<WebSocket> SpeechConnection::connect() {
 
 	try {
 		sock.reset(new WebSocket(cs, request, response));
-	} catch (exception e) {
-		Log::w(CONN_TAG, "websocket connect failed: %s", e.what());
+	} catch (Exception e) {
+		Log::w(CONN_TAG, "websocket connect failed: %s",
+				e.displayText().c_str());
 		return NULL;
 	}
 	return sock;
@@ -266,13 +267,9 @@ bool SpeechConnection::do_socket_poll() {
 			c = web_socket_->receiveFrame(buffer_, buffer_size_, flags);
 			Log::d(CONN_TAG, "socket recv %d bytes, flags 0x%x", c, flags);
 			Log::d(CONN_TAG, "after recv frame, avail = %d", web_socket_->available());
-		} catch (NetException e) {
+		} catch (Exception e) {
 			Log::w(CONN_TAG, "websocket receive failed, exception = %s",
-					e.what());
-			push_error_resp();
-			goto close_conn;
-		} catch (Poco::AssertionViolationException e) {
-			Log::w(CONN_TAG, "websocket recv exception %s", e.what());
+					e.displayText().c_str());
 			push_error_resp();
 			goto close_conn;
 		}
@@ -433,8 +430,8 @@ bool SpeechConnection::send(const void* data, uint32_t length) {
 			Log::d(CONN_TAG, "websocket send frame %u:%lu bytes",
 					offset, length);
 		}
-	} catch (exception e) {
-		Log::w(CONN_TAG, "send frame failed: %s", e.what());
+	} catch (Exception e) {
+		Log::w(CONN_TAG, "send frame failed: %s", e.displayText().c_str());
 		return false;
 	}
 	return true;
@@ -452,8 +449,8 @@ bool SpeechConnection::init_ssl(SpeechConfig* config) {
 					"", config->get("ssl_roots_pem", ""));
 			SSLManager::instance().initializeClient(key_handler,
 					cert_handler, context);
-		} catch (std::exception e) {
-			Log::e(CONN_TAG, "initialize ssl failed: %s", e.what());
+		} catch (Exception e) {
+			Log::e(CONN_TAG, "initialize ssl failed: %s", e.displayText().c_str());
 			return false;
 		}
 		ssl_initialized_ = true;
