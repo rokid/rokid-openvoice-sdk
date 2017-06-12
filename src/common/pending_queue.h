@@ -194,7 +194,7 @@ public:
 
 	bool start(int32_t id) {
 		if (item_tags_.find(id) != item_tags_.end()) {
-			Log::d(STREAM_QUEUE_TAG, "add tag for %d failed, already existed", id);
+			Log::i(STREAM_QUEUE_TAG, "add tag for %d failed, already existed", id);
 			return false;
 		}
 
@@ -207,7 +207,9 @@ public:
 		it = queue_.insert(queue_.end(), item);
 		item_tags_.insert(pair<int, StreamingItemPos>(item->id, it));
 		tag_queue_.push_back(it);
+#ifdef SPEECH_SDK_STREAM_QUEUE_TRACE
 		Log::d(STREAM_QUEUE_TAG, "add tag for id %d", id);
+#endif
 		return true;
 	}
 
@@ -217,9 +219,9 @@ public:
 		if (it == item_tags_.end()
 				|| (*it->second)->type != QueueItem::uncompleted) {
 			if (it == item_tags_.end())
-				Log::d(STREAM_QUEUE_TAG, "add data for id %d failed, the tag not existed", id);
+				Log::i(STREAM_QUEUE_TAG, "add data for id %d failed, the tag not existed", id);
 			else
-				Log::d(STREAM_QUEUE_TAG, "add data for id %d failed, the tag type is %d", id, (*it->second)->type);
+				Log::i(STREAM_QUEUE_TAG, "add data for id %d failed, the tag type is %d", id, (*it->second)->type);
 			return false;
 		}
 
@@ -228,7 +230,9 @@ public:
 		item->content = data;
 		queue_.insert(it->second, item);
 		++(*it->second)->data_count;
+#ifdef SPEECH_SDK_STREAM_QUEUE_TRACE
 		Log::d(STREAM_QUEUE_TAG, "add data for id %d, data count is %d", id, (*it->second)->data_count);
+#endif
 		return true;
 	}
 
@@ -237,11 +241,13 @@ public:
 
 		it = item_tags_.find(id);
 		if (it == item_tags_.end()) {
-			Log::d(STREAM_QUEUE_TAG, "complete tag for id %d failed, tag not existed", id);
+			Log::i(STREAM_QUEUE_TAG, "complete tag for id %d failed, tag not existed", id);
 			return false;
 		}
 		(*it->second)->type = QueueItem::completed;
+#ifdef SPEECH_SDK_STREAM_QUEUE_TRACE
 		Log::d(STREAM_QUEUE_TAG, "complete tag for id %d, data count is %d", id, (*it->second)->data_count);
+#endif
 		return true;
 	}
 
@@ -278,8 +284,10 @@ public:
 				(*last_it)->type = QueueItem::deleted;
 			if (first_it != last_it) {
 				(*last_it)->data_count -= c;
+#ifdef SPEECH_SDK_STREAM_QUEUE_TRACE
 				Log::d(STREAM_QUEUE_TAG, "erase %d data for id %d, data count is %d, err %d",
 						c, id, (*last_it)->data_count, err);
+#endif
 				queue_.erase(first_it, last_it);
 			}
 			return true;
@@ -308,8 +316,10 @@ public:
 			} else {
 				(*it)->type = QueueItem::deleted;
 				(*it)->data_count -= c;
+#ifdef SPEECH_SDK_STREAM_QUEUE_TRACE
 				Log::d(STREAM_QUEUE_TAG, "clear queue, erase %d data for id %d, finally count is %d",
 						c, (*it)->id, (*it)->data_count);
+#endif
 				++it;
 			}
 		}
@@ -344,7 +354,9 @@ public:
 
 	int32_t pop(int32_t& id, T_sp& res, uint32_t& err) {
 		if (tag_queue_.empty()) {
+#ifdef SPEECH_SDK_STREAM_QUEUE_TRACE
 			Log::d(STREAM_QUEUE_TAG, "pop return -1, queue is empty");
+#endif
 			return POP_TYPE_EMPTY;
 		}
 		StreamingItemPos ip = tag_queue_.front();
@@ -355,42 +367,48 @@ public:
 			if (!item->polling) {
 				id = item->id;
 				item->polling = 1;
-				// return 'stream start'
+#ifdef SPEECH_SDK_STREAM_QUEUE_TRACE
 				Log::d(STREAM_QUEUE_TAG, "pop return start for id %d, data count %d", id, item->data_count);
+#endif
 				return POP_TYPE_START;
 			}
 			if (ip == queue_.begin()) {
 				if (item->type == QueueItem::uncompleted) {
+#ifdef SPEECH_SDK_STREAM_QUEUE_TRACE
+					Log::d(STREAM_QUEUE_TAG, "pop return -1, id %d, data count = %d", item->id, item->data_count);
+#endif
 					// if ip == queue_.begin(),
 					// the stream no data available now,
 					// not end, wait for more data.
-					Log::d(STREAM_QUEUE_TAG, "pop return -1, id %d, data count = %d", item->id, item->data_count);
 					return POP_TYPE_EMPTY;
 				}
 				id = item->id;
 				item_tags_.erase(item->id);
 				tag_queue_.pop_front();
 				queue_.pop_front();
-				// return 'stream end'
+#ifdef SPEECH_SDK_STREAM_QUEUE_TRACE
 				Log::d(STREAM_QUEUE_TAG, "pop return complete for id %d, data count %d", item->id, item->data_count);
+#endif
 				return POP_TYPE_END;
 			}
 			id = item->id;
 			--item->data_count;
+#ifdef SPEECH_SDK_STREAM_QUEUE_TRACE
 			Log::d(STREAM_QUEUE_TAG, "pop return data for id %d, data count %d", item->id, item->data_count);
+#endif
 			item = queue_.front();
 			assert(item->type == QueueItem::data);
 			queue_.pop_front();
 			res = item->content;
-			// return 'stream data'
 			return POP_TYPE_DATA;
 		} else if (item->type == QueueItem::deleted) {
 			id = item->id;
 			item_tags_.erase(item->id);
 			tag_queue_.pop_front();
 			queue_.pop_front();
-			// return 'stream deleted'
+#ifdef SPEECH_SDK_STREAM_QUEUE_TRACE
 			Log::d(STREAM_QUEUE_TAG, "pop return deleted for id %d, data count %d", item->id, item->data_count);
+#endif
 			return POP_TYPE_REMOVED;
 		}
 		id = item->id;
@@ -398,8 +416,9 @@ public:
 		item_tags_.erase(item->id);
 		tag_queue_.pop_front();
 		queue_.pop_front();
-		// return 'stream error'
+#ifdef SPEECH_SDK_STREAM_QUEUE_TRACE
 		Log::d(STREAM_QUEUE_TAG, "pop return error for id %d, data count %d", item->id, item->data_count);
+#endif
 		return POP_TYPE_ERROR;
 	}
 

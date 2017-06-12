@@ -9,7 +9,7 @@ import android.util.Log;
 import com.rokid.speech.Asr;
 import com.rokid.speech.AsrCallback;
 
-public class AsrDemo extends Service {
+public class AsrDemo extends Service implements Runnable {
 	@Override
 	public void onCreate() {
 		_asr = new Asr("/system/etc/asr_sdk.json");
@@ -28,9 +28,18 @@ public class AsrDemo extends Service {
 
 	@Override
 	public int onStartCommand(Intent intent, int flags, int startId) {
-		AsrCallback cb = new AsrCallbackDemo();
-		doAsrRequest(cb);
+		new Thread(this).start();
 		return START_NOT_STICKY;
+	}
+
+	@Override
+	public void run() {
+		AsrCallback cb = new AsrCallbackDemo();
+		int i;
+		for (i = 0; i < TEST_ASR_COUNT; ++i) {
+			doAsrRequest(cb);
+		}
+		Log.d(TAG, "asr test thread quit");
 	}
 
 	private void doAsrRequest(AsrCallback cb) {
@@ -41,7 +50,7 @@ public class AsrDemo extends Service {
 
 		id = _asr.startVoice(cb);
 		try {
-			is = new FileInputStream("/data/speech_demo/hello.pcm");
+			is = new FileInputStream(TEST_ASR_VOICE_FILE);
 			while (true) {
 				c = is.read(buf);
 				if (c > 0) {
@@ -63,6 +72,8 @@ public class AsrDemo extends Service {
 	}
 
 	public static final String TAG = "AsrDemo";
+	private static final int TEST_ASR_COUNT = 100;
+	private static final String TEST_ASR_VOICE_FILE = "/data/speech_demo/hello.pcm";
 
 	private Asr _asr;
 }

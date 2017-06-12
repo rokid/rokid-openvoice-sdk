@@ -240,7 +240,9 @@ bool SpeechConnection::do_socket_poll() {
 				}
 				keepalive_timeout -= SOCKET_POLL_TIMEOUT;
 				if (keepalive_timeout <= 0) {
+#ifdef SPEECH_SDK_DETAIL_TRACE
 					Log::d(CONN_TAG, "it's time to ws keepalive");
+#endif
 					// timeout
 					if (stage_ == CONN_WAIT_AUTH) {
 						Log::i(CONN_TAG, "wait auth result timeout, try reconnect");
@@ -265,8 +267,10 @@ bool SpeechConnection::do_socket_poll() {
 
 		try {
 			c = web_socket_->receiveFrame(buffer_, buffer_size_, flags);
+#ifdef SPEECH_SDK_DETAIL_TRACE
 			Log::d(CONN_TAG, "socket recv %d bytes, flags 0x%x", c, flags);
 			Log::d(CONN_TAG, "after recv frame, avail = %d", web_socket_->available());
+#endif
 		} catch (Exception e) {
 			Log::w(CONN_TAG, "websocket receive failed, exception = %s",
 					e.displayText().c_str());
@@ -276,7 +280,9 @@ bool SpeechConnection::do_socket_poll() {
 		if (c == 0) {
 			if ((flags & WebSocket::FRAME_OP_BITMASK) ==
 					WebSocket::FRAME_OP_PONG) {
+#ifdef SPEECH_SDK_DETAIL_TRACE
 				Log::d(CONN_TAG, "recv pong frame");
+#endif
 				--pending_ping_;
 			} else {
 				push_error_resp();
@@ -309,7 +315,9 @@ bool SpeechConnection::do_socket_poll() {
 				stage_ = CONN_READY;
 				req_cond_.notify_all();
 			} else {
+#ifdef SPEECH_SDK_DETAIL_TRACE
 				Log::d(CONN_TAG, "recv resp, add to list");
+#endif
 				resp_cond_.notify_one();
 			}
 		}
@@ -333,7 +341,9 @@ void SpeechConnection::push_error_resp() {
 	lock_guard<mutex> locker(resp_mutex_);
 	SpeechBinaryResp* bin_resp;
 	if (stage_ == CONN_READY) {
+#ifdef SPEECH_SDK_DETAIL_TRACE
 		Log::d(CONN_TAG, "push error response to list");
+#endif
 		bin_resp = (SpeechBinaryResp*)malloc(sizeof(SpeechBinaryResp));
 		bin_resp->length = 0;
 		bin_resp->type = BIN_RESP_ERROR;
@@ -341,26 +351,12 @@ void SpeechConnection::push_error_resp() {
 	}
 }
 
-/**
-void SpeechConnection::disconnect() {
-	while (true) {
-		if (stage_ == CONN_READY)
-			break;
-		if (stage_ == CONN_RELEASED)
-			return;
-		sleep(1);
-	}
-	lock_guard<mutex> locker(req_mutex_);
-	client_closed_ = true;
-	Log::d(CONN_TAG, "close websocket");
-	web_socket_->close();
-}
-*/
-
 void SpeechConnection::ping() {
 	assert(web_socket_.get());
 	++pending_ping_;
+#ifdef SPEECH_SDK_DETAIL_TRACE
 	Log::d(CONN_TAG, "send ping frame");
+#endif
 	lock_guard<mutex> locker(req_mutex_);
 	web_socket_->sendFrame(NULL, 0, WebSocket::FRAME_FLAG_FIN
 			| WebSocket::FRAME_OP_PING);
@@ -427,8 +423,10 @@ bool SpeechConnection::send(const void* data, uint32_t length) {
 			}
 
 			offset += c;
+#ifdef SPEECH_SDK_DETAIL_TRACE
 			Log::d(CONN_TAG, "websocket send frame %u:%lu bytes",
 					offset, length);
+#endif
 		}
 	} catch (Exception e) {
 		Log::w(CONN_TAG, "send frame failed: %s", e.displayText().c_str());

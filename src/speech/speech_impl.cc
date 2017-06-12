@@ -63,7 +63,9 @@ int32_t SpeechImpl::put_text(const char* text) {
 	p->type = SpeechReqType::TEXT;
 	p->data.reset(new string(text));
 	text_reqs_.push_back(p);
+#ifdef SPEECH_SDK_DETAIL_TRACE
 	Log::d(tag__, "put text %d, %s", id, text);
+#endif
 	req_cond_.notify_one();
 	return id;
 }
@@ -75,7 +77,9 @@ int32_t SpeechImpl::start_voice() {
 	int32_t id = next_id();
 	if (!voice_reqs_.start(id))
 		return -1;
+#ifdef SPEECH_SDK_DETAIL_TRACE
 	Log::d(tag__, "start voice %d", id);
+#endif
 	req_cond_.notify_one();
 	return id;
 }
@@ -88,7 +92,9 @@ void SpeechImpl::put_voice(int32_t id, const uint8_t* voice, uint32_t length) {
 	lock_guard<mutex> locker(req_mutex_);
 	shared_ptr<string> spv(new string((const char*)voice, length));
 	if (voice_reqs_.stream(id, spv)) {
+#ifdef SPEECH_SDK_DETAIL_TRACE
 		Log::d(tag__, "put voice %d, len %u", id, length);
+#endif
 		req_cond_.notify_one();
 	}
 }
@@ -100,7 +106,9 @@ void SpeechImpl::end_voice(int32_t id) {
 		return;
 	lock_guard<mutex> locker(req_mutex_);
 	if (voice_reqs_.end(id)) {
+#ifdef SPEECH_SDK_DETAIL_TRACE
 		Log::d(tag__, "end voice %d", id);
+#endif
 		req_cond_.notify_one();
 	}
 }
@@ -220,7 +228,8 @@ bool SpeechImpl::poll(SpeechResult& res) {
 						res.nlp = resin->nlp;
 						res.action = resin->action;
 					}
-					Log::d(tag__, "SpeechImpl.poll return result %d", res.id);
+					Log::d(tag__, "SpeechImpl.poll return result "
+							"id(%d), type(%d)", res.id, res.type);
 					if (res.type == SPEECH_RES_END) {
 						Log::d(tag__, "SpeechImpl.poll (%d) end", res.id);
 						controller_.remove_front_op();

@@ -60,7 +60,9 @@ int32_t AsrImpl::start() {
 	int32_t id = next_id();
 	if (!requests_.start(id))
 		return -1;
+#ifdef SPEECH_SDK_DETAIL_TRACE
 	Log::d(tag__, "AsrImpl: start %d", id);
+#endif
 	req_cond_.notify_one();
 	return id;
 }
@@ -75,7 +77,9 @@ void AsrImpl::voice(int32_t id, const uint8_t* voice, uint32_t length) {
 	lock_guard<mutex> locker(req_mutex_);
 	shared_ptr<string> spv(new string((const char*)voice, length));
 	if (requests_.stream(id, spv)) {
+#ifdef SPEECH_SDK_DETAIL_TRACE
 		Log::d(tag__, "AsrImpl: voice %d, len %u", id, length);
+#endif
 		req_cond_.notify_one();
 	}
 }
@@ -87,7 +91,9 @@ void AsrImpl::end(int32_t id) {
 		return;
 	lock_guard<mutex> locker(req_mutex_);
 	if (requests_.end(id)) {
+#ifdef SPEECH_SDK_DETAIL_TRACE
 		Log::d(tag__, "AsrImpl: end %d", id);
+#endif
 		req_cond_.notify_one();
 	}
 }
@@ -193,7 +199,8 @@ bool AsrImpl::poll(AsrResult& res) {
 					res.err = integer_to_reserr(err);
 					if (res.type == ASR_RES_ASR)
 						res.asr = *asr;
-					Log::d(tag__, "AsrImpl.poll return result %d", res.id);
+					Log::d(tag__, "AsrImpl.poll return result "
+							"id(%d), type(%d)", res.id, res.type);
 					if (res.type == ASR_RES_END) {
 						Log::d(tag__, "AsrImpl.poll (%d) end", res.id);
 						controller_.remove_front_op();
@@ -231,8 +238,10 @@ void AsrImpl::send_reqs() {
 			locker.unlock();
 
 			if (opr) {
-				Log::d(tag__, "call do_request %d, %d, %d", id, r, err);
-				rv = do_request(id, (uint32_t)r, voice, err);
+#ifdef SPEECH_SDK_DETAIL_TRACE
+				Log::d(tag__, "call do_request %d, %d", id, r);
+#endif
+				rv = do_request(id, (uint32_t)r, voice);
 				if (rv == 0) {
 					Log::d(tag__, "AsrImpl.send_reqs wait op finish");
 					unique_lock<mutex> resp_locker(resp_mutex_);
@@ -271,7 +280,7 @@ bool AsrImpl::do_ctl_change_op(int32_t id, uint32_t type) {
 }
 
 int32_t AsrImpl::do_request(int32_t id, uint32_t type,
-		shared_ptr<string>& voice, uint32_t err) {
+		shared_ptr<string>& voice) {
 	AsrRequest treq;
 	int32_t rv;
 	if (type == StreamQueue<string>::POP_TYPE_START) {

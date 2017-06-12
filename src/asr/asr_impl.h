@@ -60,7 +60,7 @@ private:
 	bool gen_result_by_status();
 
 	int32_t do_request(int32_t id, uint32_t type,
-			std::shared_ptr<std::string>& voice, uint32_t err);
+			std::shared_ptr<std::string>& voice);
 
 	bool do_ctl_change_op(int32_t id, uint32_t type);
 

@@ -58,7 +58,9 @@ void TtsImpl::release() {
 int32_t TtsImpl::speak(const char* text) {
 	if (!initialized_)
 		return -1;
+#ifdef SPEECH_SDK_DETAIL_TRACE
 	Log::d(tag__, "speak %s", text);
+#endif
 	shared_ptr<TtsReqInfo> req(new TtsReqInfo());
 	req->data = text;
 	req->deleted = false;
@@ -77,7 +79,9 @@ void TtsImpl::cancel(int32_t id) {
 	lock_guard<mutex> locker(req_mutex_);
 	if (!initialized_)
 		return;
+#ifdef SPEECH_SDK_DETAIL_TRACE
 	Log::d(tag__, "cancel %d", id);
+#endif
 	it = requests_.begin();
 	while (it != requests_.end()) {
 		if (id <= 0 || (*it)->id == id) {
@@ -172,7 +176,8 @@ bool TtsImpl::poll(TtsResult& res) {
 					res.type = poptype_to_restype(poptype);
 					res.err = integer_to_reserr(err);
 					res.voice = voice;
-					Log::d(tag__, "TtsImpl.poll return result %d", res.id);
+					Log::d(tag__, "TtsImpl.poll return result id(%d), "
+							"type(%d)", res.id, res.type);
 					if (res.type == TTS_RES_END) {
 						Log::d(tag__, "TtsImpl.poll (%d) end", res.id);
 						controller_.remove_front_op();

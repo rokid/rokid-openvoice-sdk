@@ -1,5 +1,7 @@
 package com.rokid.speech.example;
 
+import java.io.FileInputStream;
+import java.io.IOException;
 import android.app.Service;
 import android.content.Intent;
 import android.os.IBinder;
@@ -7,12 +9,12 @@ import android.util.Log;
 import com.rokid.speech.Speech;
 import com.rokid.speech.SpeechCallback;
 
-public class SpeechDemo extends Service {
+public class SpeechDemo extends Service implements Runnable {
 	@Override
 	public void onCreate() {
 		_speech = new Speech("/system/etc/speech_sdk.json");
 		_speech.prepare();
-		_speech.config("codec", "opu");
+		_speech.config("codec", "pcm");
 	}
 
 	@Override
@@ -26,12 +28,52 @@ public class SpeechDemo extends Service {
 
 	@Override
 	public int onStartCommand(Intent intent, int flags, int startId) {
-		SpeechCallback cb = new SpeechCallbackDemo();
-		_speech.putText("若琪你好", cb);
+		new Thread(this).start();
 		return START_NOT_STICKY;
 	}
 
+	@Override
+	public void run() {
+		int i;
+		SpeechCallback cb = new SpeechCallbackDemo();
+		for (i = 0; i < TEST_SPEECH_COUNT; ++i) {
+			doSpeechRequest(cb);
+		}
+	}
+
+	private void doSpeechRequest(SpeechCallback cb) {
+		FileInputStream is = null;
+		byte[] buf = new byte[4096];
+		int c;
+		int id;
+
+		id = _speech.startVoice(cb);
+		try {
+			is = new FileInputStream(TEST_SPEECH_VOICE_FILE);
+			while (true) {
+				c = is.read(buf);
+				if (c > 0) {
+					_speech.putVoice(id, buf, 0, c);
+				} else
+					break;
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+			return;
+		} finally {
+			try {
+				if (is != null)
+					is.close();
+			} catch (Exception e) {
+			}
+		}
+		_speech.endVoice(id);
+	}
+
+
 	public static final String TAG = "SpeechDemo";
+	private static final int TEST_SPEECH_COUNT = 100;
+	private static final String TEST_SPEECH_VOICE_FILE = "/data/speech_demo/hello.pcm";
 
 	private Speech _speech;
 }
