@@ -23,6 +23,7 @@
 #define CONNECT_RETRY_TIMEOUT 30000
 #define KEEPALIVE_TIMEOUT 20000
 #define SOCKET_POLL_TIMEOUT 1000
+#define AUTH_RESP_TIMEOUT 10000
 
 using std::string;
 using std::shared_ptr;
@@ -301,8 +302,11 @@ bool SpeechConnection::do_socket_poll() {
 			if (stage_ == CONN_WAIT_AUTH) {
 				locker.unlock();
 				AuthResponse auth_res;
-				if (this->recv(auth_res) != CO_SUCCESS) {
-					Log::w(CONN_TAG, "auth result parse failed, try reconnect");
+				ConnectionOpResult opr;
+				opr = this->recv(auth_res, AUTH_RESP_TIMEOUT);
+				if (opr != ConnectionOpResult::SUCCESS) {
+					Log::w(CONN_TAG, "auth result recv failed %d, "
+							"try reconnect", opr);
 					reconn = false;
 					goto close_conn;
 				}

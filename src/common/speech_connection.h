@@ -41,14 +41,15 @@ enum ConnectStage {
 	CONN_RELEASED
 };
 
-enum ConnectionOpResult {
-	CO_SUCCESS = 0,
-	CO_INVALID_PB_OBJ,
-	CO_CONNECTION_NOT_AVAILABLE,
-	CO_SOCKET_ERROR,
-	CO_NOT_READY,
-	CO_INVALID_PB_DATA,
-	CO_CONNECTION_BROKEN,
+enum class ConnectionOpResult {
+	SUCCESS = 0,
+	INVALID_PB_OBJ,
+	CONNECTION_NOT_AVAILABLE,
+	SOCKET_ERROR,
+	NOT_READY,
+	INVALID_PB_DATA,
+	CONNECTION_BROKEN,
+	TIMEOUT,
 };
 
 class SpeechConnection {
@@ -66,54 +67,59 @@ public:
 
 	// params: 'timeout' milliseconds
 	template <typename PBT>
-	int32_t send(PBT& pbitem, uint32_t timeout = 0) {
+	ConnectionOpResult send(PBT& pbitem, uint32_t timeout = 0) {
 		std::string buf;
 		std::unique_lock<std::mutex> locker(req_mutex_);
 		if (!pbitem.SerializeToString(&buf)) {
 			Log::w(CONN_TAG, "send: protobuf serialize failed");
-			return CO_INVALID_PB_OBJ;
+			return ConnectionOpResult::INVALID_PB_OBJ;
 		}
 		if (!ensure_connection_available(locker, timeout)) {
 			Log::d(CONN_TAG, "send: connection not available");
-			return CO_CONNECTION_NOT_AVAILABLE;
+			return ConnectionOpResult::CONNECTION_NOT_AVAILABLE;
 		}
-		return send(buf.data(), buf.length()) ? CO_SUCCESS
-			: CO_SOCKET_ERROR;
+		return send(buf.data(), buf.length())
+			? ConnectionOpResult::SUCCESS
+			: ConnectionOpResult::SOCKET_ERROR;
 	}
 
 	template <typename PBT>
-	int32_t recv(PBT& res) {
+	ConnectionOpResult recv(PBT& res, uint32_t timeout) {
 		SpeechBinaryResp* resp_data;
 		std::unique_lock<std::mutex> locker(resp_mutex_);
-		while (true) {
+
+		if (!initialized_)
+			return ConnectionOpResult::NOT_READY;
+		if (responses_.empty()) {
+			Log::d(CONN_TAG, "recv: wait %d millis seconds", timeout);
+			std::chrono::duration<int, std::milli> ms(timeout);
+			resp_cond_.wait_for(locker, ms);
 			if (!initialized_)
-				return CO_NOT_READY;
-			if (responses_.empty()) {
-				Log::d(CONN_TAG, "recv: wait");
-				resp_cond_.wait(locker);
-			} else {
-				resp_data = responses_.front();
-				assert(resp_data);
-				responses_.pop_front();
-				if (resp_data->type == BIN_RESP_DATA) {
-#ifdef SPEECH_SDK_DETAIL_TRACE
-					Log::d(CONN_TAG, "recv: get %u bytes from list", resp_data->length);
-#endif
-					bool r = res.ParseFromArray(resp_data->data, resp_data->length);
-					delete resp_data;
-					if (!r) {
-						Log::w(CONN_TAG, "recv: protobuf parse failed");
-						return CO_INVALID_PB_DATA;
-					}
-				} else {
-					Log::d(CONN_TAG, "recv: failed, connection broken");
-					delete resp_data;
-					return CO_CONNECTION_BROKEN;
-				}
-				break;
-			}
+				return ConnectionOpResult::NOT_READY;
 		}
-		return CO_SUCCESS;
+		if (!responses_.empty()) {
+			resp_data = responses_.front();
+			assert(resp_data);
+			responses_.pop_front();
+			if (resp_data->type == BIN_RESP_DATA) {
+#ifdef SPEECH_SDK_DETAIL_TRACE
+				Log::d(CONN_TAG, "recv: get %u bytes from list",
+						resp_data->length);
+#endif
+				bool r = res.ParseFromArray(resp_data->data,
+						resp_data->length);
+				delete resp_data;
+				if (!r) {
+					Log::w(CONN_TAG, "recv: protobuf parse failed");
+					return ConnectionOpResult::INVALID_PB_DATA;
+				}
+				return ConnectionOpResult::SUCCESS;
+			}
+			Log::d(CONN_TAG, "recv: failed, connection broken");
+			delete resp_data;
+			return ConnectionOpResult::CONNECTION_BROKEN;
+		}
+		return ConnectionOpResult::TIMEOUT;
 	}
 
 private:

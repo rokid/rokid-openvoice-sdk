@@ -47,14 +47,17 @@ public class TtsPlayerDemo implements TtsCallback {
 
 	@Override
 	public void onCancel(int id) {
+		Log.d(TAG, "" + id + ": onCancel");
 	}
 
 	@Override
 	public void onComplete(int id) {
+		Log.d(TAG, "" + id + ": onComplete");
 	}
 
 	@Override
 	public void onError(int id, int err) {
+		Log.d(TAG, "" + id + ": onError " + err);
 	}
 
 	private AudioTrack createAudioTrack() {

@@ -241,10 +241,10 @@ bool TtsImpl::do_request(shared_ptr<TtsReqInfo>& req) {
 	treq.set_text(req->data.c_str());
 	treq.set_declaimer(config_.get("declaimer", "zh"));
 	treq.set_codec(config_.get("codec", "pcm"));
-	int32_t r = connection_.send(treq, WS_SEND_TIMEOUT);
-	if (r != CO_SUCCESS) {
+	ConnectionOpResult r = connection_.send(treq, WS_SEND_TIMEOUT);
+	if (r != ConnectionOpResult::SUCCESS) {
 		TtsError err = TTS_UNKNOWN;
-		if (r == CO_CONNECTION_NOT_AVAILABLE)
+		if (r == ConnectionOpResult::CONNECTION_NOT_AVAILABLE)
 			err = TTS_SERVICE_UNAVAILABLE;
 		Log::w(tag__, "do_request: (%d) send req failed %d, "
 				"set op error", req->id, r);
@@ -253,23 +253,43 @@ bool TtsImpl::do_request(shared_ptr<TtsReqInfo>& req) {
 		resp_cond_.notify_one();
 		return false;
 	}
+#ifdef SPEECH_SDK_DETAIL_TRACE
+	Log::d(tag__, "req (%d) sent, req done", req->id);
+#endif
+	lock_guard<mutex> locker(resp_mutex_);
+	controller_.req_done();
 	return true;
 }
 
 void TtsImpl::gen_results() {
 	TtsResponse resp;
-	int32_t r;
+	ConnectionOpResult r;
 	TtsError err;
-	
+	uint32_t timeout;
+
 	Log::d(tag__, "thread 'gen_results' run");
 	while (true) {
-		r = connection_.recv(resp);
-		if (r == CO_NOT_READY)
-			break;
 		unique_lock<mutex> locker(resp_mutex_);
-		if (r == CO_SUCCESS) {
+		timeout = controller_.op_timeout();
+		locker.unlock();
+
+#ifdef SPEECH_SDK_DETAIL_TRACE
+		Log::d(tag__, "gen_results: recv with timeout %u", timeout);
+#endif
+		r = connection_.recv(resp, timeout);
+		if (r == ConnectionOpResult::NOT_READY)
+			break;
+		locker.lock();
+		if (r == ConnectionOpResult::SUCCESS) {
 			gen_result_by_resp(resp);
-		} else if (r == CO_CONNECTION_BROKEN) {
+		} else if (r == ConnectionOpResult::TIMEOUT) {
+			if (controller_.op_timeout() == 0) {
+				Log::w(tag__, "gen_results: (%d) op timeout, "
+						"set op error", controller_.current_op()->id);
+				controller_.set_op_error(TTS_TIMEOUT);
+				resp_cond_.notify_one();
+			}
+		} else if (r == ConnectionOpResult::CONNECTION_BROKEN) {
 			controller_.set_op_error(TTS_SERVICE_UNAVAILABLE);
 			resp_cond_.notify_one();
 		} else {

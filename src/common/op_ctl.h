@@ -6,6 +6,8 @@
 #include <mutex>
 #include <list>
 
+#define NOOP_TIMEOUT 10000
+
 namespace rokid {
 namespace speech {
 
@@ -16,12 +18,15 @@ public:
 		int32_t id;
 		TStatus status;
 		TError error;
+		std::chrono::time_point<std::chrono::steady_clock> req_done_time;
+		bool req_done;
 	} Operation;
 
 	void new_op(int32_t id, TStatus status) {
 		std::shared_ptr<Operation> op(new Operation());
 		op->id = id;
 		op->status = status;
+		op->req_done = false;
 		operations_.push_back(op);
 		if (status == TStatus::START)
 			current_op_ = op;
@@ -76,6 +81,26 @@ public:
 	void remove_front_op() {
 		if (!operations_.empty())
 			operations_.pop_front();
+	}
+
+	void req_done() {
+		if (current_op_.get()) {
+			current_op_->req_done = true;
+			current_op_->req_done_time = std::chrono::steady_clock::now();
+		}
+	}
+
+	uint32_t op_timeout() {
+		if (current_op_.get() == NULL)
+			return NOOP_TIMEOUT;
+		if (!current_op_->req_done)
+			return NOOP_TIMEOUT;
+		std::chrono::duration<uint32_t, std::milli> dur =
+			std::chrono::duration_cast<std::chrono::duration<uint32_t, std::milli> >
+			(std::chrono::steady_clock::now() - current_op_->req_done_time);
+		if (dur.count() > NOOP_TIMEOUT)
+			return 0;
+		return NOOP_TIMEOUT - dur.count();
 	}
 
 	std::shared_ptr<Operation>& current_op() {

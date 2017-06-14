@@ -19,6 +19,7 @@ enum TtsError {
 	// client error
 	TTS_SERVICE_UNAVAILABLE = 101,
 	TTS_SDK_CLOSED,
+	TTS_TIMEOUT,
 	TTS_UNKNOWN,
 };
 
