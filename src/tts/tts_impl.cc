@@ -140,6 +140,9 @@ bool TtsImpl::poll(TtsResult& res) {
 	shared_ptr<string> voice;
 	int32_t poptype;
 	uint32_t err;
+
+	res.voice.reset();
+
 	unique_lock<mutex> locker(resp_mutex_);
 	while (initialized_) {
 		op = controller_.front_op();

@@ -188,6 +188,11 @@ bool SpeechImpl::poll(SpeechResult& res) {
 	shared_ptr<SpeechResultIn> resin;
 	int32_t poptype;
 	uint32_t err;
+
+	res.asr.clear();
+	res.nlp.clear();
+	res.action.clear();
+
 	unique_lock<mutex> locker(resp_mutex_);
 	while (initialized_) {
 		op = controller_.front_op();
