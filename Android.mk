@@ -1,6 +1,11 @@
 LOCAL_PATH := $(call my-dir)
 
-SDK_VERSION_23 = $(shell if [ $(PLATFORM_SDK_VERSION) -ge 23 ]; then echo true; fi)
+IGNORED_WARNINGS := -Wno-sign-compare -Wno-unused-parameter -Wno-sign-promo -Wno-error=return-type -Wno-error=non-virtual-dtor
+COMMON_CFLAGS := \
+	$(IGNORED_WARNINGS) \
+	-DSPEECH_LOG_ANDROID \
+	-DSPEECH_SDK_STREAM_QUEUE_TRACE \
+	-DSPEECH_SDK_DETAIL_TRACE
 
 include $(LOCAL_PATH)/core.mk
 

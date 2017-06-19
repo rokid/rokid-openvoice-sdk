@@ -456,8 +456,7 @@ void SpeechImpl::gen_result_by_resp(SpeechResponse& resp) {
 	bool new_data = false;
 	shared_ptr<SpeechOperationController::Operation> op =
 		controller_.current_op();
-	assert(op.get());
-	if (op->id == resp.id()) {
+	if (op.get() && op->id == resp.id()) {
 		if (op->status == SpeechStatus::START) {
 			responses_.start(resp.id());
 			op->status = SpeechStatus::STREAMING;

@@ -308,8 +308,7 @@ void TtsImpl::gen_result_by_resp(TtsResponse& resp) {
 	bool new_data = false;
 	shared_ptr<TtsOperationController::Operation> op;
 	op = controller_.current_op();
-	assert(op.get());
-	if (op->id == resp.id()) {
+	if (op.get() && op->id == resp.id()) {
 		if (op->status == TtsStatus::START) {
 			responses_.start(resp.id());
 			new_data = true;

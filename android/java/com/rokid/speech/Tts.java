@@ -101,7 +101,7 @@ public class Tts extends GenericConfig<TtsConfig> {
 	private long _sdk_tts;
 
 	static {
-		System.loadLibrary("rokid_tts_jni");
+		System.loadLibrary("rokid_speech_jni");
 		_sdk_init(Tts.class, TtsResult.class);
 	}
 

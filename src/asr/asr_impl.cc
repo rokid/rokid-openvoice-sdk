@@ -378,8 +378,7 @@ void AsrImpl::gen_result_by_resp(AsrResponse& resp) {
 	bool new_data = false;
 	shared_ptr<AsrOperationController::Operation> op;
 	op = controller_.current_op();
-	assert(op.get());
-	if (op->id == resp.id()) {
+	if (op.get() && op->id == resp.id()) {
 		if (op->status == AsrStatus::START) {
 			responses_.start(resp.id());
 			op->status = AsrStatus::STREAMING;

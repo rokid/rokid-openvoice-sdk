@@ -118,7 +118,7 @@ public class Asr extends GenericConfig<AsrConfig> {
 	private long _sdk_asr;
 
 	static {
-		System.loadLibrary("rokid_asr_jni");
+		System.loadLibrary("rokid_speech_jni");
 		_sdk_init(Asr.class, AsrResult.class);
 	}
 

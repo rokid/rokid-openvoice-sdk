@@ -10,8 +10,8 @@ using std::thread;
 namespace rokid {
 namespace speech {
 
+extern JavaVM* vm_;
 static const char* tag_ = "tts.jni";
-static JavaVM* vm_ = NULL;
 
 enum TtsResultFieldAlias {
 	RES_ID,
@@ -191,18 +191,3 @@ int register_com_rokid_speech_Tts(JNIEnv* env) {
 
 } // namespace speech
 } // namespace rokid
-
-extern "C" jint JNI_OnLoad(JavaVM* vm, void* reserved) {
-	JNIEnv* env;
-
-	// store a global java vm pointer
-	// for tts java callback
-	rokid::speech::vm_ = vm;
-
-	if (vm->GetEnv((void**)&env, JNI_VERSION_1_4) != JNI_OK) {
-		rokid::speech::Log::e("%s: JNI_OnLoad failed", "RokidTts");
-		return -1;
-	}
-	rokid::speech::register_com_rokid_speech_Tts(env);
-	return JNI_VERSION_1_4;
-}

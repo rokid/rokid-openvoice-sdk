@@ -27,7 +27,7 @@ public class TtsDemo extends Service {
 		if (_tts != null)
 			_tts.release();
 
-		_tts = new Tts("/system/etc/tts_sdk.json");
+		_tts = new Tts("/system/etc/speech_sdk.json");
 		_tts.prepare();
 		_tts.config("codec", "pcm");
 

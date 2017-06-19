@@ -256,6 +256,7 @@ bool SpeechConnection::do_socket_poll() {
 						goto close_conn;
 					}
 					ping();
+					keepalive_timeout = KEEPALIVE_TIMEOUT;
 				}
 				continue;
 			}
