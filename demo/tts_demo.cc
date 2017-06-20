@@ -2,6 +2,7 @@
 #include "common.h"
 
 using namespace rokid::speech;
+using std::shared_ptr;
 
 static int32_t last_id_ = 0xffffffff;
 static bool quit_ = false;
@@ -52,9 +53,8 @@ static void tts_poll(Tts* tts) {
 }
 
 void tts_demo() {
-	Tts* tts = new_tts();
-	prepare(tts);
+	shared_ptr<Tts> tts = new_tts();
+	prepare(tts.get());
 	tts->config("codec", "opu2");
-	run(tts, tts_req, tts_poll);
-	delete_tts(tts);
+	run(tts.get(), tts_req, tts_poll);
 }

@@ -8,6 +8,7 @@
 
 using namespace rokid::speech;
 using std::vector;
+using std::shared_ptr;
 
 #define OPU_FILE_COUNT 12
 #ifdef ANDROID
@@ -164,11 +165,10 @@ void speech_demo() {
 	srand(ts.tv_nsec);
 
 	all_resp_status_.resize(TOTAL_REQ_NUM + 1);
-	Speech* speech = new_speech();
-	prepare(speech);
+	shared_ptr<Speech> speech = new_speech();
+	prepare(speech.get());
 	speech->config("codec", "opu");
-	run(speech, speech_req, speech_poll);
-	delete_speech(speech);
+	run(speech.get(), speech_req, speech_poll);
 
 	trace_resp_status();
 	/**

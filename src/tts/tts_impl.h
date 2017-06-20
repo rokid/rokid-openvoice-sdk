@@ -17,6 +17,7 @@ namespace rokid {
 namespace speech {
 
 typedef OperationController<TtsStatus, TtsError> TtsOperationController;
+typedef StreamQueue<std::string, int32_t> TtsStreamQueue;
 
 class TtsImpl : public Tts {
 public:
@@ -71,7 +72,7 @@ private:
 	SpeechConfig config_;
 	SpeechConnection connection_;
 	std::list<std::shared_ptr<TtsReqInfo> > requests_;
-	StreamQueue<std::string> responses_;
+	TtsStreamQueue responses_;
 	std::mutex req_mutex_;
 	std::condition_variable req_cond_;
 	std::mutex resp_mutex_;

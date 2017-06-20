@@ -22,20 +22,22 @@ enum AsrError {
 };
 
 enum AsrResultType {
-	ASR_RES_ASR = 0,
+	// intermediate result of asr
+	ASR_RES_INTER = 0,
 	ASR_RES_START,
+	// completed result of asr
 	ASR_RES_END,
 	ASR_RES_CANCELLED,
 	ASR_RES_ERROR
 };
 
 struct AsrResult {
-	// 0  asr result
-	// 1  stream result start
-	// 2  stream result end
-	// 3  asr cancelled
-	// 4  asr occurs error, see AsrResult.err
-	uint32_t type;
+	// ASR_RES_INTER  intermediate result of asr
+	// ASR_RES_START  stream result start
+	// ASR_RES_END    completed result of asr
+	// ASR_RES_CANCELLED  asr cancelled
+	// ASR_RES_ERROR  asr occurs error, see AsrResult.err
+	AsrResultType type;
 	int32_t id;
 	AsrError err;
 	std::string asr;
@@ -80,9 +82,7 @@ public:
 	virtual void config(const char* key, const char* value) = 0;
 };
 
-Asr* new_asr();
-
-void delete_asr(Asr* asr);
+std::shared_ptr<Asr> new_asr();
 
 } // namespace speech
 } // namespace rokid

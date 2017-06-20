@@ -94,13 +94,24 @@ message SpeechRequest {
   optional string codec = 6;
 
   // vt = voice trigger
+  // deprecated
   optional string vt = 7;
 
-  // stack of current domains
-  optional string stack = 8;
+  // json string: options of framework
+  // {
+  //   "voice_trigger": "xxx",
+  //   "voice_power": "xxx",
+  //   "trigger_start": "xxx",
+  //   "trigger_length": "xxx",
+  //   "stack": "xxx"
+  // }
+  optional string framework_options = 8;
 
-  // json format
-  optional string device = 9;
+  // json string: options of skills
+  // {
+  //   "media_player_status": "xxx"
+  // }
+  optional string skill_options = 9;
 }
 
 message SpeechResponse {
@@ -115,5 +126,10 @@ message SpeechResponse {
   optional string action = 5;
 
   optional bool finish = 6;
+
+  // {
+  //   "activation": "fake|reject|accept|none"
+  // }
+  optional string extra = 7;
 }
 

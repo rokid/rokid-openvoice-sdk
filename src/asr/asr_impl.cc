@@ -10,6 +10,7 @@ using std::string;
 using rokid::open::ReqType;
 using rokid::open::AsrRequest;
 using rokid::open::AsrResponse;
+using rokid::open::SpeechErrorCode;
 
 namespace rokid {
 namespace speech {
@@ -125,9 +126,11 @@ void AsrImpl::config(const char* key, const char* value) {
 
 static AsrResultType poptype_to_restype(int32_t type) {
 	static AsrResultType _tps[] = {
-		ASR_RES_ASR,
+		ASR_RES_INTER,
 		ASR_RES_START,
 		ASR_RES_END,
+		ASR_RES_CANCELLED,
+		ASR_RES_ERROR
 	};
 	assert(type >= 0 && type < sizeof(_tps)/sizeof(AsrResultType));
 	return _tps[type];
@@ -163,6 +166,7 @@ bool AsrImpl::poll(AsrResult& res) {
 	uint32_t err;
 
 	res.asr.clear();
+	res.err = ASR_SUCCESS;
 
 	unique_lock<mutex> locker(resp_mutex_);
 	while (initialized_) {
@@ -193,17 +197,18 @@ bool AsrImpl::poll(AsrResult& res) {
 						"remove front op", op->id);
 				return true;
 			} else {
+				asr.reset();
 				poptype = responses_.pop(id, asr, err);
-				if (poptype != StreamQueue<string>::POP_TYPE_EMPTY) {
+				if (poptype != AsrStreamQueue::POP_TYPE_EMPTY) {
 					assert(id == op->id);
 					res.id = id;
 					res.type = poptype_to_restype(poptype);
 					res.err = integer_to_reserr(err);
-					if (res.type == ASR_RES_ASR)
+					if (asr.get())
 						res.asr = *asr;
 					Log::d(tag__, "AsrImpl.poll return result "
 							"id(%d), type(%d)", res.id, res.type);
-					if (res.type == ASR_RES_END) {
+					if (res.type >= ASR_RES_END) {
 						Log::d(tag__, "AsrImpl.poll (%d) end", res.id);
 						controller_.remove_front_op();
 					}
@@ -259,17 +264,17 @@ bool AsrImpl::do_ctl_change_op(int32_t id, uint32_t type) {
 	shared_ptr<AsrOperationController::Operation> op =
 		controller_.current_op();
 	if (op.get()) {
-		if (type == StreamQueue<string>::POP_TYPE_REMOVED) {
+		if (type == AsrStreamQueue::POP_TYPE_REMOVED) {
 			op->status = AsrStatus::CANCELLED;
 			Log::d(tag__, "(%d) is processing, Status --> Cancelled", id);
 		}
 		return true;
 	}
-	if (type == StreamQueue<string>::POP_TYPE_START) {
+	if (type == AsrStreamQueue::POP_TYPE_START) {
 		controller_.new_op(id, AsrStatus::START);
 		return true;
 	}
-	if (type == StreamQueue<string>::POP_TYPE_REMOVED) {
+	if (type == AsrStreamQueue::POP_TYPE_REMOVED) {
 		controller_.new_op(id, AsrStatus::CANCELLED);
 		// no data send to server
 		// notify 'poll' function to generate 'CANCEL' result
@@ -285,7 +290,7 @@ int32_t AsrImpl::do_request(int32_t id, uint32_t type,
 		shared_ptr<string>& voice) {
 	AsrRequest treq;
 	int32_t rv;
-	if (type == StreamQueue<string>::POP_TYPE_START) {
+	if (type == AsrStreamQueue::POP_TYPE_START) {
 		Log::d(tag__, "do_request: send asr start to server. (%d)", id);
 		treq.set_id(id);
 		treq.set_type(ReqType::START);
@@ -293,13 +298,13 @@ int32_t AsrImpl::do_request(int32_t id, uint32_t type,
 		treq.set_codec(config_.get("codec", "pcm"));
 		treq.set_vt(config_.get("vt", ""));
 		rv = 1;
-	} else if (type == StreamQueue<string>::POP_TYPE_END
-			|| type == StreamQueue<string>::POP_TYPE_REMOVED) {
+	} else if (type == AsrStreamQueue::POP_TYPE_END
+			|| type == AsrStreamQueue::POP_TYPE_REMOVED) {
 		Log::d(tag__, "do_request: send asr end to server. (%d)", id);
 		treq.set_id(id);
 		treq.set_type(ReqType::END);
 		rv = 0;
-	} else if (type == StreamQueue<string>::POP_TYPE_DATA) {
+	} else if (type == AsrStreamQueue::POP_TYPE_DATA) {
 		Log::d(tag__, "do_request: send asr voice to server. (%d)", id);
 		treq.set_id(id);
 		treq.set_type(ReqType::VOICE);
@@ -377,7 +382,9 @@ void AsrImpl::gen_result_by_resp(AsrResponse& resp) {
 	bool new_data = false;
 	shared_ptr<AsrOperationController::Operation> op;
 	op = controller_.current_op();
-	if (op.get() && op->id == resp.id()) {
+	if (op.get() && op->id == resp.id()
+			&& op->status != AsrStatus::CANCELLED
+			&& op->status != AsrStatus::ERROR) {
 		if (op->status == AsrStatus::START) {
 			responses_.start(resp.id());
 			op->status = AsrStatus::STREAMING;
@@ -388,24 +395,34 @@ void AsrImpl::gen_result_by_resp(AsrResponse& resp) {
 
 		Log::d(tag__, "AsrResponse has_asr(%d), finish(%d)",
 				resp.has_asr(), resp.finish());
-		if (resp.has_asr()) {
-			shared_ptr<string> asr(new string(resp.asr()));
-			responses_.stream(resp.id(), asr);
+		if (resp.result() != SpeechErrorCode::SUCCESS) {
 			new_data = true;
-			Log::d(tag__, "gen_result_by_resp(%d): push asr resp "
-					"%s", resp.id(), asr->c_str());
-		}
-
-		if (resp.finish()) {
-			responses_.end(resp.id());
-			new_data = true;
-			if (op->status != AsrStatus::CANCELLED
-					&& op->status != AsrStatus::ERROR) {
-				op->status = AsrStatus::END;
-				Log::d(tag__, "gen_result_by_resp(%d): push end resp, "
-						"Status Streaming --> End", resp.id());
-			}
+			responses_.erase(resp.id(), resp.result());
+			Log::d(tag__, "gen_result_by_resp(%d): push error resp %d, ",
+					resp.id(), resp.result());
 			controller_.finish_op();
+		} else {
+			shared_ptr<string> asr;
+			if (resp.has_asr())
+				asr.reset(new string(resp.asr()));
+			if (resp.finish()) {
+				responses_.end(resp.id(), asr);
+				new_data = true;
+				op->status = AsrStatus::END;
+				Log::d(tag__, "gen_result_by_resp(%d): "
+						"push end resp %s, "
+						"Status Streaming --> End", resp.id(),
+						asr->c_str());
+				controller_.finish_op();
+			} else {
+				if (asr.get()) {
+					responses_.stream(resp.id(), asr);
+					new_data = true;
+					Log::d(tag__, "gen_result_by_resp(%d): "
+							"push asr resp %s", resp.id(),
+							asr->c_str());
+				}
+			}
 		}
 
 		if (new_data) {
@@ -416,13 +433,8 @@ void AsrImpl::gen_result_by_resp(AsrResponse& resp) {
 	}
 }
 
-Asr* new_asr() {
-	return new AsrImpl();
-}
-
-void delete_asr(Asr* asr) {
-	if (asr)
-		delete asr;
+shared_ptr<Asr> new_asr() {
+	return shared_ptr<Asr>(new AsrImpl());
 }
 
 } // namespace speech

@@ -3,9 +3,9 @@ package com.rokid.speech;
 public interface AsrCallback {
 	void onStart(int id);
 
-	void onAsr(int id, String asr);
+	void onIntermediateResult(int id, String asr);
 
-	void onComplete(int id);
+	void onComplete(int id, String asr);
 
 	void onCancel(int id);
 

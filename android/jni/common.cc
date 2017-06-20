@@ -9,6 +9,7 @@ JavaVM* vm_ = NULL;
 int register_com_rokid_speech_Tts(JNIEnv* env);
 int register_com_rokid_speech_Asr(JNIEnv* env);
 int register_com_rokid_speech_Speech(JNIEnv* env);
+int register_com_rokid_speech_SpeechOptions(JNIEnv* env);
 
 } // namespace speech
 } // namespace rokid
@@ -27,5 +28,6 @@ extern "C" jint JNI_OnLoad(JavaVM* vm, void* reserved) {
 	rokid::speech::register_com_rokid_speech_Tts(env);
 	rokid::speech::register_com_rokid_speech_Asr(env);
 	rokid::speech::register_com_rokid_speech_Speech(env);
+	rokid::speech::register_com_rokid_speech_SpeechOptions(env);
 	return JNI_VERSION_1_4;
 }

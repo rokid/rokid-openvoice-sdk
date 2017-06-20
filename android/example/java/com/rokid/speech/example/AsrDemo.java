@@ -89,12 +89,12 @@ class AsrCallbackDemo implements AsrCallback {
 		Log.d(AsrDemo.TAG, "onStart " + id);
 	}
 
-	public void onAsr(int id, String asr) {
-		Log.d(AsrDemo.TAG, "onAsr " + id + ", " + asr);
+	public void onIntermediateResult(int id, String asr) {
+		Log.d(AsrDemo.TAG, "onIntermediateResult " + id + ", " + asr);
 	}
 
-	public void onComplete(int id) {
-		Log.d(AsrDemo.TAG, "onComplete " + id);
+	public void onComplete(int id, String asr) {
+		Log.d(AsrDemo.TAG, "onComplete " + id + ": " + asr);
 	}
 
 	public void onCancel(int id) {

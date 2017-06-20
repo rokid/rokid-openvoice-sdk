@@ -141,6 +141,7 @@ bool TtsImpl::poll(TtsResult& res) {
 	uint32_t err;
 
 	res.voice.reset();
+	res.err = TTS_SUCCESS;
 
 	unique_lock<mutex> locker(resp_mutex_);
 	while (initialized_) {
@@ -172,7 +173,7 @@ bool TtsImpl::poll(TtsResult& res) {
 				return true;
 			} else {
 				poptype = responses_.pop(id, voice, err);
-				if (poptype != StreamQueue<string>::POP_TYPE_EMPTY) {
+				if (poptype != TtsStreamQueue::POP_TYPE_EMPTY) {
 					assert(id == op->id);
 					res.id = id;
 					res.type = poptype_to_restype(poptype);
@@ -352,13 +353,8 @@ void TtsImpl::gen_result_by_resp(TtsResponse& resp) {
 	}
 }
 
-Tts* new_tts() {
-	return new TtsImpl();
-}
-
-void delete_tts(Tts* tts) {
-	if (tts)
-		delete tts;
+shared_ptr<Tts> new_tts() {
+	return shared_ptr<Tts>(new TtsImpl());
 }
 
 } // namespace speech

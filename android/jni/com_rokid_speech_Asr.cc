@@ -6,6 +6,7 @@
 #include "JNIHelp.h"
 
 using std::thread;
+using std::shared_ptr;
 
 namespace rokid {
 namespace speech {
@@ -32,7 +33,7 @@ static AsrNativeConstants constants_;
 
 class AsrPollThread {
 public:
-	void start(Asr* asr, jobject asr_obj) {
+	void start(shared_ptr<Asr> asr, jobject asr_obj) {
 		asr_ = asr;
 		asr_obj_ = asr_obj;
 		thread_ = new thread([=] { run(); });
@@ -81,13 +82,13 @@ private:
 
 private:
 	thread* thread_;
-	Asr* asr_;
+	shared_ptr<Asr> asr_;
 	jobject asr_obj_;
 	JNIEnv* env_;
 };
 
 typedef struct {
-	Asr* asr;
+	shared_ptr<Asr> asr;
 	AsrPollThread* poll_thread;
 } AsrNativeInfo;
 
@@ -111,10 +112,8 @@ static jlong com_rokid_speech_Asr__sdk_create(JNIEnv *env, jobject thiz) {
 
 static void com_rokid_speech_Asr__sdk_delete(JNIEnv *env, jobject thiz, jlong asrl) {
 	AsrNativeInfo* p = reinterpret_cast<AsrNativeInfo*>(asrl);
-	if (p) {
-		delete_asr(p->asr);
+	if (p)
 		delete p;
-	}
 }
 
 static jboolean com_rokid_speech_Asr__sdk_prepare(JNIEnv *env, jobject thiz, jlong asrl) {

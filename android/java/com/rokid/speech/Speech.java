@@ -36,9 +36,16 @@ public class Speech extends GenericConfig<SpeechConfig> {
 	}
 
 	public int startVoice(SpeechCallback cb) {
+		return startVoice(cb, null, null);
+	}
+
+	public int startVoice(SpeechCallback cb,
+			SpeechOptions frameworkOptions,
+			SpeechOptions skillOptions) {
 		int id;
 		synchronized (_callbacks) {
-			id = _sdk_start_voice(_sdk_speech);
+			id = _sdk_start_voice(_sdk_speech, frameworkOptions,
+					skillOptions);
 			Log.d(TAG, "start voice, id = " + id);
 			if (id > 0)
 				_callbacks.put(id, cb);
@@ -76,26 +83,21 @@ public class Speech extends GenericConfig<SpeechConfig> {
 		}
 		if (cb != null) {
 			switch(res.type) {
-				case 0:
-					if (res.asr != null && res.asr.length() > 0)
-						cb.onAsr(res.id, res.asr);
-					if (res.nlp != null && res.nlp.length() > 0)
-						cb.onNlp(res.id, res.nlp);
-					if (res.action != null && res.action.length() > 0)
-						cb.onAction(res.id, res.action);
+				case SpeechResult.INTERMEDIATE:
+					cb.onIntermediateResult(res.id, res.asr, res.extra);
 					break;
-				case 1:
+				case SpeechResult.START:
 					cb.onStart(res.id);
 					break;
-				case 2:
-					cb.onComplete(res.id);
+				case SpeechResult.END:
+					cb.onComplete(res.id, res.asr, res.nlp, res.action);
 					del_cb = true;
 					break;
-				case 3:
+				case SpeechResult.CANCELLED:
 					cb.onCancel(res.id);
 					del_cb = true;
 					break;
-				case 4:
+				case SpeechResult.ERROR:
 					cb.onError(res.id, res.err);
 					del_cb = true;
 					break;
@@ -108,7 +110,8 @@ public class Speech extends GenericConfig<SpeechConfig> {
 		}
 	}
 
-	private static native void _sdk_init(Class speech_cls, Class res_cls);
+	private static native void _sdk_init(Class speech_cls,
+			Class res_cls, Class options_cls);
 
 	private native long _sdk_create();
 
@@ -120,15 +123,18 @@ public class Speech extends GenericConfig<SpeechConfig> {
 
 	private native int _sdk_put_text(long sdk_speech, String content);
 
-	private native int _sdk_start_voice(long sdk_speech);
+	private native int _sdk_start_voice(long sdk_speech,
+			SpeechOptions foptions, SpeechOptions soptions);
 
-	private native void _sdk_put_voice(long sdk_speech, int id, byte[] voice, int offset, int length);
+	private native void _sdk_put_voice(long sdk_speech, int id,
+			byte[] voice, int offset, int length);
 
 	private native void _sdk_end_voice(long sdk_speech, int id);
 
 	private native void _sdk_cancel(long sdk_speech, int id);
 
-	private native void _sdk_config(long sdk_speech, String key, String value);
+	private native void _sdk_config(long sdk_speech, String key,
+			String value);
 
 	private SparseArray<SpeechCallback> _callbacks;
 
@@ -136,23 +142,25 @@ public class Speech extends GenericConfig<SpeechConfig> {
 
 	static {
 		System.loadLibrary("rokid_speech_jni");
-		_sdk_init(Speech.class, SpeechResult.class);
+		_sdk_init(Speech.class, SpeechResult.class, SpeechOptions.class);
 	}
 
 	private static final String TAG = "speech.sdk";
 
 	private static class SpeechResult {
 		public int id;
-		// 0:  speech result
-		// 1:  start speech
-		// 2:  end speech
-		// 3:  cancel speech
-		// 4:  error
 		public int type;
 		public int err;
 		public String asr;
 		public String nlp;
 		public String action;
+		public String extra;
+
+		private static final int INTERMEDIATE = 0;
+		private static final int START = 1;
+		private static final int END = 2;
+		private static final int CANCELLED = 3;
+		private static final int ERROR = 4;
 	}
 }
 

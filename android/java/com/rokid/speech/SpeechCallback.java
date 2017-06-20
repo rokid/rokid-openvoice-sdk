@@ -3,13 +3,9 @@ package com.rokid.speech;
 public interface SpeechCallback {
 	void onStart(int id);
 
-	void onAsr(int id, String asr);
+	void onIntermediateResult(int id, String asr, String extra);
 
-	void onNlp(int id, String nlp);
-
-	void onAction(int id, String action);
-
-	void onComplete(int id);
+	void onComplete(int id, String asr, String nlp, String action);
 
 	void onCancel(int id);
 

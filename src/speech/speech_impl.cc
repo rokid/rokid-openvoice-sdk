@@ -9,6 +9,7 @@ using std::lock_guard;
 using rokid::open::SpeechRequest;
 using rokid::open::SpeechResponse;
 using rokid::open::ReqType;
+using rokid::open::SpeechErrorCode;
 
 namespace rokid {
 namespace speech {
@@ -69,13 +70,18 @@ int32_t SpeechImpl::put_text(const char* text) {
 	return id;
 }
 
-int32_t SpeechImpl::start_voice() {
+int32_t SpeechImpl::start_voice(shared_ptr<Options> framework_options,
+		shared_ptr<Options> skill_options) {
 	if (!initialized_)
 		return -1;
 	lock_guard<mutex> locker(req_mutex_);
 	int32_t id = next_id();
 	if (!voice_reqs_.start(id))
 		return -1;
+	shared_ptr<FSOptions> arg(new FSOptions());
+	arg->framework_options = framework_options;
+	arg->skill_options = skill_options;
+	voice_reqs_.set_arg(id, arg);
 #ifdef SPEECH_SDK_DETAIL_TRACE
 	Log::d(tag__, "start voice %d", id);
 #endif
@@ -151,9 +157,11 @@ void SpeechImpl::config(const char* key, const char* value) {
 
 static SpeechResultType poptype_to_restype(int32_t type) {
 	static SpeechResultType _tps[] = {
-		SPEECH_RES_NLP,
+		SPEECH_RES_INTER,
 		SPEECH_RES_START,
 		SPEECH_RES_END,
+		SPEECH_RES_CANCELLED,
+		SPEECH_RES_ERROR,
 	};
 	assert(type >= 0 && type < sizeof(_tps)/sizeof(SpeechResultType));
 	return _tps[type];
@@ -188,9 +196,11 @@ bool SpeechImpl::poll(SpeechResult& res) {
 	int32_t poptype;
 	uint32_t err;
 
+	res.err = SPEECH_SUCCESS;
 	res.asr.clear();
 	res.nlp.clear();
 	res.action.clear();
+	res.extra.clear();
 
 	unique_lock<mutex> locker(resp_mutex_);
 	while (initialized_) {
@@ -222,19 +232,20 @@ bool SpeechImpl::poll(SpeechResult& res) {
 				return true;
 			} else {
 				poptype = responses_.pop(id, resin, err);
-				if (poptype != StreamQueue<string>::POP_TYPE_EMPTY) {
+				if (poptype != ReqStreamQueue::POP_TYPE_EMPTY) {
 					assert(id == op->id);
 					res.id = id;
 					res.type = poptype_to_restype(poptype);
 					res.err = integer_to_reserr(err);
-					if (res.type == SPEECH_RES_NLP) {
+					if (resin.get()) {
 						res.asr = resin->asr;
 						res.nlp = resin->nlp;
 						res.action = resin->action;
+						res.extra = resin->extra;
 					}
 					Log::d(tag__, "SpeechImpl.poll return result "
 							"id(%d), type(%d)", res.id, res.type);
-					if (res.type == SPEECH_RES_END) {
+					if (res.type >= SPEECH_RES_END) {
 						Log::d(tag__, "SpeechImpl.poll (%d) end", res.id);
 						controller_.remove_front_op();
 					}
@@ -280,6 +291,7 @@ void SpeechImpl::send_reqs() {
 			info->id = id;
 			info->type = sqtype_to_reqtype(r);
 			info->data = voice;
+			info->fsoptions = voice_reqs_.get_arg(id);
 		} else if (!text_reqs_.empty()) {
 			info = text_reqs_.front();
 			text_reqs_.pop_front();
@@ -336,12 +348,27 @@ bool SpeechImpl::do_ctl_change_op(std::shared_ptr<SpeechReqInfo>& req) {
 	return false;
 }
 
-static void req_config(SpeechRequest& req, SpeechConfig& config) {
+static void req_config(SpeechRequest& req,
+		shared_ptr<Options> framework_options,
+		shared_ptr<Options> skill_options, SpeechConfig& config) {
 	req.set_lang(config.get("lang", "zh"));
 	req.set_codec(config.get("codec", "pcm"));
 	req.set_vt(config.get("vt", ""));
-	req.set_stack(config.get("stack", ""));
-	req.set_device(config.get("device", ""));
+	string json;
+	if (framework_options.get()) {
+		framework_options->to_json_string(json);
+		req.set_framework_options(json);
+#ifdef SPEECH_SDK_DETAIL_TRACE
+		Log::d(tag__, "framework options is %s", json.c_str());
+#endif
+	}
+	if (skill_options.get()) {
+		skill_options->to_json_string(json);
+		req.set_skill_options(json);
+#ifdef SPEECH_SDK_DETAIL_TRACE
+		Log::d(tag__, "skill options is %s", json.c_str());
+#endif
+	}
 }
 
 int32_t SpeechImpl::do_request(shared_ptr<SpeechReqInfo>& req) {
@@ -352,7 +379,7 @@ int32_t SpeechImpl::do_request(shared_ptr<SpeechReqInfo>& req) {
 			treq.set_id(req->id);
 			treq.set_type(ReqType::TEXT);
 			treq.set_asr(*req->data);
-			req_config(treq, config_);
+			req_config(treq, NULL, NULL, config_);
 			rv = 0;
 
 			Log::d(tag__, "SpeechImpl.do_request (%d) send text req",
@@ -362,7 +389,8 @@ int32_t SpeechImpl::do_request(shared_ptr<SpeechReqInfo>& req) {
 		case SpeechReqType::VOICE_START: {
 			treq.set_id(req->id);
 			treq.set_type(ReqType::START);
-			req_config(treq, config_);
+			req_config(treq, req->fsoptions->framework_options,
+					req->fsoptions->skill_options, config_);
 
 			Log::d(tag__, "SpeechImpl.do_request (%d) send voice start",
 					req->id);
@@ -455,7 +483,9 @@ void SpeechImpl::gen_result_by_resp(SpeechResponse& resp) {
 	bool new_data = false;
 	shared_ptr<SpeechOperationController::Operation> op =
 		controller_.current_op();
-	if (op.get() && op->id == resp.id()) {
+	if (op.get() && op->id == resp.id()
+			&& op->status != SpeechStatus::CANCELLED
+			&& op->status != SpeechStatus::ERROR) {
 		if (op->status == SpeechStatus::START) {
 			responses_.start(resp.id());
 			op->status = SpeechStatus::STREAMING;
@@ -464,25 +494,30 @@ void SpeechImpl::gen_result_by_resp(SpeechResponse& resp) {
 					"Status Start --> Streaming", resp.id());
 		}
 
-		Log::d(tag__, "SpeechResponse finish(%d)", resp.finish());
-		shared_ptr<SpeechResultIn> resin(new SpeechResultIn());
-		resin->asr = resp.asr();
-		resin->nlp = resp.nlp();
-		resin->action = resp.action();
-		responses_.stream(resp.id(), resin);
-		new_data = true;
-		Log::d(tag__, "gen_result_by_resp(%d): push nlp resp "
-				"%s", resp.id(), resin->action.c_str());
+		if (resp.result() == SpeechErrorCode::SUCCESS) {
+			Log::d(tag__, "SpeechResponse finish(%d)", resp.finish());
+			shared_ptr<SpeechResultIn> resin(new SpeechResultIn());
+			resin->asr = resp.asr();
+			resin->nlp = resp.nlp();
+			resin->action = resp.action();
+			resin->extra = resp.extra();
 
-		if (resp.finish()) {
-			responses_.end(resp.id());
-			new_data = true;
-			if (op->status != SpeechStatus::CANCELLED
-					&& op->status != SpeechStatus::ERROR) {
+			if (resp.finish()) {
+				responses_.end(resp.id(), resin);
+				new_data = true;
 				op->status = SpeechStatus::END;
 				Log::d(tag__, "gen_result_by_resp(%d): push end resp, "
 						"Status Streaming --> End", resp.id());
+				controller_.finish_op();
+			} else {
+				responses_.stream(resp.id(), resin);
+				new_data = true;
+				Log::d(tag__, "gen_result_by_resp(%d): push nlp resp "
+						"%s", resp.id(), resin->action.c_str());
 			}
+		} else {
+			responses_.erase(resp.id(), resp.result());
+			new_data = true;
 			controller_.finish_op();
 		}
 
@@ -494,14 +529,8 @@ void SpeechImpl::gen_result_by_resp(SpeechResponse& resp) {
 	}
 }
 
-Speech* new_speech() {
-	return new SpeechImpl();
-}
-
-void delete_speech(Speech* speech) {
-	if (speech) {
-		delete speech;
-	}
+shared_ptr<Speech> new_speech() {
+	return shared_ptr<Speech>(new SpeechImpl());
 }
 
 } // namespace speech

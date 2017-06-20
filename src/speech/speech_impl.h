@@ -17,6 +17,8 @@ namespace rokid {
 namespace speech {
 
 typedef OperationController<SpeechStatus, SpeechError> SpeechOperationController;
+typedef StreamQueue<std::string, FSOptions> ReqStreamQueue;
+typedef StreamQueue<SpeechResultIn, int32_t> RespStreamQueue;
 
 class SpeechImpl : public Speech {
 public:
@@ -28,7 +30,8 @@ public:
 
 	int32_t put_text(const char* text);
 
-	int32_t start_voice();
+	int32_t start_voice(std::shared_ptr<Options> framework_options,
+			std::shared_ptr<Options> skill_options);
 
 	void put_voice(int32_t id, const uint8_t* data, uint32_t length);
 
@@ -60,8 +63,8 @@ private:
 	SpeechConfig config_;
 	SpeechConnection connection_;
 	std::list<std::shared_ptr<SpeechReqInfo> > text_reqs_;
-	StreamQueue<std::string> voice_reqs_;
-	StreamQueue<SpeechResultIn> responses_;
+	ReqStreamQueue voice_reqs_;
+	RespStreamQueue responses_;
 	std::mutex req_mutex_;
 	std::condition_variable req_cond_;
 	std::mutex resp_mutex_;

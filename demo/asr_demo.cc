@@ -2,6 +2,7 @@
 #include "common.h"
 
 using namespace rokid::speech;
+using std::shared_ptr;
 
 static int32_t last_id_ = 0xffffffff;
 static bool quit_ = false;
@@ -64,9 +65,8 @@ static void asr_poll(Asr* asr) {
 }
 
 void asr_demo() {
-	Asr* asr = new_asr();
-	prepare(asr);
+	shared_ptr<Asr> asr = new_asr();
+	prepare(asr.get());
 	asr->config("codec", "pcm");
-	run(asr, asr_req, asr_poll);
-	delete_asr(asr);
+	run(asr.get(), asr_req, asr_poll);
 }

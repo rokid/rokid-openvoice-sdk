@@ -6,6 +6,7 @@
 #include "JNIHelp.h"
 
 using std::thread;
+using std::shared_ptr;
 
 namespace rokid {
 namespace speech {
@@ -32,7 +33,7 @@ static TtsNativeConstants constants_;
 
 class TtsPollThread {
 public:
-	void start(Tts* tts, jobject tts_obj) {
+	void start(shared_ptr<Tts> tts, jobject tts_obj) {
 		tts_ = tts;
 		tts_obj_ = tts_obj;
 		thread_ = new thread([=] { run(); });
@@ -84,13 +85,13 @@ private:
 
 private:
 	thread* thread_;
-	Tts* tts_;
+	shared_ptr<Tts> tts_;
 	jobject tts_obj_;
 	JNIEnv* env_;
 };
 
 typedef struct {
-	Tts* tts;
+	shared_ptr<Tts> tts;
 	TtsPollThread* poll_thread;
 } TtsNativeInfo;
 
@@ -114,10 +115,8 @@ static jlong com_rokid_speech_Tts__sdk_create(JNIEnv *env, jobject thiz) {
 
 static void com_rokid_speech_Tts__sdk_delete(JNIEnv *env, jobject thiz, jlong ttsl) {
 	TtsNativeInfo* p = reinterpret_cast<TtsNativeInfo*>(ttsl);
-	if (p) {
-		delete_tts(p->tts);
+	if (p)
 		delete p;
-	}
 }
 
 static jboolean com_rokid_speech_Tts__sdk_prepare(JNIEnv *env, jobject thiz, jlong ttsl) {

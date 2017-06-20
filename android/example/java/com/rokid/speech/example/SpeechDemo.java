@@ -89,20 +89,14 @@ class SpeechCallbackDemo implements SpeechCallback {
 		Log.d(SpeechDemo.TAG, "onStart " + id);
 	}
 
-	public void onAsr(int id, String asr) {
-		Log.d(SpeechDemo.TAG, "onAsr " + id + ", " + asr);
+	public void onIntermediateResult(int id, String asr, String extra) {
+		Log.d(SpeechDemo.TAG, "onIntermediateResult " + id
+				+ ", asr = " + asr + ", extra = " + extra);
 	}
 
-	public void onNlp(int id, String nlp) {
-		Log.d(SpeechDemo.TAG, "onNlp " + id + ", " + nlp);
-	}
-
-	public void onAction(int id, String action) {
-		Log.d(SpeechDemo.TAG, "onAction " + id + ", " + action);
-	}
-
-	public void onComplete(int id) {
-		Log.d(SpeechDemo.TAG, "onComplete " + id);
+	public void onComplete(int id, String asr, String nlp, String action) {
+		Log.d(SpeechDemo.TAG, "onComplete " + id + ", asr = "
+				+ asr + ", nlp = " + nlp + ", action = " + action);
 	}
 
 	public void onCancel(int id) {

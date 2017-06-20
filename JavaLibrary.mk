@@ -37,6 +37,7 @@ LOCAL_SRC_FILES := \
 		$(JAVA_DIR)/com/rokid/speech/TtsCallback.java \
 		$(JAVA_DIR)/com/rokid/speech/AsrCallback.java \
 		$(JAVA_DIR)/com/rokid/speech/SpeechCallback.java \
+		$(JAVA_DIR)/com/rokid/speech/SpeechOptions.java \
 		$(JAVA_DIR)/com/rokid/speech/GenericConfig.java
 LOCAL_JAVA_LIBRARIES := fastjson-android
 include $(BUILD_STATIC_JAVA_LIBRARY)

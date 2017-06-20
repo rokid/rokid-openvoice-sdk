@@ -79,9 +79,7 @@ public:
 	virtual void config(const char* key, const char* value) = 0;
 };
 
-Tts* new_tts();
-
-void delete_tts(Tts* tts);
+std::shared_ptr<Tts> new_tts();
 
 } // namespace speech
 } // namespace rokid

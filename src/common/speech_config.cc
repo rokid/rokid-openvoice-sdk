@@ -7,6 +7,7 @@ using std::map;
 using std::string;
 using std::mutex;
 using std::lock_guard;
+using std::shared_ptr;
 
 namespace rokid {
 namespace speech {
@@ -37,6 +38,32 @@ const char* SpeechConfig::get(const char* key, const char* default_value) {
 void SpeechConfig::clear() {
 	lock_guard<mutex> locker(mutex_);
 	configs_.clear();
+}
+
+static void set_json_property(string& json, const string& key,
+		const string& value, bool comma) {
+	if (comma)
+		json.append(",");
+	json.append("\"");
+	json.append(key);
+	json.append("\":\"");
+	json.append(value);
+	json.append("\"");
+}
+
+void SpeechConfig::to_json_string(std::string& json) {
+	map<string, string>::const_iterator it;
+
+	json.clear();
+	json.append("{");
+	for (it = configs_.begin(); it != configs_.end(); ++it) {
+		set_json_property(json, it->first, it->second, it != configs_.begin());
+	}
+	json.append("}");
+}
+
+shared_ptr<Options> new_options() {
+	return shared_ptr<Options>(new SpeechConfig());
 }
 
 } // namespace speech

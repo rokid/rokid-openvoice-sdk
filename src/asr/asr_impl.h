@@ -9,6 +9,7 @@ namespace rokid {
 namespace speech {
 
 typedef OperationController<AsrStatus, AsrError> AsrOperationController;
+typedef StreamQueue<std::string, int32_t> AsrStreamQueue;
 
 class AsrImpl : public Asr {
 public:
@@ -68,8 +69,8 @@ private:
 	int32_t next_id_;
 	SpeechConfig config_;
 	SpeechConnection connection_;
-	StreamQueue<std::string> requests_;
-	StreamQueue<std::string> responses_;
+	AsrStreamQueue requests_;
+	AsrStreamQueue responses_;
 	std::mutex req_mutex_;
 	std::condition_variable req_cond_;
 	std::mutex resp_mutex_;

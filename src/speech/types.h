@@ -20,10 +20,17 @@ enum class SpeechReqType {
 	VOICE_DATA,
 };
 
+// framework options + skill options
+typedef struct {
+	std::shared_ptr<Options> framework_options;
+	std::shared_ptr<Options> skill_options;
+} FSOptions;
+
 typedef struct {
 	int32_t id;
 	SpeechReqType type;
 	std::shared_ptr<std::string> data;
+	std::shared_ptr<FSOptions> fsoptions;
 } SpeechReqInfo;
 
 /**
@@ -49,6 +56,7 @@ typedef struct {
 	std::string asr;
 	std::string nlp;
 	std::string action;
+	std::string extra;
 } SpeechResultIn;
 
 /**

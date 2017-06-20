@@ -65,22 +65,22 @@ public class Asr extends GenericConfig<AsrConfig> {
 		}
 		if (cb != null) {
 			switch(res.type) {
-				case 0:
+				case AsrResult.INTERMEDIATE:
 					if (res.asr != null && res.asr.length() > 0)
-						cb.onAsr(res.id, res.asr);
+						cb.onIntermediateResult(res.id, res.asr);
 					break;
-				case 1:
+				case AsrResult.START:
 					cb.onStart(res.id);
 					break;
-				case 2:
-					cb.onComplete(res.id);
+				case AsrResult.END:
+					cb.onComplete(res.id, res.asr);
 					del_cb = true;
 					break;
-				case 3:
+				case AsrResult.CANCELLED:
 					cb.onCancel(res.id);
 					del_cb = true;
 					break;
-				case 4:
+				case AsrResult.ERROR:
 					cb.onError(res.id, res.err);
 					del_cb = true;
 					break;
@@ -126,14 +126,15 @@ public class Asr extends GenericConfig<AsrConfig> {
 
 	private static class AsrResult {
 		public int id;
-		// 0:  asr result
-		// 1:  start asr
-		// 2:  end asr
-		// 3:  cancel asr
-		// 4:  error
 		public int type;
 		public int err;
 		public String asr;
+
+		private static final int INTERMEDIATE = 0;
+		private static final int START = 1;
+		private static final int END = 2;
+		private static final int CANCELLED = 3;
+		private static final int ERROR = 4;
 	}
 }
 
