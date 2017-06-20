@@ -329,7 +329,7 @@ int32_t AsrImpl::do_request(int32_t id, uint32_t type,
 		Log::d(tag__, "req (%d) sent, req done", id);
 #endif
 		lock_guard<mutex> locker(resp_mutex_);
-		controller_.req_done();
+		controller_.refresh_op_time();
 	}
 	return rv;
 }

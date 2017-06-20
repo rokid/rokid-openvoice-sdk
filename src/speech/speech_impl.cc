@@ -407,7 +407,7 @@ int32_t SpeechImpl::do_request(shared_ptr<SpeechReqInfo>& req) {
 		Log::d(tag__, "req (%d) last data sent, req done", req->id);
 #endif
 		lock_guard<mutex> locker(resp_mutex_);
-		controller_.req_done();
+		controller_.refresh_op_time();
 	}
 	return rv;
 }

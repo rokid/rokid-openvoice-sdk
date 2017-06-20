@@ -18,15 +18,15 @@ public:
 		int32_t id;
 		TStatus status;
 		TError error;
-		std::chrono::time_point<std::chrono::steady_clock> req_done_time;
-		bool req_done;
+		std::chrono::time_point<std::chrono::steady_clock> begin_timepoint;
+		bool calc_op_timeout;
 	} Operation;
 
 	void new_op(int32_t id, TStatus status) {
 		std::shared_ptr<Operation> op(new Operation());
 		op->id = id;
 		op->status = status;
-		op->req_done = false;
+		op->calc_op_timeout = false;
 		operations_.push_back(op);
 		if (status == TStatus::START)
 			current_op_ = op;
@@ -83,21 +83,21 @@ public:
 			operations_.pop_front();
 	}
 
-	void req_done() {
+	void refresh_op_time() {
 		if (current_op_.get()) {
-			current_op_->req_done = true;
-			current_op_->req_done_time = std::chrono::steady_clock::now();
+			current_op_->calc_op_timeout = true;
+			current_op_->begin_timepoint = std::chrono::steady_clock::now();
 		}
 	}
 
 	uint32_t op_timeout() {
 		if (current_op_.get() == NULL)
 			return NOOP_TIMEOUT;
-		if (!current_op_->req_done)
+		if (!current_op_->calc_op_timeout)
 			return NOOP_TIMEOUT;
 		std::chrono::duration<uint32_t, std::milli> dur =
 			std::chrono::duration_cast<std::chrono::duration<uint32_t, std::milli> >
-			(std::chrono::steady_clock::now() - current_op_->req_done_time);
+			(std::chrono::steady_clock::now() - current_op_->begin_timepoint);
 		if (dur.count() > NOOP_TIMEOUT)
 			return 0;
 		return NOOP_TIMEOUT - dur.count();
