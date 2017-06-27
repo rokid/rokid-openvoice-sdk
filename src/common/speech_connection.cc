@@ -156,30 +156,39 @@ void SpeechConnection::run() {
 }
 
 shared_ptr<WebSocket> SpeechConnection::connect() {
-	if (!init_ssl(config_)) {
-		Log::e(CONN_TAG, "connect: init ssl failed");
-		return NULL;
-	}
-
+	HTTPClientSession* cs;
 	const char* host = config_->get("host", "localhost");
 	const char* port_str = config_->get("port", "80");
 	const char* branch = config_->get("branch", "/");
 	int port = atoi(port_str);
-	HTTPSClientSession cs(host, port);
+
+	const char* ssl_roots_pem = config_->get("ssl_roots_pem", NULL);
+	if (ssl_roots_pem == NULL) {
+		cs = new HTTPClientSession(host, port);
+	} else {
+		if (!init_ssl(config_)) {
+			Log::e(CONN_TAG, "connect: init ssl failed");
+			return NULL;
+		}
+		cs = new HTTPSClientSession(host, port);
+	}
 	HTTPRequest request(HTTPRequest::HTTP_GET, branch,
 			HTTPMessage::HTTP_1_1);
 	HTTPResponse response;
 	shared_ptr<WebSocket> sock;
 
-	Log::d(CONN_TAG, "server address is %s:%d%s", host, port, branch);
+	Log::d(CONN_TAG, "server address is %s:%d%s, use ssl %d",
+			host, port, branch, ssl_initialized_);
 
 	try {
-		sock.reset(new WebSocket(cs, request, response));
+		sock.reset(new WebSocket(*cs, request, response));
 	} catch (Exception e) {
 		Log::w(CONN_TAG, "websocket connect failed: %s",
 				e.displayText().c_str());
+		delete cs;
 		return NULL;
 	}
+	delete cs;
 	return sock;
 }
 
