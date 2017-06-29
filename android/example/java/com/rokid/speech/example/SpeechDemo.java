@@ -13,7 +13,6 @@ public class SpeechDemo extends Service implements Runnable {
 	@Override
 	public void onCreate() {
 		_speech = new Speech("/system/etc/speech_sdk.json");
-		_speech.prepare();
 		_speech.config("codec", "pcm");
 	}
 
@@ -28,7 +27,14 @@ public class SpeechDemo extends Service implements Runnable {
 
 	@Override
 	public int onStartCommand(Intent intent, int flags, int startId) {
-		new Thread(this).start();
+		_speech.release();
+		_speech.prepare();
+		Thread th = new Thread(this);
+		th.start();
+		try {
+			th.join();
+		} catch (Exception e) {
+		}
 		return START_NOT_STICKY;
 	}
 
@@ -61,13 +67,13 @@ public class SpeechDemo extends Service implements Runnable {
 			e.printStackTrace();
 			return;
 		} finally {
+			_speech.endVoice(id);
 			try {
 				if (is != null)
 					is.close();
 			} catch (Exception e) {
 			}
 		}
-		_speech.endVoice(id);
 	}
 
 

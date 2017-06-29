@@ -23,7 +23,7 @@
 	},
 	'targets': [
 	{
-		'target_name': 'common',
+		'target_name': 'speech',
 		'type': 'shared_library',
 		'sources': [
 			'<(proto_gen_dir)/speech.pb.cc',
@@ -33,79 +33,38 @@
 			'<(src_dir)/common/speech_config.h',
 			'<(src_dir)/common/log.h',
 			'<(src_dir)/common/log.cc',
-		],
-		'include_dirs': [
-			'<(proto_gen_dir)',
-			'<(deps_dir)/include',
-		],
-		'direct_dependent_settings': {
-			'include_dirs': [ '<(proto_gen_dir)', '<(deps_dir)/include', '<(src_dir)/common' ],
-		},
-		'link_settings': {
-			'libraries': [ '-L<(deps_dir)/lib', '-lprotobuf', '-Wl,-rpath,<(deps_dir)/lib' ],
-		},
-	}, # target 'common'
-	{
-		'target_name': 'tts',
-		'type': 'shared_library',
-		'dependencies': [
-			'common',
-		],
-		'include_dirs': [
-			'include',
-		],
-		'sources': [
 			'<(src_dir)/common/pending_queue.h',
 			'<(src_dir)/common/op_ctl.h',
 			'<(src_dir)/tts/types.h',
 			'<(src_dir)/tts/tts_impl.cc',
 			'<(src_dir)/tts/tts_impl.h',
-		],
-	}, # target 'tts'
-	{
-		'target_name': 'asr',
-		'type': 'shared_library',
-		'dependencies': [
-			'common',
-		],
-		'sources': [
-			'<(src_dir)/common/pending_queue.h',
-			'<(src_dir)/common/op_ctl.h',
 			'<(src_dir)/asr/types.h',
 			'<(src_dir)/asr/asr_impl.cc',
 			'<(src_dir)/asr/asr_impl.h',
-		],
-		'include_dirs': [
-			'include',
-		],
-	}, # target 'asr'
-	{
-		'target_name': 'speech',
-		'type': 'shared_library',
-		'dependencies': [
-			'common',
-		],
-		'include_dirs': [
-			'include',
-		],
-		'sources': [
-			'<(src_dir)/common/pending_queue.h',
-			'<(src_dir)/common/op_ctl.h',
-			'<(src_dir)/common/pending_queue.h',
+			'<(src_dir)/speech/types.h',
 			'<(src_dir)/speech/speech_impl.h',
 			'<(src_dir)/speech/speech_impl.cc',
 		],
 		'include_dirs': [
 			'include',
+			'<(src_dir)/common',
+			'<(proto_gen_dir)',
+			'<(deps_dir)/include',
 		],
-	}, # target 'speech'
+		'direct_dependent_settings': {
+			'include_dirs': [ 'include', '<(proto_gen_dir)', '<(deps_dir)/include', '<(src_dir)/common' ],
+		},
+		'link_settings': {
+			'libraries': [
+				'-L<(deps_dir)/lib', '-lprotobuf', '-Wl,-rpath,<(deps_dir)/lib',
+				'-lPocoFoundation -lPocoNet -lPocoNetSSL'
+			],
+		},
+	}, # target 'common'
 	{
 		'target_name': 'demo',
 		'type': 'executable',
 		'dependencies': [
-			'common',
-			'tts',
-			'asr',
 			'speech',
 		],
 		'include_dirs': [

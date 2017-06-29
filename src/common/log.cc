@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <chrono>
+#include <sys/time.h>
+#include <time.h>
 #include "log.h"
 
 #ifdef SPEECH_LOG_ANDROID
@@ -79,8 +81,16 @@ void Log::p(LogLevel level, const char* tag, const char* fmt, va_list ap) {
 #ifdef SPEECH_LOG_ANDROID
 	__android_log_vprint(AndroidLogLevels[level], tag, fmt, ap);
 #else  // posix log
+	struct timeval tv;
+	struct tm ltm;
+	gettimeofday(&tv, NULL);
+	localtime_r(&tv.tv_sec, &ltm);
 	std::lock_guard<std::mutex> locker(mutex_);
-	printf("%c [%s] ", PosixLogLevels[level], tag);
+	printf("%c %04d-%02d-%02d %02d:%02d:%02d [%s] ",
+			PosixLogLevels[level],
+			ltm.tm_year + 1900, ltm.tm_mon, ltm.tm_mday,
+			ltm.tm_hour, ltm.tm_min, ltm.tm_sec,
+			tag);
 	vprintf(fmt, ap);
 	printf("\n");
 #endif

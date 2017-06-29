@@ -13,7 +13,6 @@ public class AsrDemo extends Service implements Runnable {
 	@Override
 	public void onCreate() {
 		_asr = new Asr("/system/etc/speech_sdk.json");
-		_asr.prepare();
 		_asr.config("codec", "pcm");
 	}
 
@@ -28,7 +27,14 @@ public class AsrDemo extends Service implements Runnable {
 
 	@Override
 	public int onStartCommand(Intent intent, int flags, int startId) {
-		new Thread(this).start();
+		_asr.release();
+		_asr.prepare();
+		Thread th = new Thread(this);
+		th.start();
+		try {
+			th.join();
+		} catch (Exception e) {
+		}
 		return START_NOT_STICKY;
 	}
 
@@ -62,13 +68,13 @@ public class AsrDemo extends Service implements Runnable {
 			e.printStackTrace();
 			return;
 		} finally {
+			_asr.endVoice(id);
 			try {
 				if (is != null)
 					is.close();
 			} catch (Exception e) {
 			}
 		}
-		_asr.endVoice(id);
 	}
 
 	public static final String TAG = "AsrDemo";

@@ -97,7 +97,7 @@ void SpeechConnection::release() {
 		return;
 	unique_lock<mutex> locker(resp_mutex_);
 	initialized_ = false;
-	resp_cond_.notify_one();
+	resp_cond_.notify_all();
 	locker.unlock();
 
 	thread_->join();
@@ -150,7 +150,12 @@ void SpeechConnection::run() {
 				continue;
 		}
 
-		usleep(CONNECT_RETRY_TIMEOUT * 1000);
+		locker.lock();
+		if (initialized_) {
+			duration<int, std::milli> ms(CONNECT_RETRY_TIMEOUT);
+			resp_cond_.wait_for(locker, ms);
+		}
+		locker.unlock();
 	}
 	stage_ = CONN_RELEASED;
 }

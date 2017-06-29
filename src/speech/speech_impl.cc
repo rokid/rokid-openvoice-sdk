@@ -33,14 +33,13 @@ void SpeechImpl::release() {
 		// notify req thread to exit
 		unique_lock<mutex> req_locker(req_mutex_);
 		initialized_ = false;
+		connection_.release();
 		voice_reqs_.close();
 		text_reqs_.clear();
 		req_cond_.notify_one();
 		req_locker.unlock();
 		req_thread_->join();
 		delete req_thread_;
-
-		connection_.release();
 
 		// notify resp thread to exit
 		unique_lock<mutex> resp_locker(resp_mutex_);
