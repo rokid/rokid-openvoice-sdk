@@ -194,7 +194,7 @@ bool SpeechImpl::poll(SpeechResult& res) {
 	int32_t id;
 	shared_ptr<SpeechResultIn> resin;
 	int32_t poptype;
-	uint32_t err;
+	uint32_t err = 0;
 
 	res.err = SPEECH_SUCCESS;
 	res.asr.clear();

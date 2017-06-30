@@ -102,7 +102,7 @@ message SpeechRequest {
   //   "voice_trigger": "xxx",
   //   "voice_power": "xxx",
   //   "trigger_start": "xxx",
-  //   "trigger_length": "xxx",
+  //   "trigger_end": "xxx",
   //   "stack": "xxx"
   // }
   optional string framework_options = 8;

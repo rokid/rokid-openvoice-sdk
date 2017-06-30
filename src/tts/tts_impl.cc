@@ -138,7 +138,7 @@ bool TtsImpl::poll(TtsResult& res) {
 	int32_t id;
 	shared_ptr<string> voice;
 	int32_t poptype;
-	uint32_t err;
+	uint32_t err = 0;
 
 	res.voice.reset();
 	res.err = TTS_SUCCESS;

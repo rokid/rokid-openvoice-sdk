@@ -163,7 +163,7 @@ bool AsrImpl::poll(AsrResult& res) {
 	int32_t id;
 	shared_ptr<string> asr;
 	int32_t poptype;
-	uint32_t err;
+	uint32_t err = 0;
 
 	res.asr.clear();
 	res.err = ASR_SUCCESS;
