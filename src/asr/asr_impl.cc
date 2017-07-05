@@ -266,6 +266,7 @@ bool AsrImpl::do_ctl_change_op(int32_t id, uint32_t type) {
 	if (op.get()) {
 		if (type == AsrStreamQueue::POP_TYPE_REMOVED) {
 			op->status = AsrStatus::CANCELLED;
+			resp_cond_.notify_one();
 			Log::d(tag__, "(%d) is processing, Status --> Cancelled", id);
 		}
 		return true;
@@ -298,12 +299,17 @@ int32_t AsrImpl::do_request(int32_t id, uint32_t type,
 		treq.set_codec(config_.get("codec", "pcm"));
 		treq.set_vt(config_.get("vt", ""));
 		rv = 1;
-	} else if (type == AsrStreamQueue::POP_TYPE_END
-			|| type == AsrStreamQueue::POP_TYPE_REMOVED) {
+	} else if (type == AsrStreamQueue::POP_TYPE_END) {
 		Log::d(tag__, "do_request: send asr end to server. (%d)", id);
 		treq.set_id(id);
 		treq.set_type(ReqType::END);
 		rv = 0;
+	} else if (type == AsrStreamQueue::POP_TYPE_REMOVED) {
+		Log::d(tag__, "do_request: send asr end to server "
+				"because cancelled. (%d)", id);
+		treq.set_id(id);
+		treq.set_type(ReqType::END);
+		rv = 1;
 	} else if (type == AsrStreamQueue::POP_TYPE_DATA) {
 		Log::d(tag__, "do_request: send asr voice to server. (%d)", id);
 		treq.set_id(id);

@@ -334,6 +334,7 @@ bool SpeechImpl::do_ctl_change_op(std::shared_ptr<SpeechReqInfo>& req) {
 		op->status = SpeechStatus::CANCELLED;
 		Log::d(tag__, "(%d) is processing, Status --> Cancelled",
 				req->id);
+		resp_cond_.notify_one();
 		return true;
 	}
 	if (req->type == SpeechReqType::CANCELLED) {
@@ -395,14 +396,19 @@ int32_t SpeechImpl::do_request(shared_ptr<SpeechReqInfo>& req) {
 			Log::d(tag__, "SpeechImpl.do_request (%d) send voice start",
 					req->id);
 			break;
-		}	
+		}
 		case SpeechReqType::VOICE_END:
-		case SpeechReqType::CANCELLED:
 			treq.set_id(req->id);
 			treq.set_type(ReqType::END);
 			rv = 0;
 			Log::d(tag__, "SpeechImpl.do_request (%d) send voice end",
 					req->id);
+			break;
+		case SpeechReqType::CANCELLED:
+			treq.set_id(req->id);
+			treq.set_type(ReqType::END);
+			Log::d(tag__, "SpeechImpl.do_request (%d) send voice end"
+					" because req cancelled", req->id);
 			break;
 		case SpeechReqType::VOICE_DATA:
 			treq.set_id(req->id);
