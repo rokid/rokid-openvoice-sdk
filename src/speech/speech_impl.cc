@@ -354,7 +354,6 @@ static void req_config(SpeechRequest& req,
 		shared_ptr<Options> skill_options, SpeechConfig& config) {
 	req.set_lang(config.get("lang", "zh"));
 	req.set_codec(config.get("codec", "pcm"));
-	req.set_vt(config.get("vt", ""));
 	string json;
 	if (framework_options.get()) {
 		framework_options->to_json_string(json);
