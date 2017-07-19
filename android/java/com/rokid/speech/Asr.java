@@ -64,26 +64,32 @@ public class Asr extends GenericConfig<AsrConfig> {
 			cb = _callbacks.get(res.id);
 		}
 		if (cb != null) {
-			switch(res.type) {
-				case AsrResult.INTERMEDIATE:
-					if (res.asr != null && res.asr.length() > 0)
-						cb.onIntermediateResult(res.id, res.asr);
-					break;
-				case AsrResult.START:
-					cb.onStart(res.id);
-					break;
-				case AsrResult.END:
-					cb.onComplete(res.id, res.asr);
-					del_cb = true;
-					break;
-				case AsrResult.CANCELLED:
-					cb.onCancel(res.id);
-					del_cb = true;
-					break;
-				case AsrResult.ERROR:
-					cb.onError(res.id, res.err);
-					del_cb = true;
-					break;
+			try {
+				switch(res.type) {
+					case AsrResult.INTERMEDIATE:
+						if (res.asr != null && res.asr.length() > 0)
+							cb.onIntermediateResult(res.id, res.asr);
+						break;
+					case AsrResult.START:
+						cb.onStart(res.id);
+						break;
+					case AsrResult.END:
+						cb.onComplete(res.id, res.asr);
+						del_cb = true;
+						break;
+					case AsrResult.CANCELLED:
+						cb.onCancel(res.id);
+						del_cb = true;
+						break;
+					case AsrResult.ERROR:
+						cb.onError(res.id, res.err);
+						del_cb = true;
+						break;
+				}
+			} catch (Exception e) {
+				Log.w(TAG, "invoke callback through binder occurs exception");
+				e.printStackTrace();
+				del_cb = true;
 			}
 		}
 		if (del_cb) {

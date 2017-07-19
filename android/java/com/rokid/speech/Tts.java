@@ -52,25 +52,31 @@ public class Tts extends GenericConfig<TtsConfig> {
 			cb = _callbacks.get(res.id);
 		}
 		if (cb != null) {
-			switch(res.type) {
-				case 0:
-					cb.onVoice(res.id, res.voice);
-					break;
-				case 1:
-					cb.onStart(res.id);
-					break;
-				case 2:
-					cb.onComplete(res.id);
-					del_cb = true;
-					break;
-				case 3:
-					cb.onCancel(res.id);
-					del_cb = true;
-					break;
-				case 4:
-					cb.onError(res.id, res.err);
-					del_cb = true;
-					break;
+			try {
+				switch(res.type) {
+					case 0:
+						cb.onVoice(res.id, res.voice);
+						break;
+					case 1:
+						cb.onStart(res.id);
+						break;
+					case 2:
+						cb.onComplete(res.id);
+						del_cb = true;
+						break;
+					case 3:
+						cb.onCancel(res.id);
+						del_cb = true;
+						break;
+					case 4:
+						cb.onError(res.id, res.err);
+						del_cb = true;
+						break;
+				}
+			} catch (Exception e) {
+				Log.w(TAG, "invoke callback function through binder occurs error");
+				e.printStackTrace();
+				del_cb = true;
 			}
 		}
 		if (del_cb) {

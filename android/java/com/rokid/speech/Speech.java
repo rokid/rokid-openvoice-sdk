@@ -82,25 +82,31 @@ public class Speech extends GenericConfig<SpeechConfig> {
 			cb = _callbacks.get(res.id);
 		}
 		if (cb != null) {
-			switch(res.type) {
-				case SpeechResult.INTERMEDIATE:
-					cb.onIntermediateResult(res.id, res.asr, res.extra);
-					break;
-				case SpeechResult.START:
-					cb.onStart(res.id);
-					break;
-				case SpeechResult.END:
-					cb.onComplete(res.id, res.asr, res.nlp, res.action);
-					del_cb = true;
-					break;
-				case SpeechResult.CANCELLED:
-					cb.onCancel(res.id);
-					del_cb = true;
-					break;
-				case SpeechResult.ERROR:
-					cb.onError(res.id, res.err);
-					del_cb = true;
-					break;
+			try {
+				switch(res.type) {
+					case SpeechResult.INTERMEDIATE:
+						cb.onIntermediateResult(res.id, res.asr, res.extra);
+						break;
+					case SpeechResult.START:
+						cb.onStart(res.id);
+						break;
+					case SpeechResult.END:
+						cb.onComplete(res.id, res.asr, res.nlp, res.action);
+						del_cb = true;
+						break;
+					case SpeechResult.CANCELLED:
+						cb.onCancel(res.id);
+						del_cb = true;
+						break;
+					case SpeechResult.ERROR:
+						cb.onError(res.id, res.err);
+						del_cb = true;
+						break;
+				}
+			} catch (Exception e) {
+				Log.w(TAG, "invoke callback through binder occurs exception");
+				e.printStackTrace();
+				del_cb = true;
 			}
 		}
 		if (del_cb) {
