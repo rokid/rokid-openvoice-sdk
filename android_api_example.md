@@ -104,7 +104,10 @@ void prepare();
 int putText(String text, SpeechCallback cb)
 
 // 发起语音speech请求
+// framework_options, skill_options是高级功能中的参数选项，普通用户不需要使用它们
+// 高级功能是指声强仲裁，声纹识别，cloud应用状态判定
 int startVoice(SpeechCallback cb)
+int startVoice(SpeechCallback cb, SpeechOptions framework_options, SpeechOptions skill_options)
 
 // 为指定语音speech请求发送语音数据，数据可分多次调用发送
 void putVoice(int id, byte[] data)
@@ -121,16 +124,16 @@ void config(String key, String value)
 // class SpeechCallback
 void onStart(int id)
 
-// 语音转成的文本
-void onAsr(int id, String asr)
+// 语音转成文本的中间结果(发送语音数据的同时陆续返回语音转文本的部分结果)
+// extra是高级功能返回的结果，普通用户不需使用。
+// 每个id只会返回一次extra数据，其它时候为空字符串
+void onIntermediateResult(int id, String asr, String extra)
 
-// 自然语义解析结果
-void onNlp(int id, String nlp)
-
-// rokid cloud app 解析结果。如果不使用rokid cloud app，忽略这一项
-void onAction(int id, String action)
-
-void onComplete(int id)
+// 语音请求结束，返回最终结果
+// asr: 语音转文字
+// nlp: 自然语义解析
+// action: skill处理结果
+void onComplete(int id, String asr, String nlp, String action)
 
 void onCancel(int id)
 
@@ -193,10 +196,11 @@ void config(String key, String value)
 // class SpeechCallback
 void onStart(int id)
 
-// 语音转成的文本
-void onAsr(int id, String asr)
+// 语音转成文本的中间结果(发送语音数据的同时陆续返回语音转文本的部分结果)
+void onIntermediateResult(int id, String asr)
 
-void onComplete(int id)
+// 语音转换结束，返回最终asr结果
+void onComplete(int id, String asr)
 
 void onCancel(int id)
 

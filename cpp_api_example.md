@@ -60,7 +60,7 @@ std::shared_ptr<std::string> voice;
 ```
 #include "tts.h"
 // Tts构造参数 配置文件名传null
-Tts* tts = new_tts();
+shared_ptr<Tts> tts = new_tts();
 // 在prepare前，先进行必要的配置
 // 配置服务器信息
 tts->config("host", "apigwws-dev.open.rokid.com");
@@ -98,12 +98,6 @@ while (true) {
 		break;
 	handle_tts_result(result);
 }
-
-
-// 关闭tts
-// 此时tts poll线程的poll函数返回false
-tts->release();
-delete_tts(tts);
 ```
 
 ### Speech接口定义
@@ -120,7 +114,8 @@ void prepare();
 int32_t put_text(const char* text)
 
 // 发起语音speech请求
-int32_t start_voice()
+// 'fopts', 'sopts'  高级功能参数选项，普通用户无需使用
+int32_t start_voice(shared_ptr<Options> fopts, shared_ptr<Options> sopts)
 
 // 为指定语音speech请求发送语音数据，数据可分多次调用发送
 void put_voice(int32_t id, const uint8_t* data, uint32_t length)
@@ -141,9 +136,9 @@ void config(const char* key, const char* value)
 int32_t id;
 
 // speech result类型
-// SPEECH_RES_NLP
-// SPEECH_RES_START
-// SPEECH_RES_END
+// SPEECH_RES_INTER    <-- speech请求的中间结果 (asr部分结果, extra数据。extra为高级功能返回的数据，普通用户不要关心)
+// SPEECH_RES_START    <-- speech请求开始返回结果数据
+// SPEECH_RES_END      <-- speech请求最终结果数据(包括asr, nlp, action)
 // SPEECH_RES_CANCELLED
 // SPEECH_RES_ERROR
 uint32_t type;
@@ -174,7 +169,7 @@ std::string action;
 ```
 #include "speech.h"
 
-Speech* speech = new_speech();
+shared_ptr<Speech> speech = new_speech();
 // 在prepare前，先进行必要的配置
 // 配置服务器信息
 speech->config("host", "apigwws-dev.open.rokid.com");
@@ -218,12 +213,6 @@ while (true) {
 		break;
 	handle_speech_result(result);
 }
-
-
-// 关闭speech
-// 此时speech poll线程的poll函数返回false
-speech->release();
-delete_speech(speech);
 ```
 
 ### Asr接口
