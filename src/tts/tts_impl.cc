@@ -94,6 +94,7 @@ void TtsImpl::cancel(int32_t id) {
 		controller_.cancel_op(0, resp_cond_);
 	else if (!erased)
 		controller_.cancel_op(id, resp_cond_);
+	resp_cond_.notify_one();
 	resp_locker.unlock();
 }
 

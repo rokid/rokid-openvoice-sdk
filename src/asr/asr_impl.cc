@@ -263,16 +263,19 @@ void AsrImpl::send_reqs() {
 bool AsrImpl::do_ctl_change_op(int32_t id, uint32_t type) {
 	shared_ptr<AsrOperationController::Operation> op =
 		controller_.current_op();
+	if (type == AsrStreamQueue::POP_TYPE_START) {
+		Log::d(tag__, "do_ctl_change_op: (%d) new op START", id);
+		assert(op.get() == NULL);
+		controller_.new_op(id, AsrStatus::START);
+		return true;
+	}
 	if (op.get()) {
 		if (type == AsrStreamQueue::POP_TYPE_REMOVED) {
 			op->status = AsrStatus::CANCELLED;
-			resp_cond_.notify_one();
+			controller_.clear_current_op();
 			Log::d(tag__, "(%d) is processing, Status --> Cancelled", id);
+			resp_cond_.notify_one();
 		}
-		return true;
-	}
-	if (type == AsrStreamQueue::POP_TYPE_START) {
-		controller_.new_op(id, AsrStatus::START);
 		return true;
 	}
 	if (type == AsrStreamQueue::POP_TYPE_REMOVED) {

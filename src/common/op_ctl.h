@@ -74,8 +74,10 @@ public:
 					break;
 			}
 		}
-		if (need_notify)
+		if (need_notify) {
+			current_op_.reset();
 			cond.notify_one();
+		}
 	}
 
 	void remove_front_op() {
@@ -111,6 +113,10 @@ public:
 		if (operations_.empty())
 			return null_op_;
 		return operations_.front();
+	}
+
+	void clear_current_op() {
+		current_op_.reset();
 	}
 
 private:
