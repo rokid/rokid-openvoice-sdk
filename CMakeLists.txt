@@ -83,7 +83,7 @@ set(IGNORED_WARNINGS "-Wno-sign-compare -Wno-unused-parameter -Wno-sign-promo -W
 
 set(COMMON_CFLAGS "-DSPEECH_SDK_STREAM_QUEUE_TRACE \
   -DSPEECH_SDK_DETAIL_TRACE \
-  -std=gnu++11 -fPIC -frtti -fexceptions")
+  -std=c++11 -fPIC -frtti -fexceptions")
 
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${IGNORED_WARNINGS} ${COMMON_CFLAGS}")
 
