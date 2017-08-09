@@ -7,23 +7,56 @@ namespace rokid {
 namespace speech {
 
 using std::shared_ptr;
+using std::make_shared;
 using std::string;
 using std::thread;
 using std::mutex;
 using std::unique_lock;
 using std::lock_guard;
 using std::list;
-using rokid::open::TtsRequest;
-using rokid::open::TtsResponse;
+using rokid::open::speech::v1::TtsRequest;
+using rokid::open::speech::v1::TtsResponse;
+
+static const uint32_t MODIFY_CODEC = 1;
+static const uint32_t MODIFY_DECLAIMER = 2;
+
+class TtsOptionsModifier : public TtsOptionsHolder, public TtsOptions {
+public:
+	TtsOptionsModifier() {
+		TtsOptionsHolder();
+		_mask = 0;
+	}
+
+	void set_codec(Codec codec) {
+		this->codec = codec;
+		_mask |= MODIFY_CODEC;
+	}
+
+	void set_declaimer(const string& declaimer) {
+		this->declaimer = declaimer;
+		_mask |= MODIFY_DECLAIMER;
+	}
+
+	void modify(TtsOptionsHolder& options) {
+		if (_mask & MODIFY_CODEC)
+			options.codec = codec;
+		if (_mask & MODIFY_DECLAIMER)
+			options.declaimer = declaimer;
+	}
+
+private:
+	uint32_t _mask;
+};
 
 TtsImpl::TtsImpl() : initialized_(false) {
 }
 
-bool TtsImpl::prepare() {
+bool TtsImpl::prepare(const PrepareOptions& options) {
+	lock_guard<mutex> locker(req_mutex_);
 	if (initialized_)
 		return true;
 	next_id_ = 0;
-	connection_.initialize(SOCKET_BUF_SIZE, &config_, "tts");
+	connection_.initialize(SOCKET_BUF_SIZE, options, "tts");
 	initialized_ = true;
 	req_thread_ = new thread([=] { send_reqs(); });
 	resp_thread_ = new thread([=] { gen_results(); });
@@ -32,9 +65,9 @@ bool TtsImpl::prepare() {
 
 void TtsImpl::release() {
 	Log::d(tag__, "TtsImpl.release, initialized = %d", initialized_);
+	unique_lock<mutex> req_locker(req_mutex_);
 	if (initialized_) {
 		// notify req thread to exit
-		unique_lock<mutex> req_locker(req_mutex_);
 		initialized_ = false;
 		connection_.release();
 		requests_.clear();
@@ -97,8 +130,12 @@ void TtsImpl::cancel(int32_t id) {
 	resp_locker.unlock();
 }
 
-void TtsImpl::config(const char* key, const char* value) {
-	config_.set(key, value);
+void TtsImpl::config(const shared_ptr<TtsOptions>& options) {
+	if (options.get() == NULL)
+		return;
+	shared_ptr<TtsOptionsModifier> mod =
+		static_pointer_cast<TtsOptionsModifier>(options);
+	mod->modify(options_);
 }
 
 static TtsResultType poptype_to_restype(int32_t type) {
@@ -236,14 +273,26 @@ TtsStatus TtsImpl::do_ctl_new_op(shared_ptr<TtsReqInfo>& req) {
 	return TtsStatus::START;
 }
 
+static const char* get_codec_str(Codec codec) {
+	switch (codec) {
+	case Codec::PCM:
+		return "pcm";
+	case Codec::OPU:
+		return "opu";
+	case Codec::OPU2:
+		return "opu2";
+	}
+	return NULL;
+}
+
 bool TtsImpl::do_request(shared_ptr<TtsReqInfo>& req) {
 	Log::d(tag__, "do_request: send req to server. (%d:%s)",
 			req->id, req->data.c_str());
 	TtsRequest treq;
 	treq.set_id(req->id);
 	treq.set_text(req->data.c_str());
-	treq.set_declaimer(config_.get("declaimer", "zh"));
-	treq.set_codec(config_.get("codec", "pcm"));
+	treq.set_declaimer(options_.declaimer);
+	treq.set_codec(get_codec_str(options_.codec));
 	ConnectionOpResult r = connection_.send(treq, WS_SEND_TIMEOUT);
 	if (r != ConnectionOpResult::SUCCESS) {
 		TtsError err = TTS_UNKNOWN;
@@ -353,8 +402,15 @@ void TtsImpl::gen_result_by_resp(TtsResponse& resp) {
 	}
 }
 
-shared_ptr<Tts> new_tts() {
-	return shared_ptr<Tts>(new TtsImpl());
+shared_ptr<Tts> Tts::new_instance() {
+	return make_shared<TtsImpl>();
+}
+
+TtsOptionsHolder::TtsOptionsHolder() : codec(Codec::PCM), declaimer("zh") {
+}
+
+shared_ptr<TtsOptions> TtsOptions::new_instance() {
+	return make_shared<TtsOptionsModifier>();
 }
 
 } // namespace speech

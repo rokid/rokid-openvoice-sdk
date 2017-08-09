@@ -2,13 +2,12 @@ package com.rokid.speech;
 
 import android.util.Log;
 import android.util.SparseArray;
+import org.json.JSONObject;
 
-public class Tts extends GenericConfig<TtsConfig> {
-	public Tts(String configFile) {
+public class Tts extends GenericConfig {
+	public Tts() {
 		_callbacks = new SparseArray<TtsCallback>();
 		_sdk_tts = _sdk_create();
-		if (configFile != null)
-			config(configFile, TtsConfig.class);
 	}
 
 	public void finalize() {
@@ -16,8 +15,17 @@ public class Tts extends GenericConfig<TtsConfig> {
 		_sdk_delete(_sdk_tts);
 	}
 
-	public void prepare() {
-		_sdk_prepare(_sdk_tts);
+	public void prepare(String configFile) {
+		PrepareOptions opt;
+		if (configFile != null)
+			opt = parseConfigFile(configFile);
+		else
+			opt = new PrepareOptions();
+		prepare(opt);
+	}
+
+	public void prepare(PrepareOptions opt) {
+		_sdk_prepare(_sdk_tts, opt);
 	}
 
 	public void release() {
@@ -39,8 +47,8 @@ public class Tts extends GenericConfig<TtsConfig> {
 		_sdk_cancel(_sdk_tts, id);
 	}
 
-	public void config(String key, String value) {
-		_sdk_config(_sdk_tts, key, value);
+	public void config(TtsOptions opt) {
+		_sdk_config(_sdk_tts, opt);
 	}
 
 	// invoke by native poll thread
@@ -86,13 +94,25 @@ public class Tts extends GenericConfig<TtsConfig> {
 		}
 	}
 
+	@Override
+	protected void special_config(JSONObject json_obj) {
+		TtsOptions opt = new TtsOptions();
+		String v = json_obj.optString("codec", null);
+		if (v != null)
+			opt.set_codec(v);
+		v = json_obj.optString("declaimer", null);
+		if (v != null)
+			opt.set_declaimer(v);
+		_sdk_config(_sdk_tts, opt);
+	}
+
 	private static native void _sdk_init(Class tts_cls, Class res_cls);
 
 	private native long _sdk_create();
 
 	private native void _sdk_delete(long sdk_tts);
 
-	private native boolean _sdk_prepare(long sdk_tts);
+	private native boolean _sdk_prepare(long sdk_tts, PrepareOptions opt);
 
 	private native void _sdk_release(long sdk_tts);
 
@@ -100,7 +120,7 @@ public class Tts extends GenericConfig<TtsConfig> {
 
 	private native void _sdk_cancel(long sdk_tts, int id);
 
-	private native void _sdk_config(long sdk_tts, String key, String value);
+	private native void _sdk_config(long sdk_tts, TtsOptions opt);
 
 	private SparseArray<TtsCallback> _callbacks;
 
@@ -124,7 +144,4 @@ public class Tts extends GenericConfig<TtsConfig> {
 		public int err;
 		public byte[] voice;
 	}
-}
-
-class TtsConfig extends GenericConfigParams {
 }

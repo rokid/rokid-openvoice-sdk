@@ -5,7 +5,9 @@ public interface SpeechCallback {
 
 	void onIntermediateResult(int id, String asr, String extra);
 
-	void onComplete(int id, String asr, String nlp, String action);
+	void onAsrComplete(int id, String asr);
+
+	void onComplete(int id, String nlp, String action);
 
 	void onCancel(int id);
 

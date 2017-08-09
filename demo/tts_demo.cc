@@ -58,8 +58,10 @@ static void tts_poll(Tts* tts) {
 }
 
 void tts_demo() {
-	shared_ptr<Tts> tts = new_tts();
+	shared_ptr<Tts> tts = Tts::new_instance();
 	prepare(tts.get());
-	tts->config("codec", "opu2");
+	shared_ptr<TtsOptions> opt = TtsOptions::new_instance();
+	opt->set_codec(Codec::OPU2);
+	tts->config(opt);
 	run(tts.get(), tts_req, tts_poll);
 }

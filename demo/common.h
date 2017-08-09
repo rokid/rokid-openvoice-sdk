@@ -1,19 +1,19 @@
 #pragma once
 
 #include <thread>
+#include "speech_types.h"
 
 template <typename T>
 bool prepare(T* inst) {
-	inst->config("host", "apigwws.open.rokid.com");
-	// inst->config("host", "10.88.128.34");
-	inst->config("port", "443");
-	inst->config("branch", "/api");
-	inst->config("key", "rokid_test_key");
-	inst->config("device_type_id", "rokid_test_device_type_id");
-	inst->config("device_id", "rokid_test_device_id");
-	inst->config("version", "1");
-	inst->config("secret", "rokid_test_secret");
-	return inst->prepare();
+	rokid::speech::PrepareOptions opt;
+	opt.host = "apigwws.open.rokid.com";
+	opt.port = 443;
+	opt.branch = "/api";
+	opt.key = "rokid_test_key";
+	opt.device_type_id = "rokid_test_device_type_id";
+	opt.device_id = "rokid_test_device_id";
+	opt.secret = "rokid_test_secret";
+	return inst->prepare(opt);
 }
 
 template <typename T>

@@ -9,7 +9,7 @@
 #include <condition_variable>
 #include <chrono>
 #include "log.h"
-#include "speech_config.h"
+#include "speech.h"
 #include "Poco/Net/WebSocket.h"
 
 #define CONN_TAG "speech.Connection"
@@ -59,8 +59,8 @@ public:
 	~SpeechConnection();
 
 	// params: 'ws_buf_size'  buf size for websocket frame recv
-	//         'svc' can be one of 'tts', 'asr', 'speech'
-	void initialize(uint32_t ws_buf_size, SpeechConfig* config,
+	//         'svc' can be one of 'tts', 'speech'
+	void initialize(uint32_t ws_buf_size, const PrepareOptions& options,
 			const char* svc);
 
 	void release();
@@ -91,7 +91,6 @@ public:
 		if (!initialized_)
 			return ConnectionOpResult::NOT_READY;
 		if (responses_.empty()) {
-			Log::d(CONN_TAG, "recv: wait %d millis seconds", timeout);
 			std::chrono::duration<int, std::milli> ms(timeout);
 			resp_cond_.wait_for(locker, ms);
 			if (!initialized_)
@@ -102,10 +101,6 @@ public:
 			assert(resp_data);
 			responses_.pop_front();
 			if (resp_data->type == BIN_RESP_DATA) {
-#ifdef SPEECH_SDK_DETAIL_TRACE
-				Log::d(CONN_TAG, "recv: get %u bytes from list",
-						resp_data->length);
-#endif
 				bool r = res.ParseFromArray(resp_data->data,
 						resp_data->length);
 				delete resp_data;
@@ -156,7 +151,7 @@ private:
 	std::list<SpeechBinaryResp*> responses_;
 	std::shared_ptr<Poco::Net::WebSocket> web_socket_;
 	std::thread* thread_;
-	SpeechConfig* config_;
+	PrepareOptions options_;
 	std::string service_type_;
 	char* buffer_;
 	uint32_t buffer_size_;

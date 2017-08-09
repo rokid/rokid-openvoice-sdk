@@ -6,24 +6,33 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_CPP_EXTENSION := .cc
 
 # protobuf source generate
-SPEECH_PROTO_FILE := $(LOCAL_PATH)/proto/speech.proto
-PROTOC_OUT_DIR := $(call local-intermediates-dir)/gen
+SPEECH_PROTO_FILE := \
+	$(LOCAL_PATH)/proto/speech_types.proto \
+	$(LOCAL_PATH)/proto/auth.proto \
+	$(LOCAL_PATH)/proto/tts.proto \
+	$(LOCAL_PATH)/proto/speech.proto
+PROTOC_OUT_DIR := $(LOCAL_PATH)/gen
 RPROTOC := $(HOST_OUT_EXECUTABLES)/aprotoc
-PROTOC_GEN_SRC := \
-	$(PROTOC_OUT_DIR)/speech.pb.cc
-$(PROTOC_GEN_SRC): PRIVATE_CUSTOM_TOOL := $(RPROTOC) -I$(LOCAL_PATH)/proto --cpp_out=$(PROTOC_OUT_DIR) $(SPEECH_PROTO_FILE)
-$(PROTOC_GEN_SRC): $(SPEECH_PROTO_FILE)
+protoc_stamp := $(PROTOC_OUT_DIR)/stamp
+$(protoc_stamp): PRIVATE_CUSTOM_TOOL := mkdir -p $(PROTOC_OUT_DIR) && $(RPROTOC) -I$(LOCAL_PATH)/proto --cpp_out=$(PROTOC_OUT_DIR) $(SPEECH_PROTO_FILE) && touch $(protoc_stamp)
+$(protoc_stamp): $(SPEECH_PROTO_FILE)
 	$(transform-generated-source)
-LOCAL_GENERATED_SOURCES := $(PROTOC_GEN_SRC)
+LOCAL_GENERATED_SOURCES := $(protoc_stamp)
 
 LOCAL_C_INCLUDES := \
 	$(PROTOC_OUT_DIR) \
 	$(LOCAL_PATH)/include \
 	$(LOCAL_PATH)/src/common
 
+PROTOC_GEN_SRC := \
+	gen/speech_types.pb.cc \
+ 	gen/auth.pb.cc \
+ 	gen/tts.pb.cc \
+ 	gen/speech.pb.cc
+
+$(PROTOC_OUT_DIR)/speech_types.pb.cc: $(protoc_stamp)
+
 COMMON_SRC := \
-	src/common/speech_config.cc \
-	src/common/speech_config.h \
 	src/common/log.cc \
 	src/common/log.h \
 	src/common/speech_connection.cc \
@@ -34,20 +43,15 @@ TTS_SRC := \
 	src/tts/tts_impl.h \
 	src/tts/types.h
 
-ASR_SRC := \
-	src/asr/asr_impl.cc \
-	src/asr/asr_impl.h \
-	src/asr/types.h
-
 SPEECH_SRC := \
 	src/speech/speech_impl.cc \
 	src/speech/speech_impl.h \
 	src/speech/types.h
 
 LOCAL_SRC_FILES := \
+	$(PROTOC_GEN_SRC) \
 	$(COMMON_SRC) \
 	$(TTS_SRC) \
-	$(ASR_SRC) \
 	$(SPEECH_SRC)
 
 LOCAL_CFLAGS := $(COMMON_CFLAGS) \
@@ -80,12 +84,11 @@ LOCAL_CPP_EXTENSION := .cc
 LOCAL_SRC_FILES := \
 	demo/demo.cc \
 	demo/tts_demo.cc \
-	demo/asr_demo.cc \
 	demo/speech_demo.cc
 LOCAL_C_INCLUDES := \
+	$(LOCAL_PATH)/gen \
 	$(LOCAL_PATH)/include \
 	$(LOCAL_PATH)/src/common \
-	$(PROTOC_OUT_DIR) \
 	external/protobuf/src \
 	external/boringssl/include
 LOCAL_SHARED_LIBRARIES := libpoco libspeech

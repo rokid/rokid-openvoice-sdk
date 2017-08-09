@@ -1,23 +1,42 @@
 #pragma once
 
+#include <stdint.h>
 #include <memory>
 #include <string>
 
 namespace rokid {
 namespace speech {
 
-class Options {
+class PrepareOptions {
 public:
-	virtual ~Options() {}
+	PrepareOptions();
 
-	virtual bool set(const char* key, const char* value) = 0;
+	PrepareOptions& operator = (const PrepareOptions& options);
 
-	virtual void clear() = 0;
-
-	virtual void to_json_string(std::string& json) = 0;
+	std::string host;
+	uint32_t port;
+	std::string branch;
+	std::string key;
+	std::string device_type_id;
+	std::string secret;
+	std::string device_id;
 };
 
-std::shared_ptr<Options> new_options();
+enum class Lang {
+	ZH,
+	EN
+};
+
+enum class Codec {
+	PCM,
+	OPU,
+	OPU2
+};
+
+enum class VadMode {
+	LOCAL,
+	CLOUD
+};
 
 } // namespace speech
 } // namespace rokid

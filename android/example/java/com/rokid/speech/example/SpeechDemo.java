@@ -12,8 +12,7 @@ import com.rokid.speech.SpeechCallback;
 public class SpeechDemo extends Service implements Runnable {
 	@Override
 	public void onCreate() {
-		_speech = new Speech("/system/etc/speech_sdk.json");
-		_speech.config("codec", "pcm");
+		_speech = new Speech();
 	}
 
 	@Override
@@ -28,7 +27,7 @@ public class SpeechDemo extends Service implements Runnable {
 	@Override
 	public int onStartCommand(Intent intent, int flags, int startId) {
 		_speech.release();
-		_speech.prepare();
+		_speech.prepare("/system/etc/speech_sdk.json");
 		Thread th = new Thread(this);
 		th.start();
 		try {
@@ -94,9 +93,14 @@ class SpeechCallbackDemo implements SpeechCallback {
 				+ ", asr = " + asr + ", extra = " + extra);
 	}
 
-	public void onComplete(int id, String asr, String nlp, String action) {
-		Log.d(SpeechDemo.TAG, "onComplete " + id + ", asr = "
-				+ asr + ", nlp = " + nlp + ", action = " + action);
+	public void onAsrComplete(int id, String asr) {
+		Log.d(SpeechDemo.TAG, "onAsrComplete " + id
+				+ ", asr = " + asr);
+	}
+
+	public void onComplete(int id, String nlp, String action) {
+		Log.d(SpeechDemo.TAG, "onComplete " + id
+				+ "nlp = " + nlp + ", action = " + action);
 	}
 
 	public void onCancel(int id) {

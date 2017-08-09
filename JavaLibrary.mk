@@ -23,7 +23,6 @@ LOCAL_C_INCLUDES += libnativehelper/include/nativehelper
 endif
 LOCAL_SRC_FILES := \
 		$(JNI_DIR)/com_rokid_speech_Tts.cc \
-		$(JNI_DIR)/com_rokid_speech_Asr.cc \
 		$(JNI_DIR)/com_rokid_speech_Speech.cc \
 		$(JNI_DIR)/common.cc
 include $(BUILD_SHARED_LIBRARY)
@@ -32,12 +31,12 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := rokid_speech
 LOCAL_SRC_FILES := \
 		$(JAVA_DIR)/com/rokid/speech/Tts.java \
-		$(JAVA_DIR)/com/rokid/speech/Asr.java \
 		$(JAVA_DIR)/com/rokid/speech/Speech.java \
 		$(JAVA_DIR)/com/rokid/speech/TtsCallback.java \
-		$(JAVA_DIR)/com/rokid/speech/AsrCallback.java \
 		$(JAVA_DIR)/com/rokid/speech/SpeechCallback.java \
+		$(JAVA_DIR)/com/rokid/speech/TtsOptions.java \
 		$(JAVA_DIR)/com/rokid/speech/SpeechOptions.java \
+		$(JAVA_DIR)/com/rokid/speech/PrepareOptions.java \
 		$(JAVA_DIR)/com/rokid/speech/GenericConfig.java
 LOCAL_JAVA_LIBRARIES := fastjson-android
 include $(BUILD_STATIC_JAVA_LIBRARY)
@@ -50,10 +49,16 @@ LOCAL_CERTIFICATE := platform
 LOCAL_SRC_FILES := \
 		$(EXAMPLE_JAVA_DIR)/com/rokid/speech/example/TtsDemo.java \
 		$(EXAMPLE_JAVA_DIR)/com/rokid/speech/example/TtsPlayerDemo.java \
-		$(EXAMPLE_JAVA_DIR)/com/rokid/speech/example/SpeechDemo.java \
-		$(EXAMPLE_JAVA_DIR)/com/rokid/speech/example/AsrDemo.java
+		$(EXAMPLE_JAVA_DIR)/com/rokid/speech/example/SpeechDemo.java
 LOCAL_STATIC_JAVA_LIBRARIES := rokid_speech fastjson-android
 include $(BUILD_PACKAGE)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := tts_sdk.json
+LOCAL_MODULE_CLASS := ETC
+LOCAL_MODULE_PATH := $(TARGET_OUT)/etc
+LOCAL_SRC_FILES := android/etc/tts_sdk.json
+include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := speech_sdk.json

@@ -6,10 +6,6 @@
 	'device_type_id': 'your_device_type_id',
 	'secret': 'your_secret',
 	'device_id': 'your_device_id',
-	'lang': 'zh',
 	'codec': 'pcm',
-	'vad_mode': "local",
-	'vend_timeout': 500,
-	'no_nlp': false,
-	'no_intermediate_asr': false
+	'declaimer': 'zh'
 }

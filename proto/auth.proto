@@ -1,0 +1,22 @@
+syntax = "proto2";
+
+package rokid.open.speech;
+
+enum AuthErrorCode {
+  SUCCESS = 0;
+  AUTH_FAILED = 1;
+}
+
+message AuthRequest {
+  required string key = 1;
+  required string device_type_id = 2;
+  required string device_id = 3;
+  required string service = 4;
+  required string version = 5;
+  required string timestamp = 6;
+  required string sign = 7;
+}
+
+message AuthResponse {
+  required AuthErrorCode result = 1;
+}

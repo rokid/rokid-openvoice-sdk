@@ -5,27 +5,26 @@ import java.io.IOException;
 import java.util.List;
 import java.lang.reflect.Type;
 import android.util.Log;
-import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.TypeReference;
-import com.alibaba.fastjson.parser.Feature;
+import org.json.JSONObject;
 
-abstract class GenericConfig<T extends GenericConfigParams> {
+class GenericConfig {
 	private static final String TAG = "speech.GenericConfig";
 
-	protected void config(String configFile, Class<T> cls) {
+	protected PrepareOptions parseConfigFile(String configFile) {
 		FileInputStream is = null;
 		byte[] content;
+		String jsonstr;
 
 		try {
 			is = new FileInputStream(configFile);
 			int size = is.available();
-			Log.d(TAG, "config file size = " + size);
 			content = new byte[size];
 			is.read(content);
-			Log.d(TAG, "config file content = " + new String(content));
+			jsonstr = new String(content);
+			Log.d(TAG, "config file content = " + jsonstr);
 		} catch (Exception e) {
 			e.printStackTrace();
-			return;
+			return null;
 		} finally {
 			if (is != null) {
 				try {
@@ -34,52 +33,30 @@ abstract class GenericConfig<T extends GenericConfigParams> {
 				}
 			}
 		}
-		T config = JSON.parseObject(new String(content), cls);
-		Log.d(TAG, "config file parse result = " + config);
-		config("host", config.host);
-		config("port", config.port);
-		config("branch", config.branch);
-		config("key", config.key);
-		config("device_type_id", config.device_type_id);
-		config("device_id", config.device_id);
-		config("secret", config.secret);
-		config("api_version", config.api_version);
 
-		special_config(config);
+		JSONObject json_obj;
+		PrepareOptions opt;
+		try {
+			json_obj = new JSONObject(jsonstr);
+		} catch (Exception e) {
+			e.printStackTrace();
+			return null;
+		}
+		opt = new PrepareOptions();
+		opt.host = json_obj.optString("host", "localhost");
+		opt.port = json_obj.optInt("port", 80);
+		opt.branch = json_obj.optString("branch", "/");
+		opt.key = json_obj.optString("key", null);
+		opt.device_type_id = json_obj.optString("device_type_id", null);
+		opt.secret = json_obj.optString("secret", null);
+		opt.device_id = json_obj.optString("device_id", null);
+
+		special_config(json_obj);
+
+		return opt;
 	}
-
-	public abstract void config(String key, String value);
 
 	// override it to do special config
-	protected void special_config(T conf) {
-	}
-}
-
-class GenericConfigParams {
-	public String host;
-
-	public String port;
-
-	public String branch;
-
-	public String key;
-
-	public String device_type_id;
-
-	public String device_id;
-
-	public String secret;
-
-	public String api_version;
-
-	public String toString() {
-		return "host=" + host
-			+ ":" + port
-			+ "" + branch
-			+ ", key=" + key
-			+ ", device_type_id=" + device_type_id
-			+ ", device_id=" + device_id
-			+ ", secret=" + secret
-			+ ", api_version=" + api_version;
+	protected void special_config(JSONObject json_obj) {
 	}
 }

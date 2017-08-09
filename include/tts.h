@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <string>
 #include <memory>
+#include "speech_types.h"
 
 namespace rokid {
 namespace speech {
@@ -43,11 +44,23 @@ struct TtsResult {
 	std::shared_ptr<std::string> voice;
 };
 
+class TtsOptions {
+public:
+	virtual ~TtsOptions() {}
+
+	// default codec PCM
+	virtual void set_codec(Codec codec) = 0;
+	// default declaimer "zh"
+	virtual void set_declaimer(const std::string& declaimer) = 0;
+
+	static std::shared_ptr<TtsOptions> new_instance();
+};
+
 class Tts {
 public:
 	virtual ~Tts() {}
 
-	virtual bool prepare() = 0;
+	virtual bool prepare(const PrepareOptions& options) = 0;
 
 	virtual void release() = 0;
 
@@ -65,20 +78,11 @@ public:
 	//               false tts sdk released
 	virtual bool poll(TtsResult& res) = 0;
 
-	// key:  'server_address'  value:  default is 'apigw.open.rokid.com:443',
-	//       'auth_key'                'your_auth_key'
-	//       'device_type_id'          'your_device_type_id'
-	//       'device_id'               'your_device_id'
-	//       'api_version'             now is '1'
-	//       'secret'                  'your_secret'
-	//       'codec'                   'pcm' (default)
-	//                                 'opu'
-	//                                 'opu2'
-	//       'declaimer'               'zh' (default)
-	virtual void config(const char* key, const char* value) = 0;
+	virtual void config(const std::shared_ptr<TtsOptions>& options) = 0;
+
+	static std::shared_ptr<Tts> new_instance();
 };
 
-std::shared_ptr<Tts> new_tts();
 
 } // namespace speech
 } // namespace rokid

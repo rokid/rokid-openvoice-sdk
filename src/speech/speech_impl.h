@@ -17,21 +17,33 @@ namespace rokid {
 namespace speech {
 
 typedef OperationController<SpeechStatus, SpeechError> SpeechOperationController;
-typedef StreamQueue<std::string, FSOptions> ReqStreamQueue;
+typedef StreamQueue<std::string, VoiceOptions> ReqStreamQueue;
 typedef StreamQueue<SpeechResultIn, int32_t> RespStreamQueue;
+
+class SpeechOptionsHolder {
+public:
+	SpeechOptionsHolder();
+
+	Lang lang;
+	Codec codec;
+	VadMode vad_mode;
+	uint32_t vend_timeout;
+	uint32_t no_nlp:1;
+	uint32_t no_intermediate_asr:1;
+	uint32_t unused:30;
+};
 
 class SpeechImpl : public Speech {
 public:
 	SpeechImpl();
 
-	bool prepare();
+	bool prepare(const PrepareOptions& options);
 
 	void release();
 
 	int32_t put_text(const char* text);
 
-	int32_t start_voice(std::shared_ptr<Options> framework_options,
-			std::shared_ptr<Options> skill_options);
+	int32_t start_voice(const VoiceOptions* options);
 
 	void put_voice(int32_t id, const uint8_t* data, uint32_t length);
 
@@ -41,7 +53,7 @@ public:
 
 	bool poll(SpeechResult& res);
 
-	void config(const char* key, const char* value);
+	void config(const std::shared_ptr<SpeechOptions>& options);
 
 private:
 	inline int32_t next_id() { return ++next_id_; }
@@ -50,7 +62,7 @@ private:
 
 	void gen_results();
 
-	void gen_result_by_resp(rokid::open::SpeechResponse& resp);
+	void gen_result_by_resp(rokid::open::speech::v2::SpeechResponse& resp);
 
 	bool gen_result_by_status();
 
@@ -58,9 +70,14 @@ private:
 
 	bool do_ctl_change_op(std::shared_ptr<SpeechReqInfo>& req);
 
+	void req_config(rokid::open::speech::v2::SpeechRequest& req,
+			const std::shared_ptr<VoiceOptions>& options);
+
+	void erase_req(int32_t id);
+
 private:
 	int32_t next_id_;
-	SpeechConfig config_;
+	SpeechOptionsHolder options_;
 	SpeechConnection connection_;
 	std::list<std::shared_ptr<SpeechReqInfo> > text_reqs_;
 	ReqStreamQueue voice_reqs_;

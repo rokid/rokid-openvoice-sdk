@@ -2,16 +2,12 @@
 
 void tts_demo();
 
-void asr_demo();
-
 void speech_demo();
 
 static void ws_demo();
 
 int main(int argc, char** argv) {
 	tts_demo();
-
-	asr_demo();
 
 	speech_demo();
 
@@ -33,7 +29,7 @@ int main(int argc, char** argv) {
 #include "Poco/Net/HTTPSClientSession.h"
 #include "Poco/Net/Context.h"
 #include "Poco/Exception.h"
-#include "speech.pb.h"
+#include "auth.pb.h"
 
 using Poco::SharedPtr;
 using Poco::Net::PrivateKeyPassphraseHandler;
@@ -48,7 +44,7 @@ using Poco::Net::HTTPResponse;
 using Poco::Net::HTTPMessage;
 using Poco::Net::WebSocket;
 using Poco::Exception;
-using rokid::open::AuthRequest;
+using rokid::open::speech::AuthRequest;
 
 static void ws_demo() {
 	HTTPRequest request(HTTPRequest::HTTP_GET, "/?encoding=text", HTTPMessage::HTTP_1_1);

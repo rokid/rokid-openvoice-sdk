@@ -1,0 +1,25 @@
+syntax = "proto2";
+
+package rokid.open.speech.v1;
+
+enum SpeechErrorCode {
+  SUCCESS = 0;
+  UNAUTHENTICATED = 2;
+  CONNECTION_EXCEED = 3;
+  RESOURCE_EXHASTED = 4;
+  BUSY = 5;
+  INTERNAL = 6;
+}
+
+enum ReqType {
+  START = 0;
+  VOICE = 1;
+  END = 2;
+  TEXT = 3;
+}
+
+enum Codec {
+  PCM = 0;
+  OPU = 1;
+  OPU2 = 2;
+}

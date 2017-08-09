@@ -4,7 +4,6 @@
 #include <memory>
 #include <string>
 #include "speech.pb.h"
-#include "speech_config.h"
 #include "speech.h"
 
 #define SOCKET_BUF_SIZE 0x40000
@@ -20,17 +19,11 @@ enum class SpeechReqType {
 	VOICE_DATA,
 };
 
-// framework options + skill options
-typedef struct {
-	std::shared_ptr<Options> framework_options;
-	std::shared_ptr<Options> skill_options;
-} FSOptions;
-
 typedef struct {
 	int32_t id;
 	SpeechReqType type;
 	std::shared_ptr<std::string> data;
-	std::shared_ptr<FSOptions> fsoptions;
+	std::shared_ptr<VoiceOptions> options;
 } SpeechReqInfo;
 
 /**
@@ -57,20 +50,8 @@ typedef struct {
 	std::string nlp;
 	std::string action;
 	std::string extra;
+	bool asr_finish;
 } SpeechResultIn;
-
-/**
-class SpeechCommonArgument {
-public:
-	SpeechConfig config;
-
-	WSKeepAlive keepalive_;
-
-	inline void start_keepalive(uint32_t interval) {
-		keepalive_.start(interval, &config, "speech");
-	}
-};
-*/
 
 #define tag__ "speech.speech"
 

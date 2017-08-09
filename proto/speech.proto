@@ -1,135 +1,93 @@
 syntax = "proto2";
 
-package rokid.open;
+package rokid.open.speech.v2;
 
-enum SpeechErrorCode {
-  SUCCESS = 0;
-  AUTH_FAILED = 1;
-  UNAUTHENTICATED = 2;
-  CONNECTION_EXCEED = 3;
-  RESOURCE_EXHASTED = 4;
-  BUSY = 5;
-  INTERNAL = 6;
+import public "speech_types.proto";
+
+enum RespType {
+  // 中间结果 asr extra
+  INTERMEDIATE = 0;
+	// asr最终结果
+	ASR_FINISH = 1;
+	// 请求完成, 如果SpeechOptions.no_nlp = false，Response包中带有nlp, action结果
+  FINISH = 2;
 }
 
-enum ReqType {
-  START = 0;
-  VOICE = 1;
-  END = 2;
-  // used for SpeechRequest
-  TEXT = 3;
+enum Lang {
+  ZH = 0;
+	EN = 1;
 }
 
-message AuthRequest {
-  required string key = 1;
-  required string device_type_id = 2;
-  required string device_id = 3;
-  required string service = 4;
-  required string version = 5;
-  required string timestamp = 6;
-  required string sign = 7;
+enum VadMode {
+  // 客户端决定vad_start, vad_end
+  LOCAL = 0;
+	// 云端决定vad_start, vad_end
+	CLOUD = 1;
 }
 
-message AuthResponse {
-  // 0: success
-  // -1: failed
-  required SpeechErrorCode result = 1;
-}
-
-message AsrRequest {
-  required int32 id = 1;
-  // 0: start
-  // 1: voice data
-  // 2: end
-  required ReqType type = 2;
-  optional bytes voice = 3;
-  optional string lang = 4;
-  optional string codec = 5;
-  // vt = voice trigger
-  optional string vt = 6;
-}
-
-message AsrResponse {
-  required int32 id = 1;
-  required SpeechErrorCode result = 2;
-  optional string asr = 3;
-  optional bool finish = 4;
-}
-
-message TtsRequest {
-  required int32 id = 1;
-  required string text = 2;
-  optional string declaimer = 3;
-  optional string codec = 4;
-}
-
-message TtsResponse {
-  required int32 id = 1;
-  required SpeechErrorCode result = 2;
-  optional string text = 3;
-  optional bytes voice = 4;
-  optional bool finish = 5;
-}
-
-message SpeechRequest {
-  required int32 id = 1;
-
-  // 0: start
-  // 1: voice data
-  // 2: end
-  // 3: text
-  required ReqType type = 2;
-
-  optional bytes voice = 3;
-
-  optional string asr = 4;
-
+message SpeechOptions {
   // zh
   // en
-  optional string lang = 5;
+  required Lang lang = 1;
 
   // pcm
   // opu
   // opu2
-  optional string codec = 6;
+  required rokid.open.speech.v1.Codec codec = 2;
 
-  // vt = voice trigger
-  // deprecated
-  optional string vt = 7;
+  required VadMode vad_mode = 3;
 
-  // json string: options of framework
-  // {
-  //   "voice_trigger": "xxx",
-  //   "voice_power": "xxx",
-  //   "trigger_start": "xxx",
-  //   "trigger_end": "xxx",
-  //   "stack": "xxx"
-  // }
-  optional string framework_options = 8;
+	optional uint32 vend_timeout = 4;
+
+	required bool no_nlp = 5;
+
+	required bool no_intermediate_asr = 6;
+
+  optional string stack = 7;
+
+  optional string voice_trigger = 8;
+
+  optional float voice_power = 9;
+
+  optional uint32 trigger_start = 10;
+
+  optional uint32 trigger_length = 11;
 
   // json string: options of skills
   // {
   //   "media_player_status": "xxx"
   // }
-  optional string skill_options = 9;
+  optional string skill_options = 12;
+}
+
+message SpeechRequest {
+  required int32 id = 1;
+
+  required rokid.open.speech.v1.ReqType type = 2;
+
+  optional bytes voice = 3;
+
+  optional string asr = 4;
+
+  optional SpeechOptions options = 5;
+
 }
 
 message SpeechResponse {
   required int32 id = 1;
 
-  required SpeechErrorCode result = 2;
+  required RespType type = 2;
 
-  optional string asr = 3;
+  required rokid.open.speech.v1.SpeechErrorCode result = 3;
 
-  optional string nlp = 4;
+  optional string asr = 4;
 
-  optional string action = 5;
+  optional string nlp = 5;
 
-  optional bool finish = 6;
+  optional string action = 6;
 
   // {
   //   "activation": "fake|reject|accept|none"
   // }
   optional string extra = 7;
 }
-

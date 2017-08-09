@@ -95,6 +95,9 @@ typedef struct {
 	TtsPollThread* poll_thread;
 } TtsNativeInfo;
 
+// implement in common.cc
+extern void jobj_to_prepare_opts(JNIEnv* env, jobject obj, PrepareOptions& opts);
+
 static void com_rokid_speech_Tts__sdk_init(JNIEnv *env, jobject thiz, jclass tts_cls, jclass res_cls) {
 	assert(vm_);
 	constants_.handle_callback = env->GetMethodID(
@@ -109,7 +112,7 @@ static void com_rokid_speech_Tts__sdk_init(JNIEnv *env, jobject thiz, jclass tts
 static jlong com_rokid_speech_Tts__sdk_create(JNIEnv *env, jobject thiz) {
 	TtsNativeInfo* r = new TtsNativeInfo();
 	memset(r, 0, sizeof(*r));
-	r->tts = new_tts();
+	r->tts = Tts::new_instance();
 	return (jlong)r;
 }
 
@@ -119,10 +122,12 @@ static void com_rokid_speech_Tts__sdk_delete(JNIEnv *env, jobject thiz, jlong tt
 		delete p;
 }
 
-static jboolean com_rokid_speech_Tts__sdk_prepare(JNIEnv *env, jobject thiz, jlong ttsl) {
+static jboolean com_rokid_speech_Tts__sdk_prepare(JNIEnv *env, jobject thiz, jlong ttsl, jobject opt) {
 	TtsNativeInfo* p = reinterpret_cast<TtsNativeInfo*>(ttsl);
 	assert(p);
-	if (!p->tts->prepare()) {
+	PrepareOptions popts;
+	jobj_to_prepare_opts(env, opt, popts);
+	if (!p->tts->prepare(popts)) {
 		Log::d(tag_, "prepare failed");
 		return false;
 	}
@@ -157,25 +162,63 @@ static void com_rokid_speech_Tts__sdk_cancel(JNIEnv *env, jobject thiz, jlong tt
 	p->tts->cancel(id);
 }
 
-static void com_rokid_speech_Tts__sdk_config(JNIEnv *env, jobject thiz, jlong ttsl, jstring key, jstring value) {
-	TtsNativeInfo* p = reinterpret_cast<TtsNativeInfo*>(ttsl);
-	assert(p);
-	const char* keystr = env->GetStringUTFChars(key, NULL);
-	const char* valstr = env->GetStringUTFChars(value, NULL);
-	p->tts->config(keystr, valstr);
-	env->ReleaseStringUTFChars(key, keystr);
-	env->ReleaseStringUTFChars(value, valstr);
+typedef struct {
+	shared_ptr<TtsOptions> opts;
+} TtsOptionsNativeInfo;
+
+static shared_ptr<TtsOptions> jobj_to_tts_opts(JNIEnv* env, jobject obj) {
+	jclass cls = env->GetObjectClass(obj);
+	jfieldID fld = env->GetFieldID(cls, "_tts_options", "J");
+	jlong fv = env->GetLongField(obj, fld);
+	return reinterpret_cast<TtsOptionsNativeInfo*>(fv)->opts;
 }
 
-static JNINativeMethod _nmethods[] = {
+static void com_rokid_speech_Tts__sdk_config(JNIEnv *env, jobject thiz, jlong ttsl, jobject opt) {
+	TtsNativeInfo* p = reinterpret_cast<TtsNativeInfo*>(ttsl);
+	assert(p);
+	shared_ptr<TtsOptions> topts = jobj_to_tts_opts(env, opt);
+	p->tts->config(topts);
+}
+
+static jlong com_rokid_speech_TtsOptions_native_new_options(JNIEnv *env, jobject thiz) {
+	TtsOptionsNativeInfo* native_info = new TtsOptionsNativeInfo();
+	native_info->opts = TtsOptions::new_instance();
+	return reinterpret_cast<jlong>(native_info);
+}
+
+static void com_rokid_speech_TtsOptions_native_release(JNIEnv *env, jobject thiz, jlong opt) {
+	if (opt != 0) {
+		delete reinterpret_cast<TtsOptionsNativeInfo*>(opt);
+	}
+}
+
+static void com_rokid_speech_TtsOptions_native_set_codec(JNIEnv *env, jobject thiz, jlong opt, jstring v) {
+	TtsOptionsNativeInfo* native_info = reinterpret_cast<TtsOptionsNativeInfo*>(opt);
+	const char* sv = env->GetStringUTFChars(v, NULL);
+	Codec codec;
+	if (strcmp(sv, "opu2") == 0)
+		codec = Codec::OPU2;
+	else
+		codec = Codec::PCM;
+	native_info->opts->set_codec(codec);
+	env->ReleaseStringUTFChars(v, sv);
+}
+
+static void com_rokid_speech_TtsOptions_native_set_declaimer(JNIEnv *env, jobject thiz, jlong opt, jstring v) {
+	TtsOptionsNativeInfo* native_info = reinterpret_cast<TtsOptionsNativeInfo*>(opt);
+	// only support declaimer "zh" now
+	native_info->opts->set_declaimer("zh");
+}
+
+static JNINativeMethod _tts_nmethods[] = {
 	{ "_sdk_init", "(Ljava/lang/Class;Ljava/lang/Class;)V", (void*)com_rokid_speech_Tts__sdk_init },
 	{ "_sdk_create", "()J", (void*)com_rokid_speech_Tts__sdk_create },
 	{ "_sdk_delete", "(J)V", (void*)com_rokid_speech_Tts__sdk_delete },
-	{ "_sdk_prepare", "(J)Z", (void*)com_rokid_speech_Tts__sdk_prepare },
+	{ "_sdk_prepare", "(JLcom/rokid/speech/PrepareOptions;)Z", (void*)com_rokid_speech_Tts__sdk_prepare },
 	{ "_sdk_release", "(J)V", (void*)com_rokid_speech_Tts__sdk_release },
 	{ "_sdk_speak", "(JLjava/lang/String;)I", (void*)com_rokid_speech_Tts__sdk_speak },
 	{ "_sdk_cancel", "(JI)V", (void*)com_rokid_speech_Tts__sdk_cancel },
-	{ "_sdk_config", "(JLjava/lang/String;Ljava/lang/String;)V", (void*)com_rokid_speech_Tts__sdk_config },
+	{ "_sdk_config", "(JLcom/rokid/speech/TtsOptions;)V", (void*)com_rokid_speech_Tts__sdk_config },
 };
 
 int register_com_rokid_speech_Tts(JNIEnv* env) {
@@ -185,7 +228,24 @@ int register_com_rokid_speech_Tts(JNIEnv* env) {
 		Log::e("find class for %s failed", kclass);
 		return -1;
 	}
-	return jniRegisterNativeMethods(env, kclass, _nmethods, NELEM(_nmethods));
+	return jniRegisterNativeMethods(env, kclass, _tts_nmethods, NELEM(_tts_nmethods));
+}
+
+static JNINativeMethod _tts_opt_nmethods[] = {
+	{ "native_new_options", "()J", (void*)com_rokid_speech_TtsOptions_native_new_options },
+	{ "native_release", "(J)V", (void*)com_rokid_speech_TtsOptions_native_release },
+	{ "native_set_codec", "(JLjava/lang/String;)V", (void*)com_rokid_speech_TtsOptions_native_set_codec },
+	{ "native_set_declaimer", "(JLjava/lang/String;)V", (void*)com_rokid_speech_TtsOptions_native_set_declaimer },
+};
+
+int register_com_rokid_speech_TtsOptions(JNIEnv* env) {
+	const char* kclass = "com/rokid/speech/TtsOptions";
+	jclass target = env->FindClass(kclass);
+	if (target == NULL) {
+		Log::e("find class for %s failed", kclass);
+		return -1;
+	}
+	return jniRegisterNativeMethods(env, kclass, _tts_opt_nmethods, NELEM(_tts_opt_nmethods));
 }
 
 } // namespace speech

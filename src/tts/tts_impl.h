@@ -6,11 +6,10 @@
 #include <condition_variable>
 #include <thread>
 #include "tts.h"
-#include "speech_config.h"
 #include "speech_connection.h"
 #include "op_ctl.h"
 #include "types.h"
-#include "speech.pb.h"
+#include "tts.pb.h"
 #include "pending_queue.h"
 
 namespace rokid {
@@ -19,11 +18,19 @@ namespace speech {
 typedef OperationController<TtsStatus, TtsError> TtsOperationController;
 typedef StreamQueue<std::string, int32_t> TtsStreamQueue;
 
+class TtsOptionsHolder {
+public:
+	TtsOptionsHolder();
+
+	Codec codec;
+	std::string declaimer;
+};
+
 class TtsImpl : public Tts {
 public:
 	TtsImpl();
 
-	bool prepare();
+	bool prepare(const PrepareOptions& options);
 
 	void release();
 
@@ -39,17 +46,7 @@ public:
 	//               false tts sdk released
 	bool poll(TtsResult& res);
 
-	// key:  'server_address'  value:  default is 'apigw.open.rokid.com:443',
-	//       'key'                     'your_auth_key'
-	//       'device_type_id'          'your_device_type_id'
-	//       'device_id'               'your_device_id'
-	//       'api_version'             now is '1'
-	//       'secret'                  'your_secret'
-	//       'codec'                   'pcm' (default)
-	//                                 'opu'
-	//                                 'opu2'
-	//       'declaimer'               'zh' (default)
-	void config(const char* key, const char* value);
+	void config(const std::shared_ptr<TtsOptions>& options);
 
 private:
 	inline int32_t next_id() { return ++next_id_; }
@@ -58,7 +55,7 @@ private:
 
 	void gen_results();
 
-	void gen_result_by_resp(rokid::open::TtsResponse& resp);
+	void gen_result_by_resp(rokid::open::speech::v1::TtsResponse& resp);
 
 	bool gen_result_by_status();
 
@@ -68,7 +65,7 @@ private:
 
 private:
 	int32_t next_id_;
-	SpeechConfig config_;
+	TtsOptionsHolder options_;
 	SpeechConnection connection_;
 	std::list<std::shared_ptr<TtsReqInfo> > requests_;
 	TtsStreamQueue responses_;

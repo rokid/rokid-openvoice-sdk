@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include "openssl/md5.h"
 #include "speech_connection.h"
-#include "speech.pb.h"
+#include "auth.pb.h"
 #include "Poco/Net/HTTPClientSession.h"
 #include "Poco/Net/HTTPSClientSession.h"
 #include "Poco/Net/HTTPRequest.h"
@@ -33,8 +33,8 @@ using std::unique_lock;
 using std::thread;
 using std::mutex;
 using std::chrono::duration;
-using rokid::open::AuthRequest;
-using rokid::open::AuthResponse;
+using rokid::open::speech::AuthRequest;
+using rokid::open::speech::AuthResponse;
 using Poco::Timespan;
 using Poco::Net::HTTPSClientSession;
 using Poco::Net::HTTPRequest;
@@ -57,6 +57,8 @@ using Poco::Net::Socket;
 namespace rokid {
 namespace speech {
 
+static const char* api_version_ = "1";
+
 bool SpeechConnection::ssl_initialized_ = false;
 
 SpeechConnection::SpeechConnection() : initialized_(false) {
@@ -67,11 +69,11 @@ SpeechConnection::~SpeechConnection() {
 }
 
 void SpeechConnection::initialize(uint32_t ws_buf_size,
-		SpeechConfig* config, const char* svc) {
+		const PrepareOptions& options, const char* svc) {
 	if (ws_buf_size < MIN_BUF_SIZE)
 		ws_buf_size = MIN_BUF_SIZE;
 	buffer_size_ = ws_buf_size;
-	config_ = config;
+	options_ = options;
 	service_type_ = svc;
 	stage_ = CONN_INIT;
 	pending_ping_ = 0;
@@ -151,23 +153,19 @@ void SpeechConnection::run() {
 
 shared_ptr<WebSocket> SpeechConnection::connect() {
 	HTTPClientSession* cs;
-	const char* host = config_->get("host", "localhost");
-	const char* port_str = config_->get("port", "80");
-	const char* branch = config_->get("branch", "/");
-	int port = atoi(port_str);
 
 	if (!init_ssl()) {
 		Log::e(CONN_TAG, "connect: init ssl failed");
 		return NULL;
 	}
-	cs = new HTTPSClientSession(host, port);
-	HTTPRequest request(HTTPRequest::HTTP_GET, branch,
+	cs = new HTTPSClientSession(options_.host.c_str(), options_.port);
+	HTTPRequest request(HTTPRequest::HTTP_GET, options_.branch.c_str(),
 			HTTPMessage::HTTP_1_1);
 	HTTPResponse response;
 	shared_ptr<WebSocket> sock;
 
 	Log::d(CONN_TAG, "server address is %s:%d%s",
-			host, port, branch);
+			options_.host.c_str(), options_.port, options_.branch.c_str());
 
 	try {
 		sock.reset(new WebSocket(*cs, request, response));
@@ -184,30 +182,29 @@ shared_ptr<WebSocket> SpeechConnection::connect() {
 bool SpeechConnection::auth() {
 	AuthRequest req;
 	AuthResponse resp;
-	const char* auth_key = config_->get("key");
-	const char* device_type = config_->get("device_type_id");
-	const char* device_id = config_->get("device_id");
-	const char* api_version = config_->get("api_version", "1");
-	const char* secret = config_->get("secret");
 	const char* svc = service_type_.c_str();
 	string ts = timestamp();
-	if (auth_key == NULL || device_type == NULL || device_id == NULL
-			|| secret == NULL) {
-		Log::w(CONN_TAG, "auth invalid param: %p, %p, %p, %p",
-				auth_key, device_type, device_id, secret);
+	if (options_.key.empty()
+			|| options_.device_type_id.empty()
+			|| options_.device_id.empty()
+			|| options_.secret.empty()) {
+		Log::w(CONN_TAG, "auth invalid param: %s, %s, %s, %s",
+				options_.key.c_str(), options_.device_type_id.c_str(),
+				options_.device_id.c_str(), options_.secret.c_str());
 		return false;
 	}
 
-	req.set_key(auth_key);
-	req.set_device_type_id(device_type);
-	req.set_device_id(device_id);
+	req.set_key(options_.key);
+	req.set_device_type_id(options_.device_type_id);
+	req.set_device_id(options_.device_id);
 	req.set_service(svc);
-	req.set_version(api_version);
+	req.set_version(api_version_);
 	req.set_timestamp(ts);
-	req.set_sign(generate_sign(auth_key,
-					device_type, device_id, svc,
-					api_version, ts.c_str(),
-					secret));
+	req.set_sign(generate_sign(options_.key.c_str(),
+					options_.device_type_id.c_str(),
+					options_.device_id.c_str(), svc,
+					api_version_, ts.c_str(),
+					options_.secret.c_str()));
 
 	assert(web_socket_.get());
 	std::string buf;
@@ -239,9 +236,6 @@ bool SpeechConnection::do_socket_poll() {
 				}
 				keepalive_timeout -= SOCKET_POLL_TIMEOUT;
 				if (keepalive_timeout <= 0) {
-#ifdef SPEECH_SDK_DETAIL_TRACE
-					Log::d(CONN_TAG, "it's time to ws keepalive");
-#endif
 					// timeout
 					if (stage_ == CONN_WAIT_AUTH) {
 						Log::i(CONN_TAG, "wait auth result timeout, try reconnect");
@@ -269,7 +263,6 @@ bool SpeechConnection::do_socket_poll() {
 			c = web_socket_->receiveFrame(buffer_, buffer_size_, flags);
 #ifdef SPEECH_SDK_DETAIL_TRACE
 			Log::d(CONN_TAG, "socket recv %d bytes, flags 0x%x", c, flags);
-			Log::d(CONN_TAG, "after recv frame, avail = %d", web_socket_->available());
 #endif
 		} catch (Exception& e) {
 			Log::w(CONN_TAG, "websocket receive failed, exception = %s",
@@ -318,9 +311,6 @@ bool SpeechConnection::do_socket_poll() {
 				stage_ = CONN_READY;
 				req_cond_.notify_all();
 			} else {
-#ifdef SPEECH_SDK_DETAIL_TRACE
-				Log::d(CONN_TAG, "recv resp, add to list");
-#endif
 				resp_cond_.notify_one();
 			}
 		}
@@ -447,7 +437,12 @@ bool SpeechConnection::init_ssl() {
 			SharedPtr<InvalidCertificateHandler> cert_handler
 				= new AcceptCertificateHandler(false);
 			struct Context::Params params;
+#ifdef SSL_NON_VERIFY
+			params.verificationMode = Context::VERIFY_NONE;
+#else
 			params.verificationMode = Context::VERIFY_RELAXED;
+			params.loadDefaultCAs = true;
+#endif
 			Context::Ptr context = new Context(Context::CLIENT_USE, params);
 			SSLManager::instance().initializeClient(key_handler,
 					cert_handler, context);
@@ -471,6 +466,23 @@ bool SpeechConnection::ensure_connection_available(
 		}
 	}
 	return stage_ == CONN_READY;
+}
+
+PrepareOptions::PrepareOptions() {
+	host = "localhost";
+	port = 80;
+	branch = "/";
+}
+
+PrepareOptions& PrepareOptions::operator = (const PrepareOptions& options) {
+	this->host = options.host;
+	this->port = options.port;
+	this->branch = options.branch;
+	this->key = options.key;
+	this->device_type_id = options.device_type_id;
+	this->secret = options.secret;
+	this->device_id = options.device_id;
+	return *this;
 }
 
 } // namespace speech

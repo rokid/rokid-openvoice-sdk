@@ -6,22 +6,82 @@
 using std::shared_ptr;
 using std::mutex;
 using std::lock_guard;
-using rokid::open::SpeechRequest;
-using rokid::open::SpeechResponse;
-using rokid::open::ReqType;
-using rokid::open::SpeechErrorCode;
+using std::make_shared;
+using rokid::open::speech::v2::SpeechRequest;
+using rokid::open::speech::v2::SpeechResponse;
+using rokid::open::speech::v1::ReqType;
+using rokid::open::speech::v1::SpeechErrorCode;
 
 namespace rokid {
 namespace speech {
 
+static const uint32_t MODIFY_LANG = 1;
+static const uint32_t MODIFY_CODEC = 2;
+static const uint32_t MODIFY_VADMODE = 4;
+static const uint32_t MODIFY_NO_NLP = 8;
+static const uint32_t MODIFY_NO_INTERMEDIATE_ASR = 0x10;
+
+class SpeechOptionsModifier : public SpeechOptionsHolder, public SpeechOptions {
+public:
+	SpeechOptionsModifier() {
+		SpeechOptionsHolder();
+		_mask = 0;
+	}
+
+	void set_lang(Lang lang) {
+		this->lang = lang;
+		_mask |= MODIFY_LANG;
+	}
+
+	void set_codec(Codec codec) {
+		this->codec = codec;
+		_mask |= MODIFY_CODEC;
+	}
+
+	void set_vad_mode(VadMode mode, uint32_t timeout) {
+		this->vad_mode = mode;
+		this->vend_timeout = timeout;
+		_mask |= MODIFY_VADMODE;
+	}
+
+	void set_no_nlp(bool value) {
+		this->no_nlp = value;
+		_mask |= MODIFY_NO_NLP;
+	}
+
+	void set_no_intermediate_asr(bool value) {
+		this->no_intermediate_asr = value;
+		_mask |= MODIFY_NO_INTERMEDIATE_ASR;
+	}
+
+	void modify(SpeechOptionsHolder& options) {
+		if (_mask & MODIFY_LANG)
+			options.lang = lang;
+		if (_mask & MODIFY_CODEC)
+			options.codec = codec;
+		if (_mask & MODIFY_VADMODE) {
+			options.vad_mode = vad_mode;
+			options.vend_timeout = vend_timeout;
+		}
+		if (_mask & MODIFY_NO_NLP)
+			options.no_nlp = no_nlp;
+		if (_mask & MODIFY_NO_INTERMEDIATE_ASR)
+			options.no_intermediate_asr = no_intermediate_asr;
+	}
+		
+private:
+	uint32_t _mask;
+};
+
 SpeechImpl::SpeechImpl() : initialized_(false) {
 }
 
-bool SpeechImpl::prepare() {
+bool SpeechImpl::prepare(const PrepareOptions& options) {
+	lock_guard<mutex> locker(req_mutex_);
 	if (initialized_)
 		return true;
 	next_id_ = 0;
-	connection_.initialize(SOCKET_BUF_SIZE, &config_, "speech");
+	connection_.initialize(SOCKET_BUF_SIZE, options, "speech");
 	initialized_ = true;
 	req_thread_ = new thread([=] { send_reqs(); });
 	resp_thread_ = new thread([=] { gen_results(); });
@@ -29,10 +89,12 @@ bool SpeechImpl::prepare() {
 }
 
 void SpeechImpl::release() {
+#ifdef SPEECH_SDK_DETAIL_TRACE
 	Log::d(tag__, "SpeechImpl.release, initialized = %d", initialized_);
+#endif
+	unique_lock<mutex> req_locker(req_mutex_);
 	if (initialized_) {
 		// notify req thread to exit
-		unique_lock<mutex> req_locker(req_mutex_);
 		initialized_ = false;
 		connection_.release();
 		voice_reqs_.close();
@@ -70,17 +132,18 @@ int32_t SpeechImpl::put_text(const char* text) {
 	return id;
 }
 
-int32_t SpeechImpl::start_voice(shared_ptr<Options> framework_options,
-		shared_ptr<Options> skill_options) {
+int32_t SpeechImpl::start_voice(const VoiceOptions* options) {
 	if (!initialized_)
 		return -1;
 	lock_guard<mutex> locker(req_mutex_);
 	int32_t id = next_id();
 	if (!voice_reqs_.start(id))
 		return -1;
-	shared_ptr<FSOptions> arg(new FSOptions());
-	arg->framework_options = framework_options;
-	arg->skill_options = skill_options;
+	shared_ptr<VoiceOptions> arg;
+	if (options) {
+		arg = make_shared<VoiceOptions>();
+		*arg = *options;
+	}
 	voice_reqs_.set_arg(id, arg);
 #ifdef SPEECH_SDK_DETAIL_TRACE
 	Log::d(tag__, "start voice %d", id);
@@ -151,8 +214,19 @@ void SpeechImpl::cancel(int32_t id) {
 	}
 }
 
-void SpeechImpl::config(const char* key, const char* value) {
-	config_.set(key, value);
+void SpeechImpl::erase_req(int32_t id) {
+	lock_guard<mutex> req_locker(req_mutex_);
+	if (voice_reqs_.erase(id, SPEECH_TIMEOUT)) {
+		req_cond_.notify_one();
+	}
+}
+
+void SpeechImpl::config(const shared_ptr<SpeechOptions>& options) {
+	if (options.get() == NULL)
+		return;
+	shared_ptr<SpeechOptionsModifier> mod =
+		static_pointer_cast<SpeechOptionsModifier>(options);
+	mod->modify(options_);
 }
 
 static SpeechResultType poptype_to_restype(int32_t type) {
@@ -238,6 +312,8 @@ bool SpeechImpl::poll(SpeechResult& res) {
 					res.type = poptype_to_restype(poptype);
 					res.err = integer_to_reserr(err);
 					if (resin.get()) {
+						if (resin->asr_finish)
+							res.type = SpeechResultType::SPEECH_RES_ASR_FINISH;
 						res.asr = resin->asr;
 						res.nlp = resin->nlp;
 						res.action = resin->action;
@@ -291,13 +367,14 @@ void SpeechImpl::send_reqs() {
 			info->id = id;
 			info->type = sqtype_to_reqtype(r);
 			info->data = voice;
-			info->fsoptions = voice_reqs_.get_arg(id);
+			info->options = voice_reqs_.get_arg(id);
 		} else if (!text_reqs_.empty()) {
 			info = text_reqs_.front();
 			text_reqs_.pop_front();
 		} else {
 			Log::d(tag__, "SpeechImpl.send_reqs wait req available");
 			req_cond_.wait(locker);
+			Log::d(tag__, "SpeechImpl.send_reqs awake");
 			continue;
 		}
 		opr = do_ctl_change_op(info);
@@ -315,13 +392,20 @@ void SpeechImpl::send_reqs() {
 	Log::d(tag__, "thread 'send_reqs' quit");
 }
 
-bool SpeechImpl::do_ctl_change_op(std::shared_ptr<SpeechReqInfo>& req) {
+bool SpeechImpl::do_ctl_change_op(shared_ptr<SpeechReqInfo>& req) {
 	shared_ptr<SpeechOperationController::Operation> op =
 		controller_.current_op();
+#ifdef SPEECH_SDK_DETAIL_TRACE
+	Log::d(tag__, "do_ctl_change_op: current op is %p", op.get());
+	if (op.get()) {
+		Log::d(tag__, "do_ctl_change_op: current op id(%d), status(%d)",
+				op->id, op->status);
+	}
+	Log::d(tag__, "do_ctl_change_op: req id(%d), type(%d)",
+			req->id, req->type);
+#endif
 	if (req->type == SpeechReqType::TEXT
 			|| req->type == SpeechReqType::VOICE_START) {
-		Log::d(tag__, "do_ctl_change_op: (%d) req type is %d, new op START",
-				req->id, req->type);
 		assert(op.get() == NULL);
 		controller_.new_op(req->id, SpeechStatus::START);
 		return true;
@@ -330,17 +414,15 @@ bool SpeechImpl::do_ctl_change_op(std::shared_ptr<SpeechReqInfo>& req) {
 		if (req->type == SpeechReqType::VOICE_END
 				|| req->type == SpeechReqType::VOICE_DATA)
 			return true;
-		assert(req->type == SpeechReqType::CANCELLED);
-		op->status = SpeechStatus::CANCELLED;
-		controller_.clear_current_op();
-		Log::d(tag__, "(%d) is processing, Status --> Cancelled",
-				req->id);
-		resp_cond_.notify_one();
-		return true;
+		if (req->type == SpeechReqType::CANCELLED) {
+			op->status = SpeechStatus::CANCELLED;
+			controller_.clear_current_op();
+			resp_cond_.notify_one();
+			return true;
+		}
+		return false;
 	}
 	if (req->type == SpeechReqType::CANCELLED) {
-		Log::d(tag__, "do_ctl_change_op: req type is %d, new op CANCELLED",
-				req->type);
 		controller_.new_op(req->id, SpeechStatus::CANCELLED);
 		// no data send to server
 		// notify 'poll' function to generate 'CANCEL' result
@@ -350,24 +432,29 @@ bool SpeechImpl::do_ctl_change_op(std::shared_ptr<SpeechReqInfo>& req) {
 	return false;
 }
 
-static void req_config(SpeechRequest& req,
-		shared_ptr<Options> framework_options,
-		shared_ptr<Options> skill_options, SpeechConfig& config) {
-	req.set_lang(config.get("lang", "zh"));
-	req.set_codec(config.get("codec", "pcm"));
-	string json;
-	if (framework_options.get()) {
-		framework_options->to_json_string(json);
-		req.set_framework_options(json);
+void SpeechImpl::req_config(SpeechRequest& req,
+		const shared_ptr<VoiceOptions>& options) {
+	rokid::open::speech::v2::SpeechOptions* sopt = req.mutable_options();
+	sopt->set_lang(static_cast<rokid::open::speech::v2::Lang>(options_.lang));
+	sopt->set_codec(static_cast<rokid::open::speech::v1::Codec>(options_.codec));
+	sopt->set_vad_mode(static_cast<rokid::open::speech::v2::VadMode>(options_.vad_mode));
+	sopt->set_vend_timeout(options_.vend_timeout);
+	sopt->set_no_nlp(options_.no_nlp);
+	sopt->set_no_intermediate_asr(options_.no_intermediate_asr);
+	if (options.get()) {
+		sopt->set_stack(options->stack);
+		sopt->set_voice_trigger(options->voice_trigger);
+		sopt->set_voice_power(options->voice_power);
+		sopt->set_trigger_start(options->trigger_start);
+		sopt->set_trigger_length(options->trigger_length);
+		sopt->set_skill_options(options->skill_options);
 #ifdef SPEECH_SDK_DETAIL_TRACE
-		Log::d(tag__, "framework options is %s", json.c_str());
-#endif
-	}
-	if (skill_options.get()) {
-		skill_options->to_json_string(json);
-		req.set_skill_options(json);
-#ifdef SPEECH_SDK_DETAIL_TRACE
-		Log::d(tag__, "skill options is %s", json.c_str());
+		Log::d(tag__, "SpeechOptions: stack(%s), voice_trigger(%s), "
+				"trigger_start(%u), trigger_length(%u), voice_power(%F), "
+				"skill_options(%s)",
+				options->stack.c_str(), options->voice_trigger.c_str(),
+				options->trigger_start, options->trigger_length,
+				options->voice_power, options->skill_options.c_str());
 #endif
 	}
 }
@@ -377,10 +464,11 @@ int32_t SpeechImpl::do_request(shared_ptr<SpeechReqInfo>& req) {
 	int32_t rv = 1;
 	switch (req->type) {
 		case SpeechReqType::TEXT: {
+			shared_ptr<VoiceOptions> empty_opt;
 			treq.set_id(req->id);
 			treq.set_type(ReqType::TEXT);
 			treq.set_asr(*req->data);
-			req_config(treq, NULL, NULL, config_);
+			req_config(treq, empty_opt);
 			rv = 0;
 
 			Log::d(tag__, "SpeechImpl.do_request (%d) send text req",
@@ -390,8 +478,7 @@ int32_t SpeechImpl::do_request(shared_ptr<SpeechReqInfo>& req) {
 		case SpeechReqType::VOICE_START: {
 			treq.set_id(req->id);
 			treq.set_type(ReqType::START);
-			req_config(treq, req->fsoptions->framework_options,
-					req->fsoptions->skill_options, config_);
+			req_config(treq, req->options);
 
 			Log::d(tag__, "SpeechImpl.do_request (%d) send voice start",
 					req->id);
@@ -439,9 +526,9 @@ int32_t SpeechImpl::do_request(shared_ptr<SpeechReqInfo>& req) {
 #ifdef SPEECH_SDK_DETAIL_TRACE
 		Log::d(tag__, "req (%d) last data sent, req done", req->id);
 #endif
-		lock_guard<mutex> locker(resp_mutex_);
-		controller_.refresh_op_time();
 	}
+	lock_guard<mutex> locker(resp_mutex_);
+	controller_.refresh_op_time();
 	return rv;
 }
 
@@ -457,9 +544,6 @@ void SpeechImpl::gen_results() {
 		timeout = controller_.op_timeout();
 		locker.unlock();
 
-#ifdef SPEECH_SDK_DETAIL_TRACE
-		Log::d(tag__, "gen_results: recv with timeout %u", timeout);
-#endif
 		r = connection_.recv(resp, timeout);
 		if (r == ConnectionOpResult::NOT_READY)
 			break;
@@ -468,10 +552,14 @@ void SpeechImpl::gen_results() {
 			gen_result_by_resp(resp);
 		} else if (r == ConnectionOpResult::TIMEOUT) {
 			if (controller_.op_timeout() == 0) {
+				int32_t id = controller_.current_op()->id;
 				Log::w(tag__, "gen_results: (%d) op timeout, "
 						"set op error", controller_.current_op()->id);
 				controller_.set_op_error(SPEECH_TIMEOUT);
 				resp_cond_.notify_one();
+				locker.unlock();
+				erase_req(id);
+				continue;
 			}
 		} else if (r == ConnectionOpResult::CONNECTION_BROKEN) {
 			controller_.set_op_error(SPEECH_SERVICE_UNAVAILABLE);
@@ -489,6 +577,15 @@ void SpeechImpl::gen_result_by_resp(SpeechResponse& resp) {
 	bool new_data = false;
 	shared_ptr<SpeechOperationController::Operation> op =
 		controller_.current_op();
+#ifdef SPEECH_SDK_DETAIL_TRACE
+	Log::d(tag__, "gen_result_by_resp: current op is %p", op.get());
+	if (op.get()) {
+		Log::d(tag__, "gen_result_by_resp: current op id(%d), status(%d)",
+				op->id, op->status);
+	}
+	Log::d(tag__, "gen_result_by_resp: resp id(%d), type(%d), result(%d), asr(%s)",
+			resp.id(), resp.type(), resp.result(), resp.asr().c_str());
+#endif
 	if (op.get() && op->id == resp.id()
 			&& op->status != SpeechStatus::CANCELLED
 			&& op->status != SpeechStatus::ERROR) {
@@ -496,47 +593,77 @@ void SpeechImpl::gen_result_by_resp(SpeechResponse& resp) {
 			responses_.start(resp.id());
 			op->status = SpeechStatus::STREAMING;
 			new_data = true;
-			Log::d(tag__, "gen_result_by_resp(%d): push start resp, "
-					"Status Start --> Streaming", resp.id());
 		}
 
-		if (resp.result() == SpeechErrorCode::SUCCESS) {
-			Log::d(tag__, "SpeechResponse finish(%d)", resp.finish());
-			shared_ptr<SpeechResultIn> resin(new SpeechResultIn());
+		shared_ptr<SpeechResultIn> resin = make_shared<SpeechResultIn>();
+		switch (resp.type()) {
+		case rokid::open::speech::v2::INTERMEDIATE:
 			resin->asr = resp.asr();
-			resin->nlp = resp.nlp();
-			resin->action = resp.action();
 			resin->extra = resp.extra();
-
-			if (resp.finish()) {
+			resin->asr_finish = false;
+			responses_.stream(resp.id(), resin);
+			new_data = true;
+			break;
+		case rokid::open::speech::v2::ASR_FINISH:
+			resin->asr = resp.asr();
+			resin->asr_finish = true;
+			responses_.stream(resp.id(), resin);
+			new_data = true;
+			break;
+		case rokid::open::speech::v2::FINISH:
+			if (resp.result() == SpeechErrorCode::SUCCESS) {
+				resin->nlp = resp.nlp();
+				resin->action = resp.action();
+				resin->asr_finish = false;
 				responses_.end(resp.id(), resin);
 				new_data = true;
 				op->status = SpeechStatus::END;
-				Log::d(tag__, "gen_result_by_resp(%d): push end resp, "
-						"Status Streaming --> End", resp.id());
 				controller_.finish_op();
+				erase_req(resp.id());
 			} else {
-				responses_.stream(resp.id(), resin);
+				responses_.erase(resp.id(), resp.result());
 				new_data = true;
-				Log::d(tag__, "gen_result_by_resp(%d): push nlp resp "
-						"%s", resp.id(), resin->action.c_str());
+				controller_.finish_op();
+				erase_req(resp.id());
 			}
-		} else {
-			responses_.erase(resp.id(), resp.result());
-			new_data = true;
-			controller_.finish_op();
+			break;
+		default:
+			Log::w(tag__, "invalid SpeechResponse.type %d", resp.type());
+			return;
 		}
 
 		if (new_data) {
-			Log::d(tag__, "some responses put to queue, "
-					"awake poll thread");
 			resp_cond_.notify_one();
 		}
 	}
 }
 
-shared_ptr<Speech> new_speech() {
-	return shared_ptr<Speech>(new SpeechImpl());
+shared_ptr<Speech> Speech::new_instance() {
+	return make_shared<SpeechImpl>();
+}
+
+VoiceOptions::VoiceOptions() : trigger_start(0), trigger_length(0), voice_power(0.0) {
+}
+
+VoiceOptions& VoiceOptions::operator = (const VoiceOptions& options) {
+	stack = options.stack;
+	voice_trigger = options.voice_trigger;
+	trigger_start = options.trigger_start;
+	trigger_length = options.trigger_length;
+	skill_options = options.skill_options;
+	return *this;
+}
+
+SpeechOptionsHolder::SpeechOptionsHolder() : lang(Lang::ZH),
+	codec(Codec::PCM),
+	vad_mode(VadMode::LOCAL),
+	vend_timeout(0),
+	no_nlp(0),
+	no_intermediate_asr(0) {
+}
+
+shared_ptr<SpeechOptions> SpeechOptions::new_instance() {
+	return make_shared<SpeechOptionsModifier>();
 }
 
 } // namespace speech

@@ -51,6 +51,7 @@ set(Poco_HINTS
 	/usr/local
 	/usr/lib
 	C:/AppliedInformatics
+	${PocoPrefix}
 	${Poco_DIR} 
 	$ENV{Poco_DIR}
 )
@@ -115,16 +116,27 @@ foreach( component ${components} )
 		
 	# include directory for the component
 	if(NOT Poco_${component}_INCLUDE_DIR)
-		find_path(Poco_${component}_INCLUDE_DIR
-			NAMES 
-				Poco/${component}.h 	# e.g. Foundation.h
-				Poco/${component}/${component}.h # e.g. OSP/OSP.h Util/Util.h
-			HINTS
-				${Poco_ROOT_DIR}
-			PATH_SUFFIXES
-				include
-				${component}/include
-		)
+		if (${component} MATCHES "NetSSL")
+			find_path(Poco_NetSSL_INCLUDE_DIR
+				NAMES
+					Poco/Net/NetSSL.h
+				HINTS
+					${Poco_ROOT_DIR}
+				PATH_SUFFIXES
+					include
+			)
+		else()
+			find_path(Poco_${component}_INCLUDE_DIR
+				NAMES 
+					Poco/${component}.h 	# e.g. Foundation.h
+					Poco/${component}/${component}.h # e.g. OSP/OSP.h Util/Util.h
+				HINTS
+					${Poco_ROOT_DIR}
+				PATH_SUFFIXES
+					include
+					${component}/include
+			)
+		endif()
 	endif()
 	if(NOT Poco_${component}_INCLUDE_DIR)
 		if(NOT ${component} MATCHES "NetSSL")

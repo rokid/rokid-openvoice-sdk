@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <vector>
+#include <thread>
 #include "speech.h"
 #include "common.h"
 #include "log.h"
@@ -14,6 +15,7 @@
 using namespace rokid::speech;
 using std::vector;
 using std::shared_ptr;
+using std::thread;
 
 #define OPU_FILE_COUNT 12
 #ifdef ANDROID
@@ -110,29 +112,32 @@ static void speech_poll(Speech* speech) {
 		if (rand() & 1)
 			speech->cancel(res.id);
 		switch (res.type) {
-			case 0:
+			case SPEECH_RES_INTER:
 				Log::i("demo.speech.info", "%u: recv speech asr %s\nnlp %s\naction %s\n",
 						res.id, res.asr.c_str(), res.nlp.c_str(),
 						res.action.c_str());
 				break;
-			case 1:
+			case SPEECH_RES_START:
 				if (res.id > 0 && res.id < all_resp_status_.size())
 					++all_resp_status_[res.id].start_count;
 				Log::i("demo.speech.info", "%u: speech onStart", res.id);
 				break;
-			case 2:
+			case SPEECH_RES_ASR_FINISH:
+				Log::i("demo.speech.info", "%u: speech onAsrComplete", res.id);
+				break;
+			case SPEECH_RES_END:
 				if (res.id > 0 && res.id < all_resp_status_.size())
 					++all_resp_status_[res.id].complete_count;
 				Log::i("demo.speech.info", "%u: speech onComplete", res.id);
 				speech_req_done(res.id);
 				break;
-			case 3:
+			case SPEECH_RES_CANCELLED:
 				if (res.id > 0 && res.id < all_resp_status_.size())
 					++all_resp_status_[res.id].cancel_count;
 				Log::i("demo.speech.info", "%u: speech onCancel", res.id);
 				speech_req_done(res.id);
 				break;
-			case 4:
+			case SPEECH_RES_ERROR:
 				if (res.id > 0 && res.id < all_resp_status_.size())
 					++all_resp_status_[res.id].error_count;
 				Log::i("demo.speech.info", "%u: speech onError %u", res.id, res.err);
@@ -176,9 +181,11 @@ void speech_demo() {
 #endif
 
 	all_resp_status_.resize(TOTAL_REQ_NUM + 1);
-	shared_ptr<Speech> speech = new_speech();
+	shared_ptr<Speech> speech = Speech::new_instance();
 	prepare(speech.get());
-	speech->config("codec", "opu");
+	shared_ptr<SpeechOptions> opt = SpeechOptions::new_instance();
+	opt->set_codec(Codec::OPU);
+	speech->config(opt);
 	run(speech.get(), speech_req, speech_poll);
 
 	trace_resp_status();
@@ -195,3 +202,33 @@ void speech_demo() {
 	}
 	*/
 }
+
+/**
+static int32_t do_speech_req(shared_ptr<Speech>& speech) {
+	uint32_t i;
+	int32_t id;
+	shared_ptr<Options> opt = new_options();
+	opt->set("vend_mode", "server");
+	opt->set("vend_timeout", 500);
+	id = speech->start_voice(opt);
+	if (id > 0) {
+		for (i = 0; i < OPU_FILE_COUNT; ++i)
+			send_opu_file(speech.get(), id, i);
+	}
+	Log::i("demo.speech.info", "do speech req finish, id %d", id);
+	return id;
+}
+
+void speech_cloud_vad_end_demo(bool no_nlp) {
+	shared_ptr<Speech> speech = new_speech();
+	prepare(speech.get());
+	shared_ptr<SpeechOptions> opt = SpeechOptions::new_instance();
+	opt->set_codec(Codec::OPU);
+	speech->config(opt);
+
+	thread poll_thread([&speech] { speech_poll(speech.get()); });
+	last_id_ = do_speech_req(speech);
+
+	poll_thread.join();
+}
+*/

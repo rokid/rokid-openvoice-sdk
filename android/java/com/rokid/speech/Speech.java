@@ -2,13 +2,12 @@ package com.rokid.speech;
 
 import android.util.Log;
 import android.util.SparseArray;
+import org.json.JSONObject;
 
-public class Speech extends GenericConfig<SpeechConfig> {
-	public Speech(String configFile) {
+public class Speech extends GenericConfig {
+	public Speech() {
 		_callbacks = new SparseArray<SpeechCallback>();
 		_sdk_speech = _sdk_create();
-		if (configFile != null)
-			config(configFile, SpeechConfig.class);
 	}
 
 	public void finalize() {
@@ -16,8 +15,17 @@ public class Speech extends GenericConfig<SpeechConfig> {
 		_sdk_delete(_sdk_speech);
 	}
 
-	public void prepare() {
-		_sdk_prepare(_sdk_speech);
+	public void prepare(String configFile) {
+		PrepareOptions opt;
+		if (configFile != null)
+			opt = parseConfigFile(configFile);
+		else
+			opt = new PrepareOptions();
+		prepare(opt);
+	}
+
+	public void prepare(PrepareOptions opt) {
+		_sdk_prepare(_sdk_speech, opt);
 	}
 
 	public void release() {
@@ -36,16 +44,13 @@ public class Speech extends GenericConfig<SpeechConfig> {
 	}
 
 	public int startVoice(SpeechCallback cb) {
-		return startVoice(cb, null, null);
+		return startVoice(cb, null);
 	}
 
-	public int startVoice(SpeechCallback cb,
-			SpeechOptions frameworkOptions,
-			SpeechOptions skillOptions) {
+	public int startVoice(SpeechCallback cb, VoiceOptions opt) {
 		int id;
 		synchronized (_callbacks) {
-			id = _sdk_start_voice(_sdk_speech, frameworkOptions,
-					skillOptions);
+			id = _sdk_start_voice(_sdk_speech, opt);
 			Log.d(TAG, "start voice, id = " + id);
 			if (id > 0)
 				_callbacks.put(id, cb);
@@ -69,8 +74,8 @@ public class Speech extends GenericConfig<SpeechConfig> {
 		_sdk_cancel(_sdk_speech, id);
 	}
 
-	public void config(String key, String value) {
-		_sdk_config(_sdk_speech, key, value);
+	public void config(SpeechOptions opt) {
+		_sdk_config(_sdk_speech, opt);
 	}
 
 	// invoke by native poll thread
@@ -90,8 +95,11 @@ public class Speech extends GenericConfig<SpeechConfig> {
 					case SpeechResult.START:
 						cb.onStart(res.id);
 						break;
+					case SpeechResult.ASR_FINISH:
+						cb.onAsrComplete(res.id, res.asr);
+						break;
 					case SpeechResult.END:
-						cb.onComplete(res.id, res.asr, res.nlp, res.action);
+						cb.onComplete(res.id, res.nlp, res.action);
 						del_cb = true;
 						break;
 					case SpeechResult.CANCELLED:
@@ -123,14 +131,13 @@ public class Speech extends GenericConfig<SpeechConfig> {
 
 	private native void _sdk_delete(long sdk_speech);
 
-	private native boolean _sdk_prepare(long sdk_speech);
+	private native boolean _sdk_prepare(long sdk_speech, PrepareOptions opt);
 
 	private native void _sdk_release(long sdk_speech);
 
 	private native int _sdk_put_text(long sdk_speech, String content);
 
-	private native int _sdk_start_voice(long sdk_speech,
-			SpeechOptions foptions, SpeechOptions soptions);
+	private native int _sdk_start_voice(long sdk_speech, VoiceOptions opt);
 
 	private native void _sdk_put_voice(long sdk_speech, int id,
 			byte[] voice, int offset, int length);
@@ -139,8 +146,7 @@ public class Speech extends GenericConfig<SpeechConfig> {
 
 	private native void _sdk_cancel(long sdk_speech, int id);
 
-	private native void _sdk_config(long sdk_speech, String key,
-			String value);
+	private native void _sdk_config(long sdk_speech, SpeechOptions opt);
 
 	private SparseArray<SpeechCallback> _callbacks;
 
@@ -148,7 +154,7 @@ public class Speech extends GenericConfig<SpeechConfig> {
 
 	static {
 		System.loadLibrary("rokid_speech_jni");
-		_sdk_init(Speech.class, SpeechResult.class, SpeechOptions.class);
+		_sdk_init(Speech.class, SpeechResult.class, VoiceOptions.class);
 	}
 
 	private static final String TAG = "speech.sdk";
@@ -164,11 +170,17 @@ public class Speech extends GenericConfig<SpeechConfig> {
 
 		private static final int INTERMEDIATE = 0;
 		private static final int START = 1;
-		private static final int END = 2;
-		private static final int CANCELLED = 3;
-		private static final int ERROR = 4;
+		private static final int ASR_FINISH = 2;
+		private static final int END = 3;
+		private static final int CANCELLED = 4;
+		private static final int ERROR = 5;
 	}
-}
 
-class SpeechConfig extends GenericConfigParams {
+	public static class VoiceOptions {
+		public String stack;
+		public String voice_trigger;
+		public int trigger_start;
+		public int trigger_length;
+		public String skill_options;
+	}
 }

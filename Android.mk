@@ -4,8 +4,8 @@ IGNORED_WARNINGS := -Wno-sign-compare -Wno-unused-parameter -Wno-sign-promo -Wno
 COMMON_CFLAGS := \
 	$(IGNORED_WARNINGS) \
 	-DSPEECH_LOG_ANDROID \
-	-DSPEECH_SDK_STREAM_QUEUE_TRACE \
-	-DSPEECH_SDK_DETAIL_TRACE
+	-DSPEECH_SDK_DETAIL_TRACE \
+	-DSSL_NON_VERIFY
 
 include $(LOCAL_PATH)/core.mk
 
