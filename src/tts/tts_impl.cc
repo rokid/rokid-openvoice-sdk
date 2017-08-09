@@ -325,9 +325,6 @@ void TtsImpl::gen_results() {
 		timeout = controller_.op_timeout();
 		locker.unlock();
 
-#ifdef SPEECH_SDK_DETAIL_TRACE
-		Log::d(tag__, "gen_results: recv with timeout %u", timeout);
-#endif
 		r = connection_.recv(resp, timeout);
 		if (r == ConnectionOpResult::NOT_READY)
 			break;

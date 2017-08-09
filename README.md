@@ -70,12 +70,10 @@ sudo apt-get install libssl-dev
 ```
 tar xvfz poco-1.7.8p2-all.tar.gz
 cd poco-1.7.8p2-all
-./configure --config=Linux --shared --no-tests --no-samples --omit=CppUnit,CppParser,CodeGeneration,PageCompiler,Remoting,Data/MySQL,Data/ODBC,Zip,XML --prefix=${your_deps_dir}
+./configure --config=Linux --shared --no-tests --no-samples --omit=CppUnit,CppParser,CodeGeneration,PageCompiler,Remoting,Data/MySQL,Data/ODBC,Zip,XML --prefix=${poco_install_dir}
 make
 make install
 ```
-
-**重要：${your\_deps\_dir}是speech sdk所有依赖项的安装目录，protobuf及poco都应安装在这里，由你指定。**
 
 * 安装protobuf
 
@@ -85,17 +83,21 @@ cd protobuf
 git checkout v2.6.1
 编辑autogen.sh，删除安装gtest的命令。否则会出错，该url已经不存在了。
 ./autogen.sh
-./configure --prefix=${your_deps_dir}
+./configure --prefix=${protobuf_install_dir}
 make
 make install
 ```
 
 **sdk主体编译**
 
+依赖cmake 2.8以上
+
 ```
 git clone https://github.com/Rokid/rokid-openvoice-sdk.git
 cd rokid-openvoice-sdk
-./autogen.sh <your_deps_dir>
+mkdir build
+cd build
+cmake .. -DProtobufPrefix=${protobuf_install_dir} -DPocoPrefix=${poco_install_dir}
 make
 ```
 

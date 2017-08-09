@@ -1,218 +1,269 @@
 ### Tts接口定义
-**Tts类定义**
 
-```
-// 初始化，连接tts服务等操作
-bool prepare()
+~ | 名称 | 类型 | 描述
+---|---|---|---
+接口 | prepare | | tts sdk初始化
+参数 | options | [PrepareOptions](#po) | 选项，详见[PrepareOptions](#po)数据结构
+返回值 | | bool | true 成功 false 失败
 
-// 结束使用并释放Tts系统资源
-void release();
+~ | 名称 | 类型 | 描述
+---|---|---|---
+接口 | release | | tts sdk关闭
+参数 | 无 | |
+返回值 | 无 | |
 
-// 发起tts请求
-int32_t speak(const char* content)
+~ | 名称 | 类型 | 描述
+---|---|---|---
+接口 | speak | | 发起文字转语音
+参数 | content | const char* | 文本
+返回值 | | int32 | 成功将文本加入待处理队列，返回id。失败返回-1
 
-// 取消指定的tts请求，如未指定id (id <= 0)，取消所有未完成tts请求
-void cancel(int32_t id)
+~ | 名称 | 类型 | 描述
+---|---|---|---
+接口 | cancel | | 取消id指定的文字转语音请求
+参数 | id | int32 | 此前调用speak返回的id
+返回值 | 无 | |
 
-// 获取tts结果数据。
-// 返回true   成功得到Tts结果
-// 返回false  tts prepare未调用或已被release
-// 阻塞不返回  等待tts结果
-bool poll(TtsResult& result)
+~ | 名称 | 类型 | 描述
+---|---|---|---
+接口 | poll | | 获取tts结果数据。如无数据则一直阻塞等待，sdk关闭立即返回false。
+参数 | result | [TtsResult](#tr) | 成功时存放获取到的tts结果数据，详见[TtsResult](#tr)数据结构
+返回值 | | bool | true 成功 false sdk已关闭
 
-// 进行配置，详见下面示例
-void config(const char* key, const char* value)
-```
-
-**TtsResult定义**
-
-```
-// TtsResult类型
-// TTS_RES_VOICE
-// TTS_RES_START
-// TTS_RES_END
-// TTS_RES_CANCELLED
-// TTS_RES_ERROR
-TtsResultType type
-
-// Tts请求id
-int32_t id
-
-// Tts错误码
-// TTS_SUCCESS
-// TTS_UNAUTHENTICATED
-// TTS_CONNECTION_EXCEED
-// TTS_SERVER_RESOURCE_EXHASTED
-// TTS_SERVER_BUSY
-// TTS_INTERNAL
-// TTS_SERVICE_UNAVAILABLE
-// TTS_SDK_CLOSED
-// TTS_TIMEOUT
-// TTS_UNKNOWN
-TtsError err
-
-// tts语音数据
-std::shared_ptr<std::string> voice;
-```
+~ | 名称 | 类型 | 描述
+---|---|---|---
+接口 | config | | 修改tts配置选项
+参数 | options | [TtsOptions](#to) | tts的配置选项，详见[TtsOptions](#to)数据结构
+返回值 | 无 | |
 
 ### Tts使用示例
 
 ```
-#include "tts.h"
-// Tts构造参数 配置文件名传null
-shared_ptr<Tts> tts = new_tts();
-// 在prepare前，先进行必要的配置
-// 配置服务器信息
-tts->config("host", "apigwws-dev.open.rokid.com");
-tts->config("port", "443");
-tts->config("branch", "/api");
-// 配置认证信息
-tts->config("key", my_key);
-tts->config("device_type_id", my_device_type_id);
-tts->config("secret", my_secret);
-// 配置api版本
-tts->config("api_version", "1"); // 目前api版本为1
-// 配置设备名，类似昵称，不影响认证结果，但必须在prepare之前配置
-tts->config("device_id", "SmartDonkey");
-// 连接服务器并认证，进行多项准备工作
-if (!tts->prepare())
-	return;
+// 创建tts实例并初始化
+shared_ptr<Tts> tts = Tts::new_instance();
+PrepareOptions popts;
+popts.host = "apigwws.open.rokid.com";
+popts.port = 443;
+popts.branch = "/api";
+// 认证信息，需要申请
+popts.key = my_key;
+popts.device_type_id = my_device_type;
+popts.secret = my_secret;
+// 设备名称，类似昵称，可自由选择，不影响认证结果
+popts.device_id = "SmartDonkey";
+tts->prepare(popts);
+
 // 在prepare后任意时刻，都可以调用config修改配置
-// 语音编码格式设定为pcm
-tts->config("codec", "pcm");
+// 默认配置codec = PCM, declaimer = ZH
+// 下面的代码将codec修改为OPU2，declaimer保持原状不变
+shared_ptr<TtsOptions> topts = TtsOptions::new_instance();
+topts->set_codec(Codec::OPU2);
+tts->config(topts);
 
 // 使用tts
-tts->speak("我是会说话的机器人，我最爱吃的食物是机油，最喜欢的运动是聊天");
-// 更多的speak及其它api调用
-......
+int32_t id = tts->speak("我是会说话的机器人，我最爱吃的食物是机油，最喜欢的运动是聊天");
 
-
-// 在另一个线程
-bool r;
+// 获取tts结果。api阻塞式，应考虑在独立线程中运行。
 TtsResult result;
-
 while (true) {
-	r = tts->poll(result);
-	if (!r)
+	if (!tts->poll(result))
 		break;
+	// 处理result
 	handle_tts_result(result);
 }
 ```
 
 ### Speech接口定义
-**Speech类定义**
 
-```
-// 初始化
-bool prepare();
+~ | 名称 | 类型 | 描述
+---|---|---|---
+接口 | prepare | | speech sdk初始化
+参数 | options | [PrepareOptions](#po) | 选项，详见[PrepareOptions](#po)数据结构
+返回值 | | bool | true 成功 false 失败
 
-// 释放
-void prepare();
+~ | 名称 | 类型 | 描述
+---|---|---|---
+接口 | release | | speech sdk关闭
+参数 | 无 | |
+返回值 | 无 | |
 
-// 发起文本speech请求
-int32_t put_text(const char* text)
+~ | 名称 | 类型 | 描述
+---|---|---|---
+接口 | put\_text | | 发起文本speech
+参数 | text | const char* | speech文本
+返回值 | | int32 | speech id
 
-// 发起语音speech请求
-// 'fopts', 'sopts'  高级功能参数选项，普通用户无需使用
-int32_t start_voice(shared_ptr<Options> fopts, shared_ptr<Options> sopts)
+~ | 名称 | 类型 | 描述
+---|---|---|---
+接口 | start\_voice | | 发起语音speech
+参数 | options | [VoiceOptions](#vo) | 当前语音speech的选项，详见[VoiceOptions](#vo)。此参数可不带
+返回值 | | int32 | speech id
 
-// 为指定语音speech请求发送语音数据，数据可分多次调用发送
-void put_voice(int32_t id, const uint8_t* data, uint32_t length)
+~ | 名称 | 类型 | 描述
+---|---|---|---
+接口 | put_voice | | 发送语音数据, 一次speech的语音数据可分多次发送
+参数 | id | int32 | speech id
+参数 | data | const uint8* | 语音数据
+参数 | length | uint32 | 数据长度
+返回值 | 无 | |
 
-// 指定语音speech请求的语音数据发送完成
-void end_voice(int32_t id)
+~ | 名称 | 类型 | 描述
+---|---|---|---
+接口 | end_voice | | 通知sdk语音数据发送完毕，结束speech
+参数 | id | int32 | speech id
+返回值 | 无 | |
 
-// 取消指定speech请求，如果id未指定(id <= 0)，取消所有speech请求
-void cancel(int32_t id)
+~ | 名称 | 类型 | 描述
+---|---|---|---
+接口 | cancel | | 取消指定的speech请求
+参数 | id | int32 | speech id
+返回值 | 无 | |
 
-void config(const char* key, const char* value)
-```
+~ | 名称 | 类型 | 描述
+---|---|---|---
+接口 | poll | | 获取speech结果数据。如无数据则一直阻塞等待，sdk关闭立即返回false。
+参数 | result | [SpeechResult](#sr) | 成功时存放获取到的speech结果数据，详见[SpeechResult](#sr)数据结构
+返回值 | | bool | true 成功 false sdk已关闭
 
-**SpeechResult定义**
-
-```
-// speech请求id
-int32_t id;
-
-// speech result类型
-// SPEECH_RES_INTER    <-- speech请求的中间结果 (asr部分结果, extra数据。extra为高级功能返回的数据，普通用户不要关心)
-// SPEECH_RES_START    <-- speech请求开始返回结果数据
-// SPEECH_RES_END      <-- speech请求最终结果数据(包括asr, nlp, action)
-// SPEECH_RES_CANCELLED
-// SPEECH_RES_ERROR
-uint32_t type;
-
-// SPEECH_SUCCESS
-// SPEECH_UNAUTHENTICATED
-// SPEECH_CONNECTION_EXCEED
-// SPEECH_SERVER_RESOURCE_EXHASTED
-// SPEECH_SERVER_BUSY
-// SPEECH_SERVER_INTERNAL
-// SPEECH_SERVICE_UNAVAILABLE
-// SPEECH_SDK_CLOSED
-// SPEECH_TIMEOUT
-// SPEECH_UNKNOWN
-SpeechError err;
-
-// 语音转成的文本
-std::string asr;
-// 自然语义解析结果
-std::string nlp;
-// rokid cloud app解析结果
-// 不使用rokid cloud app忽略此数据
-std::string action;
-```
+~ | 名称 | 类型 | 描述
+---|---|---|---
+接口 | config | | 设置speech选项
+参数 | options | [SpeechOptions](#so) | 详见[SpeechOptions](#so)
+返回值 | 无 | |
 
 ### Speech使用示例
 
 ```
-#include "speech.h"
+shared_ptr<Speech> speech = Speech::new_instance();
+PrepareOptions popts;
+popts.host = "apigwws.open.rokid.com";
+popts.port = 443;
+popts.branch = "/api";
+// 认证信息，需要申请
+popts.key = my_key;
+popts.device_type_id = my_device_type;
+popts.secret = my_secret;
+// 设备名称，类似昵称，可自由选择，不影响认证结果
+popts.device_id = "SmartDonkey";
+speech->prepare(popts);
 
-shared_ptr<Speech> speech = new_speech();
-// 在prepare前，先进行必要的配置
-// 配置服务器信息
-speech->config("host", "apigwws-dev.open.rokid.com");
-speech->config("port", "443");
-speech->config("branch", "/api");
-// 配置认证信息
-speech->config("key", my_key);
-speech->config("device_type_id", my_device_type_id);
-speech->config("secret", my_secret);
-// 配置api版本
-speech->config("api_version", "1"); // 目前api版本为1
-// 配置设备名，类似昵称，不影响认证结果，但必须在prepare之前配置
-speech->config("device_id", "SmartDonkey");
-// 连接服务器并认证，进行多项准备工作
-if (!speech->prepare())
-	return;
-// 在prepare后任意时刻，都可以调用config修改配置
-// 语音编码格式设定为pcm
-speech->config("codec", "pcm");
+// 修改音频编码格式及语言，其它选项不变
+shared_ptr<SpeechOptions> opts = SpeechOptions::new_instance();
+opts->set_codec(Codec::OPU);
+opts->set_lang(Lang::ZH);
+speech->config(opts);
 
-// 使用speech
-// 开始一次speech请求
-int32_t id = speech->start_voice();
-// 发送语音数据，流式，可分多次发送
-speech->put_voice(id, data, data_length);
-speech->put_voice(id, more data...);
-...
-// 声明此次speech语音请求数据发送完毕
-speech->end_voice(id);
+// 文本speech请求
+speech->put_text("若琪你好");
 ......
-
-
-// 在另一个线程
-bool r;
-SpeechResult result;
-
-while (true) {
-	r = speech->poll(result);
-	if (!r)
-		break;
-	handle_speech_result(result);
-}
+// 语音speech请求
+// 不设置VoiceOptions，全部使用默认值。
+int32_t id = speech->start_voice();
+speech->put_voice(id, your_voice_data, len);
+speech->put_voice(id, more_voice_data, len);
+speech->put_voice(id, ...);
+...
+speech->end_voice(id);
 ```
 
-### Asr接口
+### 数据结构
 
-**与Speech接口与用法类似，不再详细描述。**
+#### <a id="po"></a>PrepareOptions
+
+名称 | 类型 | 描述
+---|---|---
+host | string | tts服务host
+port | uint32 | tts服务port
+branch | string | tts服务url path
+key | string | tts服务认证key
+device\_type\_id | string | 设备类型，用于tts服务认证
+secret | string | 用于tts服务认证
+device\_id | string | 设备id，用于tts服务认证
+
+#### <a id="to"></a>TtsOptions
+
+使用set\_xxx接口设定选项值，未设定的值将不会更改旧有的设定值
+
+~ | 名称 | 类型 | 描述
+---|---|---|---
+接口 | set\_codec | | 设定编码格式，默认PCM
+参数 | codec | enum Codec | 限定值PCM, OPU2
+
+~ | 名称 | 类型 | 描述
+---|---|---|---
+接口 | set\_declaimer | | 设定语音朗读者，默认"zh"
+参数 | declaimer | string | 限定值"zh"
+
+#### <a id="so"></a>SpeechOptions
+
+使用set\_xxx接口设定选项值，未设定的值将不会更改旧有的设定值
+
+~ | 名称 | 类型 | 描述
+---|---|---|---
+接口 | set\_lang | | 设定文字语言。设定speech put\_text接口要发送的文本的语言; 影响语音识别结果'asr'的文本语言
+参数 | lang | enum Lang | 限定值ZH EN
+
+~ | 名称 | 类型 | 描述
+---|---|---|---
+接口 | set\_codec | | 设定语音编码。指定put\_voice接口发送的语音编码格式
+参数 | codec | enum Codec | 限定值PCM OPU
+
+~ | 名称 | 类型 | 描述
+---|---|---|---
+接口 | set\_vad\_mode | | 设定语音起始结束检查在云端还是本地
+参数 | mode | enum VadMode | 限定值LOCAL CLOUD
+
+~ | 名称 | 类型 | 描述
+---|---|---|---
+接口 | set\_no\_nlp | | 设定是否需要服务端给出nlp结果
+参数 | v | boolean |
+
+~ | 名称 | 类型 | 描述
+---|---|---|---
+接口 | set\_no\_intermediate_asr | | 设定是否需要服务端给出中间asr结果
+参数 | v | boolean |
+
+#### <a id="vo"></a>VoiceOptions
+
+名称 | 类型 | 描述
+---|---|---
+stack | String |
+voice_trigger | string | 激活词
+trigger_start | uint32 | 语音数据中激活词的开始位置
+trigger_length | uint32 | 激活词语音数据长度
+skill_options | string |
+
+### <a id="errcode"></a>错误码
+
+值 | 错误描述
+---|---
+0 | 成功
+2 | 未认证或认证失败
+3 | 与服务器连接数量过多
+4 | 服务器资源不足
+5 | 服务器忙
+6 | 服务器内部错误
+101 | 无法连接到服务器
+102 | sdk已经关闭
+103 | 请求超时
+104 | 未知错误
+
+### <a id="tr"></a>TtsResult
+
+名称 | 类型 | 描述
+---|---|---
+type | enum TtsResultType | 0: tts语音数据<br>1: tts语音开始<br>2: tts语音结束<br>3: tts请求取消<br>4: tts请求出错
+id | int32 | tts请求id
+err | enum TtsError | 详见[错误码](#errcode)
+voice | string | 语音数据
+
+### <a id="sr"></a>SpeechResult
+名称 | 类型 | 描述
+---|---|---
+id | int32 | speech请求id
+type | enum SpeechResultType | 0: speech中间结果<br>1: speech结果开始<br>2: speech asr完整结果<br>3: speech nlp/action结果<br>4: speech取消<br>5: speech出错
+err | enum SpeechError | 详见[错误码](#errcode)
+asr | string | 语音转文本的结果
+nlp | string | 自然语义解析结果
+action | string | rokid skill处理结果
+extra | string | 激活结果
