@@ -77,6 +77,7 @@ public:
 		if (need_notify) {
 			current_op_.reset();
 			cond.notify_one();
+			op_cond_.notify_one();
 		}
 	}
 

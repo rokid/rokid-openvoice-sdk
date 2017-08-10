@@ -1,3 +1,4 @@
+#include <unistd.h>
 #include "tts.h"
 #include "common.h"
 
@@ -8,10 +9,14 @@ static int32_t last_id_ = 0xffffffff;
 static bool quit_ = false;
 
 static void tts_req(Tts* tts) {
+	int32_t id;
+	id = tts->speak("你好");
+	sleep(1);
+	id = tts->speak("你好");
+	usleep(10000);
+	tts->cancel(id);
 	tts->speak("你好");
-	tts->speak("你好");
-	tts->speak("你好");
-	int32_t id = tts->speak("你好");
+	id = tts->speak("你好");
 	tts->speak("你好");
 	tts->speak("你好");
 	last_id_ = tts->speak("你好");

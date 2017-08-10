@@ -9,7 +9,7 @@
 		'configurations': {
 			'Debug': {
 				'defines': [ 'DEBUG', '_DEBUG' ],
-				'cflags': [ '-g', '-O0', '-fno-inline-functions' ],
+				'cflags': [ '-g', '-O0', '-fno-inline-functions', '-DSPEECH_SDK_DETAIL_TRACE' ],
 			},
 			'Release': {
 				'cflags': [ '-O2' ],
