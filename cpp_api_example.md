@@ -70,8 +70,7 @@ tts->config("branch", "/api");
 tts->config("key", my_key);
 tts->config("device_type_id", my_device_type_id);
 tts->config("secret", my_secret);
-// 配置ssl及api版本
-tts->config("ssl_roots_pem", "/etc/roots.pem");
+// 配置api版本
 tts->config("api_version", "1"); // 目前api版本为1
 // 配置设备名，类似昵称，不影响认证结果，但必须在prepare之前配置
 tts->config("device_id", "SmartDonkey");
@@ -179,8 +178,7 @@ speech->config("branch", "/api");
 speech->config("key", my_key);
 speech->config("device_type_id", my_device_type_id);
 speech->config("secret", my_secret);
-// 配置ssl及api版本
-speech->config("ssl_roots_pem", "/etc/roots.pem");
+// 配置api版本
 speech->config("api_version", "1"); // 目前api版本为1
 // 配置设备名，类似昵称，不影响认证结果，但必须在prepare之前配置
 speech->config("device_id", "SmartDonkey");

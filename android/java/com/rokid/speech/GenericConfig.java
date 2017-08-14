@@ -39,7 +39,6 @@ abstract class GenericConfig<T extends GenericConfigParams> {
 		config("host", config.host);
 		config("port", config.port);
 		config("branch", config.branch);
-		config("ssl_roots_pem", config.ssl_roots_pem);
 		config("key", config.key);
 		config("device_type_id", config.device_type_id);
 		config("device_id", config.device_id);
@@ -63,8 +62,6 @@ class GenericConfigParams {
 
 	public String branch;
 
-	public String ssl_roots_pem;
-
 	public String key;
 
 	public String device_type_id;
@@ -79,7 +76,6 @@ class GenericConfigParams {
 		return "host=" + host
 			+ ":" + port
 			+ "" + branch
-			+ ", ssl_roots_pem=" + ssl_roots_pem
 			+ ", key=" + key
 			+ ", device_type_id=" + device_type_id
 			+ ", device_id=" + device_id

@@ -146,7 +146,7 @@ private:
 			const char* devid, const char* svc, const char* version,
 			const char* ts, const char* secret);
 
-	static bool init_ssl(SpeechConfig* config);
+	static bool init_ssl();
 
 private:
 	std::mutex req_mutex_;

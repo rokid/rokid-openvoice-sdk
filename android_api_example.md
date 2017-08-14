@@ -43,8 +43,7 @@ tts.config("branch", "/api");
 tts.config("key", my_key);
 tts.config("device_type_id", my_device_type_id);
 tts.config("secret", my_secret);
-// 配置ssl及api版本
-tts.config("ssl_roots_pem", "/system/etc/roots.pem");
+// 配置api版本
 tts.config("api_version", "1"); // 目前api版本为1
 // 配置设备名，类似昵称，不影响认证结果，但必须在prepare之前配置
 tts.config("device_id", "SmartDonkey");
@@ -71,7 +70,6 @@ tts.speak("我是会说话的机器人，我最爱吃的食物是机油，最喜
     'host': 'apigwws.open.rokid.com',
     'port': '443',
     'branch': '/api',
-    'ssl_roots_pem': '/system/etc/roots.pem',
     'api_version': '1',
     'key': 'your_auth_key',
     'device_type_id': 'your_device_type_id',

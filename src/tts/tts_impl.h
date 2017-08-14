@@ -40,7 +40,6 @@ public:
 	bool poll(TtsResult& res);
 
 	// key:  'server_address'  value:  default is 'apigw.open.rokid.com:443',
-	//       'ssl_roots_pem'           your roots.pem file path
 	//       'key'                     'your_auth_key'
 	//       'device_type_id'          'your_device_type_id'
 	//       'device_id'               'your_device_id'
