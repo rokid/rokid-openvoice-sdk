@@ -14,7 +14,7 @@
 #include "Poco/SharedPtr.h"
 #include "Poco/Net/PrivateKeyPassphraseHandler.h"
 #include "Poco/Net/InvalidCertificateHandler.h"
-#include "Poco/Net/ConsoleCertificateHandler.h"
+#include "Poco/Net/AcceptCertificateHandler.h"
 #include "Poco/Net/KeyConsoleHandler.h"
 #include "Poco/Net/SSLManager.h"
 #include "Poco/Net/Context.h"
@@ -48,7 +48,7 @@ using Poco::SharedPtr;
 using Poco::Net::PrivateKeyPassphraseHandler;
 using Poco::Net::KeyConsoleHandler;
 using Poco::Net::InvalidCertificateHandler;
-using Poco::Net::ConsoleCertificateHandler;
+using Poco::Net::AcceptCertificateHandler;
 using Poco::Net::SSLManager;
 using Poco::Net::Context;
 using Poco::Net::HTTPClientSession;
@@ -445,9 +445,9 @@ bool SpeechConnection::init_ssl() {
 			SharedPtr<PrivateKeyPassphraseHandler> key_handler
 				= new KeyConsoleHandler(false);
 			SharedPtr<InvalidCertificateHandler> cert_handler
-				= new ConsoleCertificateHandler(false);
+				= new AcceptCertificateHandler(false);
 			struct Context::Params params;
-			params.verificationMode = Context::VERIFY_NONE;
+			params.verificationMode = Context::VERIFY_RELAXED;
 			Context::Ptr context = new Context(Context::CLIENT_USE, params);
 			SSLManager::instance().initializeClient(key_handler,
 					cert_handler, context);
