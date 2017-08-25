@@ -57,7 +57,7 @@ using Poco::Net::Socket;
 namespace rokid {
 namespace speech {
 
-static const char* api_version_ = "1";
+static const char* api_version_ = "2";
 
 bool SpeechConnection::ssl_initialized_ = false;
 

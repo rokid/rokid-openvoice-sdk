@@ -341,7 +341,9 @@ static SpeechReqType sqtype_to_reqtype(int32_t type) {
 		SpeechReqType::VOICE_DATA,
 		SpeechReqType::VOICE_START,
 		SpeechReqType::VOICE_END,
-		SpeechReqType::CANCELLED
+		SpeechReqType::CANCELLED,
+		// timeout error, send voice end to server
+		SpeechReqType::VOICE_END
 	};
 	assert(type >= 0 && type < sizeof(_tps)/sizeof(SpeechReqType));
 	return _tps[type];
