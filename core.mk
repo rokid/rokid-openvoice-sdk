@@ -11,26 +11,25 @@ SPEECH_PROTO_FILE := \
 	$(LOCAL_PATH)/proto/auth.proto \
 	$(LOCAL_PATH)/proto/tts.proto \
 	$(LOCAL_PATH)/proto/speech.proto
-PROTOC_OUT_DIR := $(LOCAL_PATH)/gen
-RPROTOC := $(HOST_OUT_EXECUTABLES)/aprotoc
+PROTOC_OUT_DIR := $(call local-generated-sources-dir)
+PROTOC_GEN_SRC := \
+	speech_types.pb.cc \
+	auth.pb.cc \
+	tts.pb.cc \
+	speech.pb.cc
+PROTOC_GEN_SRC_L := $(addprefix $(PROTOC_OUT_DIR)/, $(PROTOC_GEN_SRC))
 protoc_stamp := $(PROTOC_OUT_DIR)/stamp
-$(protoc_stamp): PRIVATE_CUSTOM_TOOL := mkdir -p $(PROTOC_OUT_DIR) && $(RPROTOC) -I$(LOCAL_PATH)/proto --cpp_out=$(PROTOC_OUT_DIR) $(SPEECH_PROTO_FILE) && touch $(protoc_stamp)
-$(protoc_stamp): $(SPEECH_PROTO_FILE)
+$(protoc_stamp): PRIVATE_CUSTOM_TOOL := $(PROTOC) -I$(LOCAL_PATH)/proto --cpp_out=$(PROTOC_OUT_DIR) $(SPEECH_PROTO_FILE) && touch $(protoc_stamp)
+$(protoc_stamp): $(SPEECH_PROTO_FILE) $(PROTOC)
 	$(transform-generated-source)
-LOCAL_GENERATED_SOURCES := $(protoc_stamp)
+LOCAL_GENERATED_SOURCES := $(PROTOC_GEN_SRC_L)
 
 LOCAL_C_INCLUDES := \
 	$(PROTOC_OUT_DIR) \
 	$(LOCAL_PATH)/include \
 	$(LOCAL_PATH)/src/common
 
-PROTOC_GEN_SRC := \
-	gen/speech_types.pb.cc \
- 	gen/auth.pb.cc \
- 	gen/tts.pb.cc \
- 	gen/speech.pb.cc
-
-$(PROTOC_OUT_DIR)/speech_types.pb.cc: $(protoc_stamp)
+$(PROTOC_GEN_SRC_L): $(protoc_stamp)
 
 COMMON_SRC := \
 	src/common/log.cc \
@@ -49,7 +48,6 @@ SPEECH_SRC := \
 	src/speech/types.h
 
 LOCAL_SRC_FILES := \
-	$(PROTOC_GEN_SRC) \
 	$(COMMON_SRC) \
 	$(TTS_SRC) \
 	$(SPEECH_SRC)
@@ -86,7 +84,7 @@ LOCAL_SRC_FILES := \
 	demo/tts_demo.cc \
 	demo/speech_demo.cc
 LOCAL_C_INCLUDES := \
-	$(LOCAL_PATH)/gen \
+	$(PROTOC_OUT_DIR) \
 	$(LOCAL_PATH)/include \
 	$(LOCAL_PATH)/src/common \
 	external/protobuf/src \
