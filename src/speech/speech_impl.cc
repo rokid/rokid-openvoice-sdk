@@ -67,8 +67,18 @@ public:
 			options.no_nlp = no_nlp;
 		if (_mask & MODIFY_NO_INTERMEDIATE_ASR)
 			options.no_intermediate_asr = no_intermediate_asr;
+#ifdef SPEECH_SDK_DETAIL_TRACE
+		Log::d(tag__, "SpeechOptions modified to: vad(%s:%u), codec(%s), "
+				"lang(%s), no_nlp(%d), no_intermediate_asr(%d)",
+				options.vad_mode == VadMode::CLOUD ? "cloud" : "local",
+				options.vend_timeout,
+				options.codec == Codec::OPU ? "opu" : "pcm",
+				options.lang == Lang::EN ? "en" : "zh",
+				options.no_nlp,
+				options.no_intermediate_asr);
+#endif
 	}
-		
+
 private:
 	uint32_t _mask;
 };
@@ -451,7 +461,7 @@ void SpeechImpl::req_config(SpeechRequest& req,
 		sopt->set_trigger_length(options->trigger_length);
 		sopt->set_skill_options(options->skill_options);
 #ifdef SPEECH_SDK_DETAIL_TRACE
-		Log::d(tag__, "SpeechOptions: stack(%s), voice_trigger(%s), "
+		Log::d(tag__, "VoiceOptions: stack(%s), voice_trigger(%s), "
 				"trigger_start(%u), trigger_length(%u), voice_power(%F), "
 				"skill_options(%s)",
 				options->stack.c_str(), options->voice_trigger.c_str(),
@@ -523,6 +533,7 @@ int32_t SpeechImpl::do_request(shared_ptr<SpeechReqInfo>& req) {
 		lock_guard<mutex> locker(resp_mutex_);
 		controller_.set_op_error(err);
 		resp_cond_.notify_one();
+		erase_req(req->id);
 		return -1;
 	} else if (rv == 0) {
 #ifdef SPEECH_SDK_DETAIL_TRACE
@@ -597,7 +608,16 @@ void SpeechImpl::gen_result_by_resp(SpeechResponse& resp) {
 			new_data = true;
 		}
 
-		shared_ptr<SpeechResultIn> resin = make_shared<SpeechResultIn>();
+		shared_ptr<SpeechResultIn> resin;
+		string extra = resp.extra();
+		if (extra.length() > 0) {
+			resin = make_shared<SpeechResultIn>();
+			resin->extra = extra;
+			resin->asr_finish = false;
+			responses_.stream(resp.id(), resin);
+			new_data = true;
+		}
+		resin = make_shared<SpeechResultIn>();
 		switch (resp.type()) {
 		case rokid::open::speech::v2::INTERMEDIATE:
 			resin->asr = resp.asr();
