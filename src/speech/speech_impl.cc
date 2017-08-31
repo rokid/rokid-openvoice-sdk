@@ -621,7 +621,6 @@ void SpeechImpl::gen_result_by_resp(SpeechResponse& resp) {
 		switch (resp.type()) {
 		case rokid::open::speech::v2::INTERMEDIATE:
 			resin->asr = resp.asr();
-			resin->extra = resp.extra();
 			resin->asr_finish = false;
 			responses_.stream(resp.id(), resin);
 			new_data = true;
