@@ -671,6 +671,7 @@ VoiceOptions& VoiceOptions::operator = (const VoiceOptions& options) {
 	voice_trigger = options.voice_trigger;
 	trigger_start = options.trigger_start;
 	trigger_length = options.trigger_length;
+	voice_power = options.voice_power;
 	skill_options = options.skill_options;
 	return *this;
 }
