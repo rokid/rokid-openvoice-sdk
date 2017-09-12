@@ -83,6 +83,7 @@ endif()
 # Needed for FindPoco
 #find_package(Poco REQUIRED Net Crypto  NetSSL_OpenSSL)
 find_package(Poco REQUIRED Net Crypto NetSSL)
+find_package(OpenSSL REQUIRED)
 
 set(IGNORED_WARNINGS "-Wno-sign-compare -Wno-unused-parameter -Wno-sign-promo -Wno-error=return-type -Wno-error=non-virtual-dtor")
 
@@ -137,9 +138,10 @@ target_include_directories(speech PRIVATE
 	${COMMON_INCLUDE_DIRS}
 	${Protobuf_INCLUDE_DIRS}
 	${Poco_INCLUDE_DIRS}
+	${OPENSSL_INCLUDE_DIR}
 	${CMAKE_CURRENT_BINARY_DIR}
 )
-target_link_libraries(speech ${Poco_LIBRARIES} ${Protobuf_LIBRARIES})
+target_link_libraries(speech ${Poco_LIBRARIES} ${Protobuf_LIBRARIES} ${OPENSSL_LIBRARIES})
 install(TARGETS speech
 	RUNTIME DESTINATION bin
 	LIBRARY DESTINATION lib
@@ -155,6 +157,7 @@ add_executable(rokidspeech.demo ${DEMO_SOURCES})
 target_include_directories(rokidspeech.demo PRIVATE
 	${COMMON_INCLUDE_DIRS}
 	${Poco_INCLUDE_DIRS}
+	${OPENSSL_INCLUDE_DIR}
 	${CMAKE_CURRENT_BINARY_DIR}
 )
 target_link_libraries(rokidspeech.demo
