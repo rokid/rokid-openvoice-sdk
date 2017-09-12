@@ -152,7 +152,7 @@ install(TARGETS speech
 #
 # build demo
 #
-file(GLOB_RECURSE DEMO_SOURCES demp/*.h demo/*.cc)
+file(GLOB_RECURSE DEMO_SOURCES demo/*.h demo/*.cc)
 add_executable(rokidspeech.demo ${DEMO_SOURCES})
 target_include_directories(rokidspeech.demo PRIVATE
 	${COMMON_INCLUDE_DIRS}
