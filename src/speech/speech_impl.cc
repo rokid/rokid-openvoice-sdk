@@ -251,28 +251,6 @@ static SpeechResultType poptype_to_restype(int32_t type) {
 	return _tps[type];
 }
 
-static SpeechError integer_to_reserr(uint32_t err) {
-	switch (err) {
-		case 0:
-			return SPEECH_SUCCESS;
-		case 2:
-			return SPEECH_UNAUTHENTICATED;
-		case 3:
-			return SPEECH_CONNECTION_EXCEED;
-		case 4:
-			return SPEECH_SERVER_RESOURCE_EXHASTED;
-		case 5:
-			return SPEECH_SERVER_BUSY;
-		case 6:
-			return SPEECH_SERVER_INTERNAL;
-		case 101:
-			return SPEECH_SERVICE_UNAVAILABLE;
-		case 102:
-			return SPEECH_SDK_CLOSED;
-	}
-	return SPEECH_UNKNOWN;
-}
-
 bool SpeechImpl::poll(SpeechResult& res) {
 	shared_ptr<SpeechOperationController::Operation> op;
 	int32_t id;
@@ -320,7 +298,7 @@ bool SpeechImpl::poll(SpeechResult& res) {
 					assert(id == op->id);
 					res.id = id;
 					res.type = poptype_to_restype(poptype);
-					res.err = integer_to_reserr(err);
+					res.err = static_cast<SpeechError>(err);
 					if (resin.get()) {
 						if (resin->asr_finish)
 							res.type = SpeechResultType::SPEECH_RES_ASR_FINISH;

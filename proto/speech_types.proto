@@ -9,6 +9,7 @@ enum SpeechErrorCode {
   RESOURCE_EXHASTED = 4;
   BUSY = 5;
   INTERNAL = 6;
+	VAD_TIMEOUT = 7;
 }
 
 enum ReqType {
