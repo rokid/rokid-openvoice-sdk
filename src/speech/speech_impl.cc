@@ -553,11 +553,23 @@ void SpeechImpl::gen_results() {
 				continue;
 			}
 		} else if (r == ConnectionOpResult::CONNECTION_BROKEN) {
+			shared_ptr<SpeechOperationController::Operation> op
+				= controller_.current_op();
 			controller_.set_op_error(SPEECH_SERVICE_UNAVAILABLE);
 			resp_cond_.notify_one();
+			locker.unlock();
+			if (op.get())
+				erase_req(op->id);
+			continue;
 		} else {
+			shared_ptr<SpeechOperationController::Operation> op
+				= controller_.current_op();
 			controller_.set_op_error(SPEECH_UNKNOWN);
 			resp_cond_.notify_one();
+			locker.unlock();
+			if (op.get())
+				erase_req(op->id);
+			continue;
 		}
 		locker.unlock();
 	}
