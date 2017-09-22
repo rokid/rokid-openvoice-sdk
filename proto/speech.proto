@@ -2,7 +2,7 @@ syntax = "proto2";
 
 package rokid.open.speech.v2;
 
-import public "speech_types.proto";
+import "speech_types.proto";
 
 enum RespType {
   // 中间结果 asr extra

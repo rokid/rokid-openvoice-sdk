@@ -2,7 +2,7 @@ syntax = "proto2";
 
 package rokid.open.speech.v1;
 
-import public "speech_types.proto";
+import "speech_types.proto";
 
 message TtsRequest {
   required int32 id = 1;

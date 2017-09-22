@@ -11,7 +11,11 @@ SPEECH_PROTO_FILE := \
 	$(LOCAL_PATH)/proto/auth.proto \
 	$(LOCAL_PATH)/proto/tts.proto \
 	$(LOCAL_PATH)/proto/speech.proto
+ifeq ($(PLATFORM_SDK_VERSION), 19)
+PROTOC_OUT_DIR := $(call local-intermediates-dir)/gen
+else
 PROTOC_OUT_DIR := $(call local-generated-sources-dir)
+endif
 PROTOC_GEN_SRC := \
 	speech_types.pb.cc \
 	auth.pb.cc \
