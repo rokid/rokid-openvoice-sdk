@@ -1,0 +1,30 @@
+
+
+find_package(OpenSSL REQUIRED)
+find_package(Poco REQUIRED Net Crypto NetSSL)
+
+include_directories(${OPENSSL_INCLUDE_DIR})
+include_directories(${Poco_INCLUDE_DIRS})
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/common)
+
+file( GLOB_RECURSE SOURCES 
+    ${CMAKE_CURRENT_SOURCE_DIR}/common/*.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/common/*.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/asr/*.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/asr/*.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/speech/*.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/speech/*.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/tts/*.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/tts/*.cc
+)
+
+add_library(speech SHARED ${SOURCES})
+target_link_libraries(speech OpenSSL::Crypto rokidspeech.proto ${Poco_LIBRARIES})
+
+install(TARGETS speech
+	RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+	PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
+)
+

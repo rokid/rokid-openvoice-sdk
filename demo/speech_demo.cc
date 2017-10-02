@@ -1,10 +1,15 @@
-#include <time.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <vector>
 #include "speech.h"
 #include "common.h"
 #include "log.h"
+
+#ifdef __MACH__
+#include <sys/time.h>
+#else
+#include <time.h>
+#endif
 
 using namespace rokid::speech;
 using std::vector;
@@ -160,9 +165,15 @@ static void trace_resp_status() {
 }
 
 void speech_demo() {
+#ifdef __MACH__
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	srand(tv.tv_usec);
+#else
 	struct timespec ts;
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	srand(ts.tv_nsec);
+#endif
 
 	all_resp_status_.resize(TOTAL_REQ_NUM + 1);
 	shared_ptr<Speech> speech = new_speech();
