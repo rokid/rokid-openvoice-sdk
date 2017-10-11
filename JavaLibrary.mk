@@ -38,7 +38,6 @@ LOCAL_SRC_FILES := \
 		$(JAVA_DIR)/com/rokid/speech/SpeechOptions.java \
 		$(JAVA_DIR)/com/rokid/speech/PrepareOptions.java \
 		$(JAVA_DIR)/com/rokid/speech/GenericConfig.java
-LOCAL_JAVA_LIBRARIES := fastjson-android
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
 include $(CLEAR_VARS)
@@ -50,7 +49,7 @@ LOCAL_SRC_FILES := \
 		$(EXAMPLE_JAVA_DIR)/com/rokid/speech/example/TtsDemo.java \
 		$(EXAMPLE_JAVA_DIR)/com/rokid/speech/example/TtsPlayerDemo.java \
 		$(EXAMPLE_JAVA_DIR)/com/rokid/speech/example/SpeechDemo.java
-LOCAL_STATIC_JAVA_LIBRARIES := rokid_speech fastjson-android
+LOCAL_STATIC_JAVA_LIBRARIES := rokid_speech
 include $(BUILD_PACKAGE)
 
 include $(CLEAR_VARS)

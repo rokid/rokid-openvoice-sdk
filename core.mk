@@ -86,7 +86,8 @@ LOCAL_CPP_EXTENSION := .cc
 LOCAL_SRC_FILES := \
 	demo/demo.cc \
 	demo/tts_demo.cc \
-	demo/speech_demo.cc
+	demo/speech_demo.cc \
+	demo/tts_mem_test.cc
 LOCAL_C_INCLUDES := \
 	$(PROTOC_OUT_DIR) \
 	$(LOCAL_PATH)/include \
