@@ -175,6 +175,8 @@ static void com_rokid_speech_Speech__sdk_delete(JNIEnv *env, jobject thiz, jlong
 }
 
 static jboolean com_rokid_speech_Speech__sdk_prepare(JNIEnv *env, jobject thiz, jlong speechl, jobject opt) {
+	if (opt == NULL)
+		return false;
 	SpeechNativeInfo* p = reinterpret_cast<SpeechNativeInfo*>(speechl);
 	assert(p);
 	PrepareOptions popts;
@@ -239,9 +241,12 @@ static jint com_rokid_speech_Speech__sdk_start_voice(JNIEnv *env,
 		jobject thiz, jlong speechl, jobject opts) {
 	SpeechNativeInfo* p = reinterpret_cast<SpeechNativeInfo*>(speechl);
 	assert(p);
-	VoiceOptions vopts;
-	jobj_to_voice_options(env, opts, vopts);
-	return p->speech->start_voice(&vopts);
+	if (opts != NULL) {
+		VoiceOptions vopts;
+		jobj_to_voice_options(env, opts, vopts);
+		return p->speech->start_voice(&vopts);
+	}
+	return p->speech->start_voice();
 }
 
 static void com_rokid_speech_Speech__sdk_put_voice(JNIEnv *env,
@@ -270,8 +275,10 @@ static void com_rokid_speech_Speech__sdk_cancel(JNIEnv *env, jobject thiz, jlong
 static void com_rokid_speech_Speech__sdk_config(JNIEnv *env, jobject thiz, jlong speechl, jobject opt) {
 	SpeechNativeInfo* p = reinterpret_cast<SpeechNativeInfo*>(speechl);
 	assert(p);
-	shared_ptr<SpeechOptions> sopts = jobj_to_speech_options(env, opt);
-	p->speech->config(sopts);
+	if (opt != NULL) {
+		shared_ptr<SpeechOptions> sopts = jobj_to_speech_options(env, opt);
+		p->speech->config(sopts);
+	}
 }
 
 static jlong com_rokid_speech_SpeechOptions_native_new_options(
