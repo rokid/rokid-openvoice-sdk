@@ -207,3 +207,14 @@ int register_com_rokid_speech_Opus(JNIEnv *env)
 
 } // namespace speech
 } // namespace rokid
+
+extern "C" jint JNI_OnLoad(JavaVM* vm, void* reserved) {
+	JNIEnv* env;
+
+	if (vm->GetEnv((void**)&env, JNI_VERSION_1_4) != JNI_OK) {
+		ALOGE("%s: JNI_OnLoad failed", "RokidOpus");
+		return -1;
+	}
+	rokid::speech::register_com_rokid_speech_Opus(env);
+	return JNI_VERSION_1_4;
+}

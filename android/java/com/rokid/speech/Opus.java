@@ -84,6 +84,6 @@ public class Opus {
 	}
 
 	static {
-		System.loadLibrary("rokid_tts_jni");
+		System.loadLibrary("rokid_opus_jni");
 	}
 }
