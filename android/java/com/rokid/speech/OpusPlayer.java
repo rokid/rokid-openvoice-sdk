@@ -50,6 +50,22 @@ public class OpusPlayer {
 		}
 	}
 
+	public void pause() {
+		try {
+			_audioTrack.pause();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	public void resume() {
+		try {
+			_audioTrack.play();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
 	private AudioTrack createAudioTrack() {
 		int bufSize = AudioTrack.getMinBufferSize(SAMPLE_RATE.getValue(),
 				AudioFormat.CHANNEL_OUT_MONO, AUDIO_ENCODING) * 2;
