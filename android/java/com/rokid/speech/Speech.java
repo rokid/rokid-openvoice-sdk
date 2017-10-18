@@ -1,5 +1,6 @@
 package com.rokid.speech;
 
+import java.io.InputStream;
 import android.util.Log;
 import android.util.SparseArray;
 import org.json.JSONObject;
@@ -19,6 +20,15 @@ public class Speech extends GenericConfig {
 		PrepareOptions opt;
 		if (configFile != null)
 			opt = parseConfigFile(configFile);
+		else
+			opt = new PrepareOptions();
+		prepare(opt);
+	}
+
+	public void prepare(InputStream is) {
+		PrepareOptions opt;
+		if (is != null)
+			opt = parseConfig(is);
 		else
 			opt = new PrepareOptions();
 		prepare(opt);
