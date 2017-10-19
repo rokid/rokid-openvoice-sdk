@@ -125,7 +125,7 @@ void SpeechImpl::release() {
 	}
 }
 
-int32_t SpeechImpl::put_text(const char* text) {
+int32_t SpeechImpl::put_text(const char* text, const VoiceOptions* options) {
 	if (!initialized_ || text == NULL)
 		return -1;
 	int32_t id = next_id();
@@ -134,6 +134,10 @@ int32_t SpeechImpl::put_text(const char* text) {
 	p->id = id;
 	p->type = SpeechReqType::TEXT;
 	p->data.reset(new string(text));
+	if (options) {
+		p->options = make_shared<VoiceOptions>();
+		*p->options = *options;
+	}
 	text_reqs_.push_back(p);
 #ifdef SPEECH_SDK_DETAIL_TRACE
 	Log::d(tag__, "put text %d, %s", id, text);
@@ -454,11 +458,10 @@ int32_t SpeechImpl::do_request(shared_ptr<SpeechReqInfo>& req) {
 	int32_t rv = 1;
 	switch (req->type) {
 		case SpeechReqType::TEXT: {
-			shared_ptr<VoiceOptions> empty_opt;
 			treq.set_id(req->id);
 			treq.set_type(ReqType::TEXT);
 			treq.set_asr(*req->data);
-			req_config(treq, empty_opt);
+			req_config(treq, req->options);
 			rv = 0;
 
 			Log::d(tag__, "SpeechImpl.do_request (%d) send text req",

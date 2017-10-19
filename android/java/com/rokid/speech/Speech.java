@@ -43,9 +43,13 @@ public class Speech extends GenericConfig {
 	}
 
 	public int putText(String content, SpeechCallback cb) {
+		return putText(content, cb, null);
+	}
+
+	public int putText(String content, SpeechCallback cb, VoiceOptions opt) {
 		int id;
 		synchronized (_callbacks) {
-			id = _sdk_put_text(_sdk_speech, content);
+			id = _sdk_put_text(_sdk_speech, content, opt);
 			Log.d(TAG, "put text " + content + ", id = " + id);
 			if (id > 0)
 				_callbacks.put(id, cb);
@@ -145,7 +149,7 @@ public class Speech extends GenericConfig {
 
 	private native void _sdk_release(long sdk_speech);
 
-	private native int _sdk_put_text(long sdk_speech, String content);
+	private native int _sdk_put_text(long sdk_speech, String content, VoiceOptions opt);
 
 	private native int _sdk_start_voice(long sdk_speech, VoiceOptions opt);
 

@@ -201,33 +201,46 @@ static void com_rokid_speech_Speech__sdk_release(JNIEnv *env, jobject thiz, jlon
 	}
 }
 
-static jint com_rokid_speech_Speech__sdk_put_text(JNIEnv *env, jobject thiz, jlong speechl, jstring str) {
-	SpeechNativeInfo* p = reinterpret_cast<SpeechNativeInfo*>(speechl);
-	assert(p);
-	const char* content = env->GetStringUTFChars(str, NULL);
-	jint id = p->speech->put_text(content);
-	env->ReleaseStringUTFChars(str, content);
-	return id;
-}
-
 static void jobj_to_voice_options(JNIEnv* env, jobject obj, VoiceOptions& opts) {
 	jstring sv = (jstring)env->GetObjectField(obj, constants_.voice_options_fields[OPTS_STACK]);
-	const char* str = env->GetStringUTFChars(sv, NULL);
-	opts.stack = str;
-	env->ReleaseStringUTFChars(sv, str);
+	const char* str;
+	if (sv != NULL) {
+		str = env->GetStringUTFChars(sv, NULL);
+		opts.stack = str;
+		env->ReleaseStringUTFChars(sv, str);
+	}
 
 	sv = (jstring)env->GetObjectField(obj, constants_.voice_options_fields[OPTS_VOICE_TRIGGER]);
-	str = env->GetStringUTFChars(sv, NULL);
-	opts.voice_trigger = str;
-	env->ReleaseStringUTFChars(sv, str);
+	if (sv != NULL) {
+		str = env->GetStringUTFChars(sv, NULL);
+		opts.voice_trigger = str;
+		env->ReleaseStringUTFChars(sv, str);
+	}
 
 	opts.trigger_start = env->GetIntField(obj, constants_.voice_options_fields[OPTS_TRIGGER_START]);
 	opts.trigger_length = env->GetIntField(obj, constants_.voice_options_fields[OPTS_TRIGGER_LENGTH]);
 
 	sv = (jstring)env->GetObjectField(obj, constants_.voice_options_fields[OPTS_SKILL_OPTIONS]);
-	str = env->GetStringUTFChars(sv, NULL);
-	opts.skill_options = str;
-	env->ReleaseStringUTFChars(sv, str);
+	if (sv != NULL) {
+		str = env->GetStringUTFChars(sv, NULL);
+		opts.skill_options = str;
+		env->ReleaseStringUTFChars(sv, str);
+	}
+}
+
+static jint com_rokid_speech_Speech__sdk_put_text(JNIEnv *env, jobject thiz, jlong speechl, jstring str, jobject opts) {
+	SpeechNativeInfo* p = reinterpret_cast<SpeechNativeInfo*>(speechl);
+	assert(p);
+	const char* content = env->GetStringUTFChars(str, NULL);
+	jint id;
+	if (opts != NULL) {
+		VoiceOptions vopts;
+		jobj_to_voice_options(env, opts, vopts);
+		id = p->speech->put_text(content, &vopts);
+	} else
+		id = p->speech->put_text(content);
+	env->ReleaseStringUTFChars(str, content);
+	return id;
 }
 
 static shared_ptr<SpeechOptions> jobj_to_speech_options(JNIEnv* env, jobject obj) {
@@ -372,7 +385,7 @@ static JNINativeMethod _nmethods[] = {
 	{ "_sdk_delete", "(J)V", (void*)com_rokid_speech_Speech__sdk_delete },
 	{ "_sdk_prepare", "(JLcom/rokid/speech/PrepareOptions;)Z", (void*)com_rokid_speech_Speech__sdk_prepare },
 	{ "_sdk_release", "(J)V", (void*)com_rokid_speech_Speech__sdk_release },
-	{ "_sdk_put_text", "(JLjava/lang/String;)I", (void*)com_rokid_speech_Speech__sdk_put_text },
+	{ "_sdk_put_text", "(JLjava/lang/String;Lcom/rokid/speech/Speech$VoiceOptions;)I", (void*)com_rokid_speech_Speech__sdk_put_text },
 	{ "_sdk_start_voice", "(JLcom/rokid/speech/Speech$VoiceOptions;)I", (void*)com_rokid_speech_Speech__sdk_start_voice },
 	{ "_sdk_put_voice", "(JI[BII)V", (void*)com_rokid_speech_Speech__sdk_put_voice },
 	{ "_sdk_end_voice", "(JI)V", (void*)com_rokid_speech_Speech__sdk_end_voice },

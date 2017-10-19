@@ -41,7 +41,7 @@ public:
 
 	void release();
 
-	int32_t put_text(const char* text);
+	int32_t put_text(const char* text, const VoiceOptions* options);
 
 	int32_t start_voice(const VoiceOptions* options);
 
