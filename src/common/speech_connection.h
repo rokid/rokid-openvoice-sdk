@@ -110,7 +110,7 @@ public:
 				}
 				return ConnectionOpResult::SUCCESS;
 			}
-			Log::d(CONN_TAG, "recv: failed, connection broken");
+			Log::w(CONN_TAG, "recv: failed, connection broken");
 			delete resp_data;
 			return ConnectionOpResult::CONNECTION_BROKEN;
 		}

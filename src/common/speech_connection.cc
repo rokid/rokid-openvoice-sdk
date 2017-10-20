@@ -118,7 +118,9 @@ void SpeechConnection::run() {
 		if (stage_ == CONN_INIT) {
 			web_socket_ = connect();
 			if (web_socket_.get()) {
+#ifdef SPEECH_SDK_DETAIL_TRACE
 				Log::i(CONN_TAG, "connect to server success, do auth");
+#endif
 				stage_ = CONN_UNAUTH;
 				continue;
 			} else
@@ -126,12 +128,14 @@ void SpeechConnection::run() {
 						"while and retry");
 		} else if (stage_ == CONN_UNAUTH) {
 			if (auth()) {
+#ifdef SPEECH_SDK_DETAIL_TRACE
 				Log::d(CONN_TAG, "auth req success, wait auth result");
+#endif
 				lock_guard<mutex> locker(req_mutex_);
 				stage_ = CONN_WAIT_AUTH;
 				continue;
 			} else {
-				Log::d(CONN_TAG, "auth req failed, wait and reconnect");
+				Log::w(CONN_TAG, "auth req failed, wait and reconnect");
 				web_socket_->close();
 				web_socket_.reset();
 				stage_ = CONN_INIT;
@@ -164,8 +168,10 @@ shared_ptr<WebSocket> SpeechConnection::connect() {
 	HTTPResponse response;
 	shared_ptr<WebSocket> sock;
 
+#ifdef SPEECH_SDK_DETAIL_TRACE
 	Log::d(CONN_TAG, "server address is %s:%d%s",
 			options_.host.c_str(), options_.port, options_.branch.c_str());
+#endif
 
 	try {
 		sock.reset(new WebSocket(*cs, request, response));
@@ -188,9 +194,7 @@ bool SpeechConnection::auth() {
 			|| options_.device_type_id.empty()
 			|| options_.device_id.empty()
 			|| options_.secret.empty()) {
-		Log::w(CONN_TAG, "auth invalid param: %s, %s, %s, %s",
-				options_.key.c_str(), options_.device_type_id.c_str(),
-				options_.device_id.c_str(), options_.secret.c_str());
+		Log::w(CONN_TAG, "auth invalid param");
 		return false;
 	}
 
@@ -231,7 +235,9 @@ bool SpeechConnection::do_socket_poll() {
 			if (!web_socket_->poll(timeout, WebSocket::SELECT_READ
 						| WebSocket::SELECT_ERROR)) {
 				if (!initialized_) {
+#ifdef SPEECH_SDK_DETAIL_TRACE
 					Log::d(CONN_TAG, "connection released, quit do_socket_poll *a*");
+#endif
 					break;
 				}
 				keepalive_timeout -= SOCKET_POLL_TIMEOUT;
@@ -317,7 +323,9 @@ bool SpeechConnection::do_socket_poll() {
 	}
 
 close_conn:
+#ifdef SPEECH_SDK_DETAIL_TRACE
 	Log::d(CONN_TAG, "close websocket, reconnect immediate ? %d", reconn);
+#endif
 	unique_lock<mutex> req_locker(req_mutex_);
 	stage_ = CONN_INIT;
 	web_socket_->close();
@@ -396,8 +404,10 @@ string SpeechConnection::generate_sign(const char* key,
 			md5_res[4], md5_res[5], md5_res[6], md5_res[7],
 			md5_res[8], md5_res[9], md5_res[10], md5_res[11],
 			md5_res[12], md5_res[13], md5_res[14], md5_res[15]);
+#ifdef SPEECH_SDK_DETAIL_TRACE
 	Log::d(CONN_TAG, "md5 src = %s, md5 result = %s",
 			sign_src.c_str(), buf);
+#endif
 	return string(buf);
 }
 
