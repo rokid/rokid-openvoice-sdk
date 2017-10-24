@@ -1,6 +1,6 @@
 include $(CLEAR_VARS)
 
-LOCAL_MODULE := libspeech
+LOCAL_MODULE := libspeech.$(PLATFORM_SDK_VERSION)
 LOCAL_MODULE_CLASS := SHARED_LIBRARIES
 LOCAL_MODULE_TAGS := optional
 LOCAL_CPP_EXTENSION := .cc
@@ -58,14 +58,14 @@ LOCAL_SRC_FILES := \
 
 LOCAL_CFLAGS := $(COMMON_CFLAGS) \
 	-std=c++11 -frtti -fexceptions
-LOCAL_SHARED_LIBRARIES := liblog libpoco libcrypto
+LOCAL_SHARED_LIBRARIES := liblog libpoco.$(PLATFORM_SDK_VERSION) libcrypto
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/include
 
 ifeq ($(PLATFORM_SDK_VERSION), 23)
-LOCAL_SHARED_LIBRARIES += libprotobuf-rokid-cpp-full
+LOCAL_SHARED_LIBRARIES += libprotobuf-rokid-cpp-full.$(PLATFORM_SDK_VERSION)
 LOCAL_CXX_STL := libc++
 else ifeq ($(PLATFORM_SDK_VERSION), 22)
-LOCAL_SHARED_LIBRARIES += libc++ libdl libprotobuf-rokid-cpp-full
+LOCAL_SHARED_LIBRARIES += libc++ libdl libprotobuf-rokid-cpp-full.$(PLATFORM_SDK_VERSION)
 LOCAL_C_INCLUDES += external/libcxx/include
 LOCAL_CPPFLAGS := -DLOW_PB_VERSION
 else
@@ -94,7 +94,7 @@ LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/src/common \
 	external/protobuf/src \
 	external/boringssl/include
-LOCAL_SHARED_LIBRARIES := libpoco libspeech
+LOCAL_SHARED_LIBRARIES := libpoco.$(PLATFORM_SDK_VERSION) libspeech.$(PLATFORM_SDK_VERSION)
 LOCAL_CPPFLAGS := $(COMMON_CFLAGS) \
 	-std=c++11 -frtti -fexceptions
 ifeq ($(PLATFORM_SDK_VERSION), 23)

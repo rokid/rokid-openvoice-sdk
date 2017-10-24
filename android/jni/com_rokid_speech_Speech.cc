@@ -397,7 +397,7 @@ int register_com_rokid_speech_Speech(JNIEnv* env) {
 	const char* kclass = "com/rokid/speech/Speech";
 	jclass target = env->FindClass(kclass);
 	if (target == NULL) {
-		Log::e("find class for %s failed", kclass);
+		Log::e(tag_, "find class for %s failed", kclass);
 		return -1;
 	}
 	return jniRegisterNativeMethods(env, kclass, _nmethods, NELEM(_nmethods));
@@ -417,7 +417,7 @@ int register_com_rokid_speech_SpeechOptions(JNIEnv* env) {
 	const char* kclass = "com/rokid/speech/SpeechOptions";
 	jclass target = env->FindClass(kclass);
 	if (target == NULL) {
-		Log::e("find class for %s failed", kclass);
+		Log::e(tag_, "find class for %s failed", kclass);
 		return -1;
 	}
 	return jniRegisterNativeMethods(env, kclass, _options_nmethods, NELEM(_options_nmethods));

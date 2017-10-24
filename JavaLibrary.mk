@@ -4,13 +4,13 @@ EXAMPLE_JAVA_DIR := android/example/java
 EXAMPLE_JNI_DIR := android/example/jni
 
 include $(CLEAR_VARS)
-LOCAL_MODULE := librokid_speech_jni
+LOCAL_MODULE := librokid_speech_jni.$(PLATFORM_SDK_VERSION)
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/include \
 	$(LOCAL_PATH)/src/common
 LOCAL_CPPFLAGS := $(COMMON_FLAGS) -frtti -std=c++11
-LOCAL_SHARED_LIBRARIES := libnativehelper libspeech liblog
+LOCAL_SHARED_LIBRARIES := libnativehelper libspeech.$(PLATFORM_SDK_VERSION) liblog
 ifeq ($(PLATFORM_SDK_VERSION), 23)
 LOCAL_CXX_STL := libc++
 else ifeq ($(PLATFORM_SDK_VERSION), 22)
@@ -67,11 +67,13 @@ LOCAL_SRC_FILES := android/etc/speech_sdk.json
 include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
-LOCAL_MODULE := librokid_opus_jni
+LOCAL_MODULE := librokid_opus_jni.$(PLATFORM_SDK_VERSION)
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_CPPFLAGS := $(COMMON_FLAGS) -frtti -std=c++11
-LOCAL_SHARED_LIBRARIES := libnativehelper libopus liblog
-LOCAL_C_INCLUDES := external/libopus/include
+LOCAL_SHARED_LIBRARIES := libnativehelper libopus liblog libspeech.$(PLATFORM_SDK_VERSION)
+LOCAL_C_INCLUDES := \
+	external/libopus/include \
+	$(LOCAL_PATH)/src/common
 ifeq ($(PLATFORM_SDK_VERSION), 23)
 LOCAL_CXX_STL := libc++
 else ifeq ($(PLATFORM_SDK_VERSION), 22)

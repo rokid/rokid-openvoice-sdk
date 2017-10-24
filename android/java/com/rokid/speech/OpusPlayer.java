@@ -2,7 +2,10 @@ package com.rokid.speech;
 
 import android.media.AudioTrack;
 import android.media.AudioFormat;
-import android.media.AudioAttributes;
+// need by android 4.4 api
+import android.media.AudioManager;
+// need by android 6.0 api, comment
+// import android.media.AudioAttributes;
 import android.util.Log;
 
 public class OpusPlayer {
@@ -67,6 +70,14 @@ public class OpusPlayer {
 	}
 
 	private AudioTrack createAudioTrack() {
+    // android 4.4 AudioTrack
+    int bufSize = AudioTrack.getMinBufferSize(SAMPLE_RATE.getValue(),
+        AudioFormat.CHANNEL_OUT_MONO, AUDIO_ENCODING) * 2;
+    return new AudioTrack(AudioManager.STREAM_ALARM,
+        SAMPLE_RATE.getValue(), AudioFormat.CHANNEL_OUT_MONO,
+        AUDIO_ENCODING, bufSize, AudioTrack.MODE_STREAM);
+
+		/** android 6.0 AudioTrack
 		int bufSize = AudioTrack.getMinBufferSize(SAMPLE_RATE.getValue(),
 				AudioFormat.CHANNEL_OUT_MONO, AUDIO_ENCODING) * 2;
 		return new AudioTrack.Builder()
@@ -81,6 +92,7 @@ public class OpusPlayer {
 					.build())
 			.setBufferSizeInBytes(bufSize)
 			.build();
+		*/
 	}
 
 	private static final Opus.OpusSampleRate SAMPLE_RATE = Opus.OpusSampleRate.SR_24K;

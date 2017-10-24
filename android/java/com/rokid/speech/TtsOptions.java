@@ -1,5 +1,7 @@
 package com.rokid.speech;
 
+import android.os.Build;
+
 public class TtsOptions {
 	public TtsOptions() {
 		_tts_options = native_new_options();
@@ -37,6 +39,6 @@ public class TtsOptions {
 	private long _tts_options;
 
 	static {
-		System.loadLibrary("rokid_speech_jni");
+		System.loadLibrary("rokid_speech_jni." + Build.VERSION.SDK_INT);
 	}
 }

@@ -1,16 +1,12 @@
-#define LOG_TAG "OPUSNATIVE"
-
 #include "JNIHelp.h"
 #include "jni.h"
-#include "utils/Log.h"
-#include "utils/misc.h"
-#include "cutils/log.h"
-
+#include "log.h"
 #include <cstdlib>
-
 #include <opus.h>
 #include <opus_types.h>
 #include <opus_multistream.h>
+
+static const char* tag_ = "OPUSNATIVE";
 
 namespace rokid {
 namespace speech {
@@ -36,7 +32,7 @@ static jlong native_opus_encoder_create(JNIEnv *env, jobject clazz, int sample_r
 
 	encoder->enc = opus_encoder_create(sample_rate, channels, application, &error);
 	if (error != OPUS_OK) {
-		ALOGW("encoder create error %s\n", opus_strerror(error));
+		Log::w(tag_, "encoder create error %s\n", opus_strerror(error));
 		free(encoder);
 
 		return 0;
@@ -65,7 +61,7 @@ static jlong native_opus_decoder_create(JNIEnv *env, jobject thiz, int sample_ra
 
 	decoder->dec = opus_decoder_create(sample_rate, channels, &error);
 	if (error != OPUS_OK) {
-		printf("decoder create error %s\n", opus_strerror(error));
+		Log::w(tag_, "decoder create error %s\n", opus_strerror(error));
 		free(decoder);
 
 		return 0;
@@ -98,7 +94,7 @@ static jbyteArray native_opus_encode(JNIEnv *env, jobject clazz, jlong enc, jbyt
     uint32_t pcm_frame_size = encoder->pcm_frame_size;
     uint32_t opus_frame_size = encoder->opus_frame_size;
     unsigned char *opus = new unsigned char[len*opus_frame_size*sizeof(opus_int16)/pcm_frame_size];
-    ALOGD("encode len(%d), pcm_frame_size(%d) opus_frame_size(%d)", len, pcm_frame_size, opus_frame_size);
+		Log::d(tag_, "encode len(%d), pcm_frame_size(%d) opus_frame_size(%d)", len, pcm_frame_size, opus_frame_size);
 
     uint32_t total_len = 0;
     int out_len = 0;
@@ -108,11 +104,11 @@ static jbyteArray native_opus_encode(JNIEnv *env, jobject clazz, jlong enc, jbyt
     while (encoded_size < (len/sizeof(opus_int16)/pcm_frame_size)) {
         out_len = opus_encode(encoder->enc, pcm, pcm_frame_size, opus_buf, opus_frame_size);
         if (out_len < 0) {
-            ALOGW("frame_size(%d) failed: %s", pcm_frame_size, opus_strerror(out_len));
+					Log::w(tag_, "frame_size(%d) failed: %s", pcm_frame_size, opus_strerror(out_len));
             out_len = 0;
             break;
         } else if (out_len != (int)opus_frame_size) {
-            ALOGW("Something abnormal happened out_len(%d) pcm_frame_size(%d), check it!!!",
+					Log::w(tag_, "Something abnormal happened out_len(%d) pcm_frame_size(%d), check it!!!",
                                                 out_len, pcm_frame_size);
         }
 
@@ -143,7 +139,7 @@ static jbyteArray native_opus_decode(JNIEnv *env, jobject clazz, jlong dec, jbyt
     int compress_ratio = sizeof(opus_int16) * decoder->pcm_frame_size/decoder->opus_frame_size;
     opus_int16 *pcm = new int16_t[len*compress_ratio];
 
-    ALOGD("decode len(%d), compress_ratio(%d), opus_frame_size(%d), pcm_frame_size(%d)",
+		Log::d(tag_, "decode len(%d), compress_ratio(%d), opus_frame_size(%d), pcm_frame_size(%d)",
                             len, compress_ratio, opus_frame_size, pcm_frame_size);
 
     int total_len = 0;
@@ -155,10 +151,10 @@ static jbyteArray native_opus_decode(JNIEnv *env, jobject clazz, jlong dec, jbyt
         out_len = opus_decode(decoder->dec, opus, opus_frame_size, pcm_buf, pcm_frame_size, 0);
 
         if (out_len < 0) {
-            ALOGW("opus decode len(%d) opus_len(%d) %s", len, opus_frame_size, opus_strerror(out_len));
+					Log::w(tag_, "opus decode len(%d) opus_len(%d) %s", len, opus_frame_size, opus_strerror(out_len));
             break;
         } else if (out_len != pcm_frame_size) {
-            ALOGW("VBS not support!! out_len(%d) pcm_frame_size(%d)", out_len, pcm_frame_size);
+					Log::w(tag_, "VBS not support!! out_len(%d) pcm_frame_size(%d)", out_len, pcm_frame_size);
             break;
         }
 
@@ -167,7 +163,7 @@ static jbyteArray native_opus_decode(JNIEnv *env, jobject clazz, jlong dec, jbyt
         total_len += out_len;
     }
 
-	ALOGD("opus decoded data total len = %d", total_len);
+		Log::d(tag_, "opus decoded data total len = %d", total_len);
     env->ReleaseByteArrayElements(in, (jbyte *)opus_orig, 0);
 
     jbyteArray out = env->NewByteArray(total_len*sizeof(opus_int16));
@@ -195,10 +191,10 @@ int register_com_rokid_speech_Opus(JNIEnv *env)
     const char *kclass = "com/rokid/speech/Opus";
     jclass clazz = env->FindClass (kclass);
     if (clazz == NULL) {
-        ALOGE ("find class %s failed.", kclass);
+			Log::e(tag_, "find class %s failed.", kclass);
         return -1;
     } else {
-        ALOGV("Opus JNI method table create");
+			Log::v(tag_, "Opus JNI method table create");
     }
 
     return jniRegisterNativeMethods(env, kclass,
@@ -212,7 +208,7 @@ extern "C" jint JNI_OnLoad(JavaVM* vm, void* reserved) {
 	JNIEnv* env;
 
 	if (vm->GetEnv((void**)&env, JNI_VERSION_1_4) != JNI_OK) {
-		ALOGE("%s: JNI_OnLoad failed", "RokidOpus");
+		rokid::speech::Log::e(tag_, "%s: JNI_OnLoad failed", "RokidOpus");
 		return -1;
 	}
 	rokid::speech::register_com_rokid_speech_Opus(env);
