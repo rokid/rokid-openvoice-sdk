@@ -1,4 +1,4 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.2)
 project(rokidspeech)
 set(VERSION 0.1)
 
@@ -75,10 +75,10 @@ if(NOT CMAKE_INSTALL_RPATH AND CMAKE_INSTALL_PREFIX)
 endif()
 
 find_package(Protobuf REQUIRED)
-if (NOT Protobuf_FOUND)
-	set(Protobuf_INCLUDE_DIRS ${ProtobufPrefix}/include)
-	set(Protobuf_LIBRARIES -L${ProtobufPrefix}/lib -lprotobuf -Wl,-rpath,${ProtobufPrefix}/lib)
-	set (PROTOBUF_PROTOC_EXECUTABLE ${ProtobufPrefix}/bin/protoc)
+if (NOT (PROTOBUF_FOUND OR Protobuf_FOUND))
+	set(PROTOBUF_INCLUDE_DIRS ${ProtobufPrefix}/include)
+	set(PROTOBUF_LIBRARIES -L${ProtobufPrefix}/lib -lprotobuf -Wl,-rpath,${ProtobufPrefix}/lib)
+	set(PROTOBUF_PROTOC_EXECUTABLE ${ProtobufPrefix}/bin/protoc)
 endif()
 # Needed for FindPoco
 #find_package(Poco REQUIRED Net Crypto  NetSSL_OpenSSL)
@@ -94,7 +94,6 @@ SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${IGNORED_WARNINGS} ${COMMON_CFLAGS}")
 #
 # Build gennerated protobuf cpp files.
 #
-find_package(Protobuf REQUIRED)
 PROTOBUF_GENERATE_CPP(PROTO_SRCS PROTO_HDRS
 	proto/speech_types.proto
 	proto/auth.proto
@@ -136,12 +135,12 @@ set (COMMON_INCLUDE_DIRS include src/common)
 add_library(speech SHARED ${COMMON_SOURCES} ${SPEECH_SOURCES} ${TTS_SOURCES} ${PROTO_SRCS})
 target_include_directories(speech PRIVATE
 	${COMMON_INCLUDE_DIRS}
-	${Protobuf_INCLUDE_DIRS}
+	${PROTOBUF_INCLUDE_DIRS}
 	${Poco_INCLUDE_DIRS}
 	${OPENSSL_INCLUDE_DIR}
 	${CMAKE_CURRENT_BINARY_DIR}
 )
-target_link_libraries(speech ${Poco_LIBRARIES} ${Protobuf_LIBRARIES} ${OPENSSL_LIBRARIES})
+target_link_libraries(speech ${Poco_LIBRARIES} ${PROTOBUF_LIBRARIES} ${OPENSSL_LIBRARIES})
 install(TARGETS speech
 	RUNTIME DESTINATION bin
 	LIBRARY DESTINATION lib
@@ -156,6 +155,7 @@ file(GLOB_RECURSE DEMO_SOURCES demo/*.h demo/*.cc)
 add_executable(rokidspeech.demo ${DEMO_SOURCES})
 target_include_directories(rokidspeech.demo PRIVATE
 	${COMMON_INCLUDE_DIRS}
+	${PROTOBUF_INCLUDE_DIRS}
 	${Poco_INCLUDE_DIRS}
 	${OPENSSL_INCLUDE_DIR}
 	${CMAKE_CURRENT_BINARY_DIR}
@@ -163,5 +163,5 @@ target_include_directories(rokidspeech.demo PRIVATE
 target_link_libraries(rokidspeech.demo
 	speech
 	${Poco_LIBRARIES}
-	${Protobuf_LIBRARIES}
+	${PROTOBUF_LIBRARIES}
 )
