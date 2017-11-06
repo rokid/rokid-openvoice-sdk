@@ -468,7 +468,7 @@ void SpeechImpl::req_config(SpeechRequest& req,
 		sopt->set_skill_options(options->skill_options);
 #ifdef SPEECH_SDK_DETAIL_TRACE
 		Log::d(tag__, "VoiceOptions: stack(%s), voice_trigger(%s), "
-				"trigger_start(%u), trigger_length(%u), voice_power(%F), "
+				"trigger_start(%u), trigger_length(%u), voice_power(%f), "
 				"skill_options(%s)",
 				options->stack.c_str(), options->voice_trigger.c_str(),
 				options->trigger_start, options->trigger_length,
