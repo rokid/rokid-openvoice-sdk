@@ -1,7 +1,5 @@
 package com.rokid.speech;
 
-import android.os.Build;
-
 public class SpeechOptions {
 	public SpeechOptions() {
 		_native_options = native_new_options();
@@ -61,6 +59,6 @@ public class SpeechOptions {
 	private long _native_options;
 
 	static {
-		System.loadLibrary("rokid_speech_jni." + Build.VERSION.SDK_INT);
+		System.loadLibrary("rokid_speech_jni");
 	}
 }

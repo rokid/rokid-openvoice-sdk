@@ -2,7 +2,6 @@ package com.rokid.speech;
 
 import android.text.TextUtils;
 import android.util.Log;
-import android.os.Build;
 
 public class Opus {
 	final static String TAG = "Opus";
@@ -85,6 +84,6 @@ public class Opus {
 	}
 
 	static {
-		System.loadLibrary("rokid_opus_jni." + Build.VERSION.SDK_INT);
+		System.loadLibrary("rokid_opus_jni");
 	}
 }

@@ -225,7 +225,7 @@ int register_com_rokid_speech_Tts(JNIEnv* env) {
 	const char* kclass = "com/rokid/speech/Tts";
 	jclass target = env->FindClass(kclass);
 	if (target == NULL) {
-		Log::e(tag_, "find class for %s failed", kclass);
+		Log::e("find class for %s failed", kclass);
 		return -1;
 	}
 	return jniRegisterNativeMethods(env, kclass, _tts_nmethods, NELEM(_tts_nmethods));
@@ -242,7 +242,7 @@ int register_com_rokid_speech_TtsOptions(JNIEnv* env) {
 	const char* kclass = "com/rokid/speech/TtsOptions";
 	jclass target = env->FindClass(kclass);
 	if (target == NULL) {
-		Log::e(tag_, "find class for %s failed", kclass);
+		Log::e("find class for %s failed", kclass);
 		return -1;
 	}
 	return jniRegisterNativeMethods(env, kclass, _tts_opt_nmethods, NELEM(_tts_opt_nmethods));

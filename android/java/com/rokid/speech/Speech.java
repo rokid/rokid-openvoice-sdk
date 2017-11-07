@@ -3,7 +3,6 @@ package com.rokid.speech;
 import java.io.InputStream;
 import android.util.Log;
 import android.util.SparseArray;
-import android.os.Build;
 import org.json.JSONObject;
 
 public class Speech extends GenericConfig {
@@ -168,7 +167,7 @@ public class Speech extends GenericConfig {
 	private long _sdk_speech;
 
 	static {
-		System.loadLibrary("rokid_speech_jni." + Build.VERSION.SDK_INT);
+		System.loadLibrary("rokid_speech_jni");
 		_sdk_init(Speech.class, SpeechResult.class, VoiceOptions.class);
 	}
 
