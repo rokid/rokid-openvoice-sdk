@@ -7,6 +7,7 @@ using std::shared_ptr;
 using std::mutex;
 using std::lock_guard;
 using std::make_shared;
+using std::chrono::system_clock;
 using rokid::open::speech::v2::SpeechRequest;
 using rokid::open::speech::v2::SpeechResponse;
 using rokid::open::speech::v1::ReqType;
@@ -84,6 +85,9 @@ private:
 };
 
 SpeechImpl::SpeechImpl() : initialized_(false) {
+#ifdef SPEECH_STATISTIC
+	cur_trace_info_.id = 0;
+#endif
 }
 
 bool SpeechImpl::prepare(const PrepareOptions& options) {
@@ -488,6 +492,11 @@ int32_t SpeechImpl::do_request(shared_ptr<SpeechReqInfo>& req) {
 			req_config(treq, req->options);
 			rv = 0;
 
+#ifdef SPEECH_STATISTIC
+			cur_trace_info_.id = req->id;
+			cur_trace_info_.req_tp = system_clock::now();
+#endif
+
 #ifdef SPEECH_SDK_DETAIL_TRACE
 			Log::d(tag__, "SpeechImpl.do_request (%d) send text req",
 					req->id);
@@ -498,6 +507,11 @@ int32_t SpeechImpl::do_request(shared_ptr<SpeechReqInfo>& req) {
 			treq.set_id(req->id);
 			treq.set_type(ReqType::START);
 			req_config(treq, req->options);
+
+#ifdef SPEECH_STATISTIC
+			cur_trace_info_.id = req->id;
+			cur_trace_info_.req_tp = system_clock::now();
+#endif
 
 #ifdef SPEECH_SDK_DETAIL_TRACE
 			Log::d(tag__, "SpeechImpl.do_request (%d) send voice start",
@@ -520,6 +534,9 @@ int32_t SpeechImpl::do_request(shared_ptr<SpeechReqInfo>& req) {
 #ifdef SPEECH_SDK_DETAIL_TRACE
 			Log::d(tag__, "SpeechImpl.do_request (%d) send voice end"
 					" because req cancelled", req->id);
+#endif
+#ifdef SPEECH_STATISTIC
+			finish_cur_req();
 #endif
 			break;
 		case SpeechReqType::VOICE_DATA:
@@ -589,6 +606,9 @@ void SpeechImpl::gen_results() {
 				resp_cond_.notify_one();
 				locker.unlock();
 				erase_req(id);
+#ifdef SPEECH_STATISTIC
+				finish_cur_req();
+#endif
 				continue;
 			}
 		} else if (r == ConnectionOpResult::CONNECTION_BROKEN) {
@@ -597,8 +617,12 @@ void SpeechImpl::gen_results() {
 			controller_.set_op_error(SPEECH_SERVICE_UNAVAILABLE);
 			resp_cond_.notify_one();
 			locker.unlock();
-			if (op.get())
+			if (op.get()) {
 				erase_req(op->id);
+#ifdef SPEECH_STATISTIC
+				finish_cur_req();
+#endif
+			}
 			continue;
 		} else {
 			shared_ptr<SpeechOperationController::Operation> op
@@ -606,8 +630,12 @@ void SpeechImpl::gen_results() {
 			controller_.set_op_error(SPEECH_UNKNOWN);
 			resp_cond_.notify_one();
 			locker.unlock();
-			if (op.get())
+			if (op.get()) {
 				erase_req(op->id);
+#ifdef SPEECH_STATISTIC
+				finish_cur_req();
+#endif
+			}
 			continue;
 		}
 		locker.unlock();
@@ -678,6 +706,9 @@ void SpeechImpl::gen_result_by_resp(SpeechResponse& resp) {
 				controller_.finish_op();
 				erase_req(resp.id());
 			}
+#ifdef SPEECH_STATISTIC
+			finish_cur_req();
+#endif
 			break;
 		default:
 			Log::w(tag__, "invalid SpeechResponse.type %d", resp.type());
@@ -689,6 +720,16 @@ void SpeechImpl::gen_result_by_resp(SpeechResponse& resp) {
 		}
 	}
 }
+
+#ifdef SPEECH_STATISTIC
+void SpeechImpl::finish_cur_req() {
+	if (cur_trace_info_.id) {
+		cur_trace_info_.resp_tp = system_clock::now();
+		connection_.add_trace_info(cur_trace_info_);
+		cur_trace_info_.id = 0;
+	}
+}
+#endif
 
 shared_ptr<Speech> Speech::new_instance() {
 	return make_shared<SpeechImpl>();

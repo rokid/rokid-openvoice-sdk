@@ -87,7 +87,7 @@ find_package(OpenSSL REQUIRED)
 
 set(IGNORED_WARNINGS "-Wno-sign-compare -Wno-unused-parameter -Wno-sign-promo -Wno-error=return-type -Wno-error=non-virtual-dtor")
 
-set(COMMON_CFLAGS "-DSPEECH_SDK_STREAM_QUEUE_TRACE -DSPEECH_SDK_DETAIL_TRACE -std=c++11 -fPIC -frtti -fexceptions")
+set(COMMON_CFLAGS "-DSPEECH_SDK_STREAM_QUEUE_TRACE -DSPEECH_SDK_DETAIL_TRACE -DSPEECH_STATISTIC -std=c++11 -fPIC -frtti -fexceptions")
 
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${IGNORED_WARNINGS} ${COMMON_CFLAGS}")
 

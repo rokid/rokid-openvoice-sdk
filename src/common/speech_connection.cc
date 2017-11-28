@@ -5,6 +5,7 @@
 #include "openssl/md5.h"
 #include "speech_connection.h"
 #include "auth.pb.h"
+#include "speech_types.pb.h"
 #include "Poco/Net/HTTPClientSession.h"
 #include "Poco/Net/HTTPSClientSession.h"
 #include "Poco/Net/HTTPRequest.h"
@@ -24,6 +25,9 @@
 #define KEEPALIVE_TIMEOUT 20000
 #define SOCKET_POLL_TIMEOUT 1000
 #define AUTH_RESP_TIMEOUT 10000
+#ifdef SPEECH_STATISTIC
+#define MAX_PENDING_TRACE_INFOS 128
+#endif
 
 using std::string;
 using std::shared_ptr;
@@ -33,8 +37,13 @@ using std::unique_lock;
 using std::thread;
 using std::mutex;
 using std::chrono::duration;
+using std::chrono::duration_cast;
+using std::chrono::steady_clock;
+using std::chrono::system_clock;
+using std::chrono::milliseconds;
 using rokid::open::speech::AuthRequest;
 using rokid::open::speech::AuthResponse;
+using rokid::open::speech::v1::PingPayload;
 using Poco::Timespan;
 using Poco::Net::HTTPSClientSession;
 using Poco::Net::HTTPRequest;
@@ -76,7 +85,6 @@ void SpeechConnection::initialize(uint32_t ws_buf_size,
 	options_ = options;
 	service_type_ = svc;
 	stage_ = CONN_INIT;
-	pending_ping_ = 0;
 	unique_lock<mutex> locker(resp_mutex_);
 	thread_ = new thread([=] { run(); });
 	// wait thread run
@@ -98,6 +106,15 @@ void SpeechConnection::release() {
 	unique_lock<mutex> rlocker(req_mutex_);
 	req_cond_.notify_all();
 }
+
+#ifdef SPEECH_STATISTIC
+void SpeechConnection::add_trace_info(const TraceInfo& info) {
+	lock_guard<mutex> locker(req_mutex_);
+	_trace_infos.push_back(info);
+	if (_trace_infos.size() > MAX_PENDING_TRACE_INFOS)
+		_trace_infos.pop_front();
+}
+#endif
 
 void SpeechConnection::run() {
 	buffer_ = new char[buffer_size_];
@@ -228,7 +245,6 @@ bool SpeechConnection::do_socket_poll() {
 	int c;
 	SpeechBinaryResp* bin_resp;
 	bool reconn = true;
-	int32_t keepalive_timeout = KEEPALIVE_TIMEOUT;
 
 	while (true) {
 		if (web_socket_->available() <= 0) {
@@ -240,22 +256,9 @@ bool SpeechConnection::do_socket_poll() {
 #endif
 					break;
 				}
-				keepalive_timeout -= SOCKET_POLL_TIMEOUT;
-				if (keepalive_timeout <= 0) {
-					// timeout
-					if (stage_ == CONN_WAIT_AUTH) {
-						Log::i(CONN_TAG, "wait auth result timeout, try reconnect");
-						goto close_conn;
-					}
-					if (pending_ping_ > 0) {
-						Log::w(CONN_TAG, "previous ping not received pong, "
-								"connection may broken, try reconnect");
-						pending_ping_ = 0;
-						goto close_conn;
-					}
-					ping();
-					keepalive_timeout = KEEPALIVE_TIMEOUT;
-				}
+
+				if (!check_keepalive())
+					goto close_conn;
 				continue;
 			}
 		}
@@ -263,10 +266,11 @@ bool SpeechConnection::do_socket_poll() {
 			Log::d(CONN_TAG, "connection released, quit do_socket_poll *b*");
 			break;
 		}
-		keepalive_timeout = KEEPALIVE_TIMEOUT;
 
 		try {
+			flags = 0;
 			c = web_socket_->receiveFrame(buffer_, buffer_size_, flags);
+			_lastest_recv_tp = steady_clock::now();
 #ifdef SPEECH_SDK_DETAIL_TRACE
 			Log::d(CONN_TAG, "socket recv %d bytes, flags 0x%x", c, flags);
 #endif
@@ -276,18 +280,12 @@ bool SpeechConnection::do_socket_poll() {
 			push_error_resp();
 			goto close_conn;
 		}
-		if (c == 0) {
-			if ((flags & WebSocket::FRAME_OP_BITMASK) ==
-					WebSocket::FRAME_OP_PONG) {
+		if ((flags & WebSocket::FRAME_OP_BITMASK) ==
+				WebSocket::FRAME_OP_PONG) {
 #ifdef SPEECH_SDK_DETAIL_TRACE
-				Log::d(CONN_TAG, "recv pong frame");
+			Log::d(CONN_TAG, "recv pong frame");
 #endif
-				--pending_ping_;
-			} else {
-				push_error_resp();
-				goto close_conn;
-			}
-		} else if (c < 0) {
+		} else if (c <= 0) {
 			push_error_resp();
 			goto close_conn;
 		} else {
@@ -352,13 +350,40 @@ void SpeechConnection::push_error_resp() {
 	}
 }
 
+#ifdef SPEECH_STATISTIC
+void SpeechConnection::ping(const TraceInfo* info) {
+#else
 void SpeechConnection::ping() {
+#endif
 	assert(web_socket_.get());
-	++pending_ping_;
 #ifdef SPEECH_SDK_DETAIL_TRACE
 	Log::d(CONN_TAG, "send ping frame");
 #endif
+#ifdef SPEECH_STATISTIC
+	if (info != NULL) {
+		PingPayload pp;
+		string buf;
+		system_clock::time_point tp = system_clock::now();
+		int64_t ms = duration_cast<milliseconds>(tp.time_since_epoch()).count();
+		pp.set_req_id(info->id);
+		pp.set_now_tp(ms);
+		ms = duration_cast<milliseconds>(info->req_tp.time_since_epoch()).count();
+		pp.set_req_tp(ms);
+		ms = duration_cast<milliseconds>(info->resp_tp.time_since_epoch()).count();
+		pp.set_resp_tp(ms);
+		if (!pp.SerializeToString(&buf)) {
+			Log::e(CONN_TAG, "PingPayload serialize failed.");
+			return;
+		}
+		lock_guard<mutex> locker(req_mutex_);
+		_lastest_send_tp = steady_clock::now();
+		web_socket_->sendFrame(buf.data(), buf.length(), WebSocket::FRAME_FLAG_FIN
+				| WebSocket::FRAME_OP_PING);
+		return;
+	}
+#endif
 	lock_guard<mutex> locker(req_mutex_);
+	_lastest_send_tp = steady_clock::now();
 	web_socket_->sendFrame(NULL, 0, WebSocket::FRAME_FLAG_FIN
 			| WebSocket::FRAME_OP_PING);
 }
@@ -426,6 +451,7 @@ bool SpeechConnection::send(const void* data, uint32_t length) {
 			}
 
 			offset += c;
+			_lastest_send_tp = steady_clock::now();
 #ifdef SPEECH_SDK_DETAIL_TRACE
 			Log::d(CONN_TAG, "websocket send frame %u:%lu bytes",
 					offset, length);
@@ -476,6 +502,39 @@ bool SpeechConnection::ensure_connection_available(
 		}
 	}
 	return stage_ == CONN_READY;
+}
+
+bool SpeechConnection::check_keepalive() {
+	steady_clock::time_point now_tp = steady_clock::now();
+
+#ifdef SPEECH_STATISTIC
+	TraceInfo info;
+	req_mutex_.lock();
+	if (_trace_infos.size() > 0) {
+		info = _trace_infos.front();
+		_trace_infos.pop_front();
+		req_mutex_.unlock();
+		ping(&info);
+	} else
+		req_mutex_.unlock();
+#endif
+
+	milliseconds ms = duration_cast<milliseconds>(now_tp - _lastest_send_tp);
+	if (ms.count() >= KEEPALIVE_TIMEOUT) {
+		if (stage_ == CONN_WAIT_AUTH) {
+			// auth timeout, reconnect
+			Log::w(CONN_TAG, "wait auth result timeout, try reconnect");
+			return false;
+		}
+		ping();
+	}
+	ms = duration_cast<milliseconds>(now_tp - _lastest_recv_tp);
+	if (ms.count() >= KEEPALIVE_TIMEOUT * 2) {
+		// timeout, reconnect
+		Log::w(CONN_TAG, "server no response timeout, try reconnect");
+		return false;
+	}
+	return true;
 }
 
 PrepareOptions::PrepareOptions() {

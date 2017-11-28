@@ -75,6 +75,10 @@ private:
 
 	void erase_req(int32_t id);
 
+#ifdef SPEECH_STATISTIC
+	void finish_cur_req();
+#endif
+
 private:
 	int32_t next_id_;
 	SpeechOptionsHolder options_;
@@ -90,6 +94,9 @@ private:
 	std::thread* req_thread_;
 	std::thread* resp_thread_;
 	bool initialized_;
+#ifdef SPEECH_STATISTIC
+	TraceInfo cur_trace_info_;
+#endif
 };
 
 } // namespace speech

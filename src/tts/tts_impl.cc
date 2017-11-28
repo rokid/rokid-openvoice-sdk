@@ -14,6 +14,7 @@ using std::mutex;
 using std::unique_lock;
 using std::lock_guard;
 using std::list;
+using std::chrono::system_clock;
 using rokid::open::speech::v1::TtsRequest;
 using rokid::open::speech::v1::TtsResponse;
 
@@ -49,6 +50,9 @@ private:
 };
 
 TtsImpl::TtsImpl() : initialized_(false) {
+#ifdef SPEECH_STATISTIC
+	cur_trace_info_.id = 0;
+#endif
 }
 
 bool TtsImpl::prepare(const PrepareOptions& options) {
@@ -321,6 +325,10 @@ bool TtsImpl::do_request(shared_ptr<TtsReqInfo>& req) {
 	treq.set_text(req->data.c_str());
 	treq.set_declaimer(options_.declaimer);
 	treq.set_codec(get_codec_str(options_.codec));
+#ifdef SPEECH_STATISTIC
+	cur_trace_info_.id = req->id;
+	cur_trace_info_.req_tp = system_clock::now();
+#endif
 	ConnectionOpResult r = connection_.send(treq, WS_SEND_TIMEOUT);
 	if (r != ConnectionOpResult::SUCCESS) {
 		TtsError err = TTS_UNKNOWN;
@@ -368,13 +376,22 @@ void TtsImpl::gen_results() {
 						"set op error", controller_.current_op()->id);
 				controller_.set_op_error(TTS_TIMEOUT);
 				resp_cond_.notify_one();
+#ifdef SPEECH_STATISTIC
+				finish_cur_req();
+#endif
 			}
 		} else if (r == ConnectionOpResult::CONNECTION_BROKEN) {
 			controller_.set_op_error(TTS_SERVICE_UNAVAILABLE);
 			resp_cond_.notify_one();
+#ifdef SPEECH_STATISTIC
+			finish_cur_req();
+#endif
 		} else {
 			controller_.set_op_error(TTS_UNKNOWN);
 			resp_cond_.notify_one();
+#ifdef SPEECH_STATISTIC
+			finish_cur_req();
+#endif
 		}
 		locker.unlock();
 	}
@@ -429,6 +446,9 @@ void TtsImpl::gen_result_by_resp(TtsResponse& resp) {
 #endif
 			}
 			controller_.finish_op();
+#ifdef SPEECH_STATISTIC
+			finish_cur_req();
+#endif
 		}
 
 		if (new_data) {
@@ -440,6 +460,16 @@ void TtsImpl::gen_result_by_resp(TtsResponse& resp) {
 		}
 	}
 }
+
+#ifdef SPEECH_STATISTIC
+void TtsImpl::finish_cur_req() {
+	if (cur_trace_info_.id) {
+		cur_trace_info_.resp_tp = system_clock::now();
+		connection_.add_trace_info(cur_trace_info_);
+		cur_trace_info_.id = 0;
+	}
+}
+#endif
 
 shared_ptr<Tts> Tts::new_instance() {
 	return make_shared<TtsImpl>();

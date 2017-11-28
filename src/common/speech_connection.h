@@ -28,6 +28,14 @@ typedef struct {
 	char data[];
 } SpeechBinaryResp;
 
+#ifdef SPEECH_STATISTIC
+typedef struct {
+	int32_t id;
+	std::chrono::system_clock::time_point req_tp;
+	std::chrono::system_clock::time_point resp_tp;
+} TraceInfo;
+#endif
+
 enum ConnectStage {
 	// not connected
 	CONN_INIT = 0,
@@ -117,6 +125,10 @@ public:
 		return ConnectionOpResult::TIMEOUT;
 	}
 
+#ifdef SPEECH_STATISTIC
+	void add_trace_info(const TraceInfo& info);
+#endif
+
 private:
 	void run();
 
@@ -131,9 +143,15 @@ private:
 
 	bool do_socket_poll();
 
+#ifdef SPEECH_STATISTIC
+	void ping(const TraceInfo* info = NULL);
+#else
 	void ping();
+#endif
 
 	void push_error_resp();
+
+	bool check_keepalive();
 
 	static std::string timestamp();
 
@@ -157,7 +175,11 @@ private:
 	uint32_t buffer_size_;
 	ConnectStage stage_;
 	bool initialized_;
-	uint32_t pending_ping_;
+	std::chrono::steady_clock::time_point _lastest_send_tp;
+	std::chrono::steady_clock::time_point _lastest_recv_tp;
+#ifdef SPEECH_STATISTIC
+	std::list<TraceInfo> _trace_infos;
+#endif
 	static bool ssl_initialized_;
 };
 
