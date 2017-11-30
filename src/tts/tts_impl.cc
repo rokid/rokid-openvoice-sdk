@@ -318,8 +318,8 @@ static const char* get_codec_str(Codec codec) {
 bool TtsImpl::do_request(shared_ptr<TtsReqInfo>& req) {
 #ifdef SPEECH_SDK_DETAIL_TRACE
 	Log::d(tag__, "do_request: send req to server. (%d:%s)",
-#endif
 			req->id, req->data.c_str());
+#endif
 	TtsRequest treq;
 	treq.set_id(req->id);
 	treq.set_text(req->data.c_str());
