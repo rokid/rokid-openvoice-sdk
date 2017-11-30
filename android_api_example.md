@@ -10,6 +10,30 @@
 
 ~ | 名称 | 类型 | 描述
 ---|---|---|---
+接口 | prepare | | 使用配置文件初始化
+参数 | configFile | String | 配置文件路径名。文件内容详见[json格式配置字串](#jsonconf)
+返回值 | 无 | |
+
+~ | 名称 | 类型 | 描述
+---|---|---|---
+接口 | prepare | | 使用流初始化
+参数 | is | InputStream | 数据流，流内容详见[json格式配置字串](#jsonconf)
+返回值 | 无 | |
+
+~ | 名称 | 类型 | 描述
+---|---|---|---
+接口 | parseConfigFile | | 通过配置文件生成[PrepareOptions](#po)
+参数 | configFile | String | 配置文件路径名。文件内容详见[json格式配置字串](#jsonconf)
+返回值 | 无 | |
+
+~ | 名称 | 类型 | 描述
+---|---|---|---
+接口 | parseConfig | | 通过流生成[PrepareOptions](#po)
+参数 | is | InputStream | 数据流，流内容详见[json格式配置字串](#jsonconf)
+返回值 | 无 | |
+
+~ | 名称 | 类型 | 描述
+---|---|---|---
 接口 | release | | tts sdk关闭
 参数 | 无 | |
 返回值 | 无 | |
@@ -74,6 +98,15 @@
 参数 | err | int | [错误码](#errcode)
 返回值 | 无 | |
 
+### OpusPlayer接口
+
+用于帮助播放opu2格式tts音频数据的工具类
+
+~ | 名称 | 类型 | 描述
+---|---|---|---
+接口 | play | | 播放opu2格式音频数据
+参数 | data | byte[] | 音频数据
+
 ### Tts使用示例
 
 **不使用配置文件**
@@ -101,30 +134,19 @@ topts.set_codec("opu2");
 tts.config(topts);
 
 // 使用tts
+OpusPlayer opusPlayer = new OpusPlayer();
 tts.speak("我是会说话的机器人，我最爱吃的食物是机油，最喜欢的运动是聊天",
 			new TtsCallback() {
 				// 在这里实现回调接口 onStart, onVoice等
 				// 在onVoice中得到语音数据，调用播放器播放
 				......
+				public void onVoice(int id, byte[] data) {
+					opusPlayer.play(data);
+				}
 			});
 ```
 
 **使用配置文件简化配置过程**
-
-```
-配置文件格式示例
-{
-    'host': 'apigwws.open.rokid.com',
-    'port': '443',
-    'branch': '/api',
-    'key': 'your_auth_key',
-    'device_type_id': 'your_device_type_id',
-    'secret': 'your_secret',
-    'device_id': 'your_device_id',
-		'codec': 'pcm',
-		'declaimer': 'zh'
-}
-```
 
 ```
 Tts tts = new Tts();
@@ -134,7 +156,28 @@ tts.prepare("/system/etc/tts_sdk.json");
 
 // 在prepare后任意时刻，都可以调用config修改配置
 // 默认配置codec = "pcm", declaimer = "zh"
-// 下面的代码将codec修改为"opu2"，declaimer保存原状不变
+// 下面的代码将codec修改为"opu2"，declaimer保持原状不变
+TtsOptions topts = new TtsOptions();
+topts.set_codec("opu2");
+tts.config(topts);
+
+// 使用tts，与上一例中完全相同，不再重复
+......
+```
+
+**使用配置文件，但修改其中某些选项**
+
+```
+Tts tts = new Tts();
+// 通过配置文件生成PrepareOptions
+// 修改device_id为设备serialno
+PrepareOptions opts = tts.parseConfigFile("/system/etc/tts_sdk.json");
+opts.device_id = sn;
+tts.prepare(opts);
+
+// 在prepare后任意时刻，都可以调用config修改配置
+// 默认配置codec = "pcm", declaimer = "zh"
+// 下面的代码将codec修改为"opu2"，declaimer保持原状不变
 TtsOptions topts = new TtsOptions();
 topts.set_codec("opu2");
 tts.config(topts);
@@ -333,6 +376,43 @@ voice_trigger | String | 激活词
 trigger_start | int | 语音数据中激活词的开始位置
 trigger_length | int | 激活词语音数据长度
 skill_options | String |
+
+#### <a id="jsonconf"></a>Json格式配置字串
+
+key | 描述
+--- | ---
+host | 服务器主机名 一般使用apigwws.open.rokid.com
+port | 服务器端口 目前为443
+branch | 服务器功能选择分支 固定为/api
+key | 用于服务登录认证　
+device\_type\_id | 用于服务登录认证
+secret | 用于服务登录认证
+device\_id | 设备名，用于服务登录
+codec | 语音编码格式:<br>speech服务可选项"pcm" "opu"<br>tts服务可选项 "pcm" "opu2"
+speech服务专有配置 | ...
+lang | 语音语言: "zh"或"en"
+vad_mode | 判断语音结束算法部署位置:<br>"cloud" 云端运行算法，准备确率高<br>"local" 本地运行算法
+vend_timeout | 用于判断语音结束的参数，一般不需设置，使用默认值
+no_nlp | true或false: 是否接收nlp/action结果
+no_intermediate_asr | true或false: 是否接收asr中间识别结果
+tts服务专有配置 | ...
+declaimer | 语音播报员设置<br>目前只有一个播报员，默认名"zh"。未来将扩展多个播报员。
+
+上面列出的key值在配置字串中都是可选项，如不配置则使用缺省值
+
+配置字串示例
+
+```
+{
+	'host': 'apigwws.open.rokid.com',
+	'port': 443,
+	'branch': '/api',
+	'key': '用于服务认证的key',
+	'device_type_id': '用于服务认证的device_type_id',
+	'secret': '用于服务认证的secret',
+	'device_id': '设备id 一般使用设备sn'
+}
+```
 
 ### <a id="errcode"></a>错误码
 
