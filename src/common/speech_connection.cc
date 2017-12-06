@@ -377,15 +377,23 @@ void SpeechConnection::ping() {
 		}
 		lock_guard<mutex> locker(req_mutex_);
 		_lastest_send_tp = steady_clock::now();
-		web_socket_->sendFrame(buf.data(), buf.length(), WebSocket::FRAME_FLAG_FIN
-				| WebSocket::FRAME_OP_PING);
+		try {
+			web_socket_->sendFrame(buf.data(), buf.length(), WebSocket::FRAME_FLAG_FIN
+					| WebSocket::FRAME_OP_PING);
+		} catch (Exception& e) {
+			Log::w(CONN_TAG, "send websocket ping frame(with traceinfo) failed: %s", e.displayText().c_str());
+		}
 		return;
 	}
 #endif
 	lock_guard<mutex> locker(req_mutex_);
 	_lastest_send_tp = steady_clock::now();
-	web_socket_->sendFrame(NULL, 0, WebSocket::FRAME_FLAG_FIN
-			| WebSocket::FRAME_OP_PING);
+	try {
+		web_socket_->sendFrame(NULL, 0, WebSocket::FRAME_FLAG_FIN
+				| WebSocket::FRAME_OP_PING);
+	} catch (Exception& e) {
+		Log::w(CONN_TAG, "send websocket ping frame failed: %s", e.displayText().c_str());
+	}
 }
 
 string SpeechConnection::timestamp() {
