@@ -20,6 +20,10 @@
 #include "Poco/Net/SSLManager.h"
 #include "Poco/Net/Context.h"
 
+#if defined(__linux__) && !defined(__ANDROID__)
+#include <Poco/Net/DNS.h>
+#endif
+
 #define MIN_BUF_SIZE 4096
 #define CONNECT_RETRY_TIMEOUT 30000
 #define KEEPALIVE_TIMEOUT 20000
@@ -179,6 +183,11 @@ shared_ptr<WebSocket> SpeechConnection::connect() {
 		Log::e(CONN_TAG, "connect: init ssl failed");
 		return NULL;
 	}
+
+	#if defined(__linux__) && !defined(__ANDROID__)
+	Poco::Net::DNS::reload();
+	#endif
+
 	cs = new HTTPSClientSession(options_.host.c_str(), options_.port);
 	HTTPRequest request(HTTPRequest::HTTP_GET, options_.branch.c_str(),
 			HTTPMessage::HTTP_1_1);
