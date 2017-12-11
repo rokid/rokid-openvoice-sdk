@@ -51,6 +51,7 @@ public class OpusPlayer {
 	}
 
 	public void pause() {
+		initAudioTrack();
 		try {
 			_audioTrack.pause();
 		} catch (Exception e) {
@@ -59,6 +60,7 @@ public class OpusPlayer {
 	}
 
 	public void resume() {
+		initAudioTrack();
 		try {
 			_audioTrack.play();
 		} catch (Exception e) {
