@@ -80,16 +80,16 @@ if (NOT (PROTOBUF_FOUND OR Protobuf_FOUND))
 	set(PROTOBUF_LIBRARIES -L${ProtobufPrefix}/lib -lprotobuf -Wl,-rpath,${ProtobufPrefix}/lib)
 	set(PROTOBUF_PROTOC_EXECUTABLE ${ProtobufPrefix}/bin/protoc)
 endif()
-# Needed for FindPoco
-#find_package(Poco REQUIRED Net Crypto  NetSSL_OpenSSL)
-find_package(Poco REQUIRED Net Crypto NetSSL)
 find_package(OpenSSL REQUIRED)
+find_package(UWS REQUIRED)
 
 set(IGNORED_WARNINGS "-Wno-sign-compare -Wno-unused-parameter -Wno-sign-promo -Wno-error=return-type -Wno-error=non-virtual-dtor")
 
-set(COMMON_CFLAGS "-DSPEECH_SDK_STREAM_QUEUE_TRACE -DSPEECH_SDK_DETAIL_TRACE -DSPEECH_STATISTIC -std=c++11 -fPIC -frtti -fexceptions")
+set(COMMON_CFLAGS "-DSPEECH_SDK_DETAIL_TRACE -DSPEECH_STATISTIC -std=c++11 -pthread -fPIC -frtti -fexceptions -g -O0")
 
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${IGNORED_WARNINGS} ${COMMON_CFLAGS}")
+# workaround for g++ threading bug
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wl,--no-as-needed")
 
 #
 # Build gennerated protobuf cpp files.
@@ -136,11 +136,11 @@ add_library(speech SHARED ${COMMON_SOURCES} ${SPEECH_SOURCES} ${TTS_SOURCES} ${P
 target_include_directories(speech PRIVATE
 	${COMMON_INCLUDE_DIRS}
 	${PROTOBUF_INCLUDE_DIRS}
-	${Poco_INCLUDE_DIRS}
+	${UWS_INCLUDE_DIRS}
 	${OPENSSL_INCLUDE_DIR}
 	${CMAKE_CURRENT_BINARY_DIR}
 )
-target_link_libraries(speech ${Poco_LIBRARIES} ${PROTOBUF_LIBRARIES} ${OPENSSL_LIBRARIES})
+target_link_libraries(speech ${UWS_LIBRARIES} ${PROTOBUF_LIBRARIES} ${OPENSSL_LIBRARIES})
 install(TARGETS speech
 	RUNTIME DESTINATION bin
 	LIBRARY DESTINATION lib
@@ -151,17 +151,25 @@ install(TARGETS speech
 #
 # build demo
 #
-file(GLOB_RECURSE DEMO_SOURCES demo/*.h demo/*.cc)
-add_executable(rokidspeech.demo ${DEMO_SOURCES})
-target_include_directories(rokidspeech.demo PRIVATE
+# file(GLOB_RECURSE DEMO_SOURCES demo/*.h demo/*.cc)
+set(DEMO_SOURCES 
+	demo/demo.cc
+	demo/rkaudio.cc
+	demo/rkaudio.h
+)
+list(APPEND DEMO_SOURCES ${PROTO_SRCS})
+add_executable(demo ${DEMO_SOURCES})
+target_include_directories(demo PRIVATE
 	${COMMON_INCLUDE_DIRS}
 	${PROTOBUF_INCLUDE_DIRS}
-	${Poco_INCLUDE_DIRS}
+	${UWS_INCLUDE_DIRS}
 	${OPENSSL_INCLUDE_DIR}
 	${CMAKE_CURRENT_BINARY_DIR}
 )
-target_link_libraries(rokidspeech.demo
-	speech
-	${Poco_LIBRARIES}
+target_link_libraries(demo
+	${UWS_LIBRARIES}
 	${PROTOBUF_LIBRARIES}
+	${OPENSSL_LIBRARIES}
+	-lz
+	speech
 )

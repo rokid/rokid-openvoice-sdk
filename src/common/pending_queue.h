@@ -197,8 +197,10 @@ public:
 
 	bool start(int32_t id) {
 		if (item_tags_.find(id) != item_tags_.end()) {
+#ifdef SPEECH_SDK_STREAM_QUEUE_TRACE
 			Log::i(STREAM_QUEUE_TAG, "add tag for %d failed, "
 					"already existed", id);
+#endif
 			return false;
 		}
 
@@ -222,12 +224,14 @@ public:
 		it = item_tags_.find(id);
 		if (it == item_tags_.end()
 				|| (*it->second)->type != QueueItem::uncompleted) {
+#ifdef SPEECH_SDK_STREAM_QUEUE_TRACE
 			if (it == item_tags_.end())
 				Log::i(STREAM_QUEUE_TAG, "add data for id %d failed, "
 						"the tag not existed", id);
 			else
 				Log::i(STREAM_QUEUE_TAG, "add data for id %d failed, "
 						"the tag type is %d", id, (*it->second)->type);
+#endif
 			return false;
 		}
 
@@ -249,8 +253,10 @@ public:
 
 		it = item_tags_.find(id);
 		if (it == item_tags_.end()) {
+#ifdef SPEECH_SDK_STREAM_QUEUE_TRACE
 			Log::i(STREAM_QUEUE_TAG, "complete tag for id %d failed, "
 					"tag not existed", id);
+#endif
 			return false;
 		}
 		(*it->second)->type = QueueItem::completed;
@@ -268,8 +274,10 @@ public:
 
 		it = item_tags_.find(id);
 		if (it == item_tags_.end()) {
+#ifdef SPEECH_SDK_STREAM_QUEUE_TRACE
 			Log::i(STREAM_QUEUE_TAG, "set_arg for id %d failed, "
 					"tag not existed", id);
+#endif
 			return;
 		}
 		(*it->second)->arg = arg;
@@ -280,8 +288,10 @@ public:
 
 		it = item_tags_.find(id);
 		if (it == item_tags_.end()) {
+#ifdef SPEECH_SDK_STREAM_QUEUE_TRACE
 			Log::i(STREAM_QUEUE_TAG, "get_arg for id %d failed, "
 					"tag not existed", id);
+#endif
 			return NULL;
 		}
 		return (*it->second)->arg;

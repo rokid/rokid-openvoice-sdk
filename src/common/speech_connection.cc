@@ -1,217 +1,328 @@
 #include <inttypes.h>
 #include <sys/time.h>
-#include <stdlib.h>
-#include <unistd.h>
 #include "openssl/md5.h"
 #include "speech_connection.h"
 #include "auth.pb.h"
 #include "speech_types.pb.h"
-#include "Poco/Net/HTTPClientSession.h"
-#include "Poco/Net/HTTPSClientSession.h"
-#include "Poco/Net/HTTPRequest.h"
-#include "Poco/Net/HTTPResponse.h"
-#include "Poco/Net/HTTPMessage.h"
-#include "Poco/Net/SSLException.h"
-#include "Poco/SharedPtr.h"
-#include "Poco/Net/PrivateKeyPassphraseHandler.h"
-#include "Poco/Net/InvalidCertificateHandler.h"
-#include "Poco/Net/AcceptCertificateHandler.h"
-#include "Poco/Net/KeyConsoleHandler.h"
-#include "Poco/Net/SSLManager.h"
-#include "Poco/Net/Context.h"
 
-#if defined(__linux__) && !defined(__ANDROID__)
-#include <Poco/Net/DNS.h>
-#endif
-
-#define MIN_BUF_SIZE 4096
-#define CONNECT_RETRY_TIMEOUT 30000
-#define KEEPALIVE_TIMEOUT 20000
-#define SOCKET_POLL_TIMEOUT 1000
-#define AUTH_RESP_TIMEOUT 10000
+#define RECONN_INTERVAL 20000
 #ifdef SPEECH_STATISTIC
 #define MAX_PENDING_TRACE_INFOS 128
+#define SEND_TRACE_INFO_INTERVAL 1000
 #endif
 
-using std::string;
-using std::shared_ptr;
-using std::exception;
-using std::lock_guard;
-using std::unique_lock;
-using std::thread;
+static const char* api_version_ = "2";
+
 using std::mutex;
-using std::chrono::duration;
-using std::chrono::duration_cast;
+using std::recursive_mutex;
+using std::unique_lock;
+using std::lock_guard;
+using std::defer_lock;
+using std::chrono::milliseconds;
+using std::string;
+using std::thread;
 using std::chrono::steady_clock;
 using std::chrono::system_clock;
-using std::chrono::milliseconds;
+using std::chrono::duration_cast;
+using uWS::Hub;
+using uWS::WebSocket;
+using uWS::OpCode;
 using rokid::open::speech::AuthRequest;
 using rokid::open::speech::AuthResponse;
 using rokid::open::speech::v1::PingPayload;
-using Poco::Timespan;
-using Poco::Net::HTTPSClientSession;
-using Poco::Net::HTTPRequest;
-using Poco::Net::HTTPResponse;
-using Poco::Net::HTTPMessage;
-using Poco::Net::WebSocket;
-using Poco::Exception;
-using Poco::Net::NetException;
-using Poco::Net::SSLException;
-using Poco::SharedPtr;
-using Poco::Net::PrivateKeyPassphraseHandler;
-using Poco::Net::KeyConsoleHandler;
-using Poco::Net::InvalidCertificateHandler;
-using Poco::Net::AcceptCertificateHandler;
-using Poco::Net::SSLManager;
-using Poco::Net::Context;
-using Poco::Net::HTTPClientSession;
-using Poco::Net::Socket;
 
 namespace rokid {
 namespace speech {
 
-static const char* api_version_ = "2";
+milliseconds SpeechConnection::ping_interval_ = milliseconds(30000);
+milliseconds SpeechConnection::no_resp_timeout_ = milliseconds(45000);
 
-bool SpeechConnection::ssl_initialized_ = false;
-
-SpeechConnection::SpeechConnection() : initialized_(false) {
+SpeechConnection::SpeechConnection() : work_thread_(NULL),
+		keepalive_thread_(NULL), ws_(NULL), stage_(ConnectStage::INIT) {
+	prepare_hub();
 }
 
-SpeechConnection::~SpeechConnection() {
-	release();
-}
-
-void SpeechConnection::initialize(uint32_t ws_buf_size,
+void SpeechConnection::initialize(int32_t ws_buf_size,
 		const PrepareOptions& options, const char* svc) {
-	if (ws_buf_size < MIN_BUF_SIZE)
-		ws_buf_size = MIN_BUF_SIZE;
-	buffer_size_ = ws_buf_size;
 	options_ = options;
 	service_type_ = svc;
-	stage_ = CONN_INIT;
-	unique_lock<mutex> locker(resp_mutex_);
-	thread_ = new thread([=] { run(); });
-	// wait thread run
-	resp_cond_.wait(locker);
+	stage_ = ConnectStage::INIT;
+	// unique_lock<recursive_mutex> locker(reconn_mutex_);
+	// reconn_thread_ = new thread([=] { reconn_run(); });
+	work_thread_ = new thread([=] { run(); });
+	keepalive_thread_ = new thread([=] { keepalive_run(); });
 }
 
 void SpeechConnection::release() {
-	if (!initialized_)
+	if (work_thread_ == NULL)
 		return;
-	unique_lock<mutex> locker(resp_mutex_);
-	initialized_ = false;
+	// TODO: ensure stage >= CONNECTING
+#ifdef SPEECH_SDK_DETAIL_TRACE
+	Log::d(CONN_TAG, "release, notify work thread");
+#endif
+	reconn_mutex_.lock();
+	stage_ = ConnectStage::RELEASED;
+	hub_.getDefaultGroup<uWS::CLIENT>().close();
+	reconn_cond_.notify_all();
+	reconn_mutex_.unlock();
+
+#ifdef SPEECH_SDK_DETAIL_TRACE
+	Log::d(CONN_TAG, "join work thread");
+#endif
+	work_thread_->join();
+	delete work_thread_;
+	work_thread_ = NULL;
+	keepalive_thread_->join();
+	delete keepalive_thread_;
+	keepalive_thread_ = NULL;
+//	Log::d(CONN_TAG, "work thread exited, join reconn thread");
+//	reconn_thread_->join();
+//	delete reconn_thread_;
+//	reconn_thread_ = NULL;
+#ifdef SPEECH_SDK_DETAIL_TRACE
+	Log::d(CONN_TAG, "work thread exited");
+#endif
+
+	// awake all threads of invoking SpeechConnection::recv
+	resp_mutex_.lock();
 	resp_cond_.notify_all();
-	locker.unlock();
-
-	thread_->join();
-	delete thread_;
-	delete buffer_;
-
-	unique_lock<mutex> rlocker(req_mutex_);
-	req_cond_.notify_all();
+	resp_mutex_.unlock();
 }
 
 #ifdef SPEECH_STATISTIC
 void SpeechConnection::add_trace_info(const TraceInfo& info) {
-	lock_guard<mutex> locker(req_mutex_);
+	req_mutex_.lock();
 	_trace_infos.push_back(info);
 	if (_trace_infos.size() > MAX_PENDING_TRACE_INFOS)
 		_trace_infos.pop_front();
+	req_mutex_.unlock();
+
+	reconn_cond_.notify_one();
 }
 #endif
 
 void SpeechConnection::run() {
-	buffer_ = new char[buffer_size_];
-	unique_lock<mutex> locker(resp_mutex_);
-	initialized_ = true;
-	// notify initialize(), thread already run
-	resp_cond_.notify_one();
-	locker.unlock();
+#ifdef SPEECH_SDK_DETAIL_TRACE
+	Log::d(CONN_TAG, "work thread runing");
+#endif
 
-	while (true) {
-		locker.lock();
-		if (!initialized_) {
-			Log::i(CONN_TAG, "released, quit run()");
-			break;
+	unique_lock<recursive_mutex> locker(reconn_mutex_, defer_lock);
+	steady_clock::time_point now;
+
+	while (stage_ != ConnectStage::RELEASED) {
+		switch (stage_) {
+			case ConnectStage::INIT:
+				now = steady_clock::now();
+				if (now >= reconn_timepoint_) {
+#ifdef SPEECH_SDK_DETAIL_TRACE
+					Log::d(CONN_TAG, "work thread: connecting");
+#endif
+					stage_ = ConnectStage::CONNECTING;
+					connect();
+				} else {
+#ifdef SPEECH_SDK_DETAIL_TRACE
+					Log::d(CONN_TAG, "work thread: wait to reconn timepoint");
+#endif
+					locker.lock();
+					if (stage_ == ConnectStage::INIT)
+						reconn_cond_.wait_for(locker, reconn_timepoint_ - now);
+					locker.unlock();
+				}
+				break;
+			default:
+#ifdef SPEECH_SDK_DETAIL_TRACE
+				Log::d(CONN_TAG, "work thread: loop");
+#endif
+				// wait for:
+				//   connection lose
+				//   socket error
+				//   SpeechConnection release
+				hub_.run();
+#ifdef SPEECH_SDK_DETAIL_TRACE
+				Log::d(CONN_TAG, "work thread: loop end");
+#endif
 		}
-		locker.unlock();
+	}
 
-		if (stage_ == CONN_INIT) {
-			web_socket_ = connect();
-			if (web_socket_.get()) {
 #ifdef SPEECH_SDK_DETAIL_TRACE
-				Log::i(CONN_TAG, "connect to server success, do auth");
+	Log::d(CONN_TAG, "work thread quit");
 #endif
-				stage_ = CONN_UNAUTH;
-				continue;
-			} else
-				Log::i(CONN_TAG, "connect to server failed, wait a "
-						"while and retry");
-		} else if (stage_ == CONN_UNAUTH) {
-			if (auth()) {
+}
+
+void SpeechConnection::keepalive_run() {
+	steady_clock::time_point now;
+	unique_lock<recursive_mutex> locker(reconn_mutex_, defer_lock);
+	milliseconds timeout;
+#ifdef SPEECH_STATISTIC
+	bool has_trace_info;
+#endif
+
+	while (stage_ != ConnectStage::RELEASED) {
+		if (stage_ == ConnectStage::READY) {
+			now = steady_clock::now();
+#ifdef SPEECH_STATISTIC
+			has_trace_info = send_trace_info();
+#endif
+			if (now - lastest_send_tp_ >= ping_interval_) {
 #ifdef SPEECH_SDK_DETAIL_TRACE
-				Log::d(CONN_TAG, "auth req success, wait auth result");
+				Log::d(CONN_TAG, "send ping frame");
 #endif
-				lock_guard<mutex> locker(req_mutex_);
-				stage_ = CONN_WAIT_AUTH;
-				continue;
-			} else {
-				Log::w(CONN_TAG, "auth req failed, wait and reconnect");
-				web_socket_->close();
-				web_socket_.reset();
-				stage_ = CONN_INIT;
+				ws_send(NULL, 0, OpCode::PING);
 			}
+			if (now - lastest_recv_tp_ >= no_resp_timeout_) {
+				Log::w(CONN_TAG, "server may no response, try reconnect");
+				lastest_recv_tp_ = steady_clock::now();
+				ws_->close();
+			}
+			auto d1 = ping_interval_ - (now - lastest_send_tp_);
+			auto d2 = no_resp_timeout_ - (now - lastest_recv_tp_);
+			timeout = duration_cast<milliseconds>(d1 < d2 ? d1 : d2);
+			if (timeout.count() < 0)
+				timeout = milliseconds(0);
+#ifdef SPEECH_STATISTIC
+			if (has_trace_info && timeout.count() > SEND_TRACE_INFO_INTERVAL)
+				timeout = milliseconds(SEND_TRACE_INFO_INTERVAL);
+#endif
 		} else {
-			if (do_socket_poll())
-				continue;
+			timeout = milliseconds(ping_interval_);
 		}
-
 		locker.lock();
-		if (initialized_) {
-			duration<int, std::milli> ms(CONNECT_RETRY_TIMEOUT);
-			resp_cond_.wait_for(locker, ms);
-		}
+		reconn_cond_.wait_for(locker, timeout);
 		locker.unlock();
 	}
-	stage_ = CONN_RELEASED;
 }
 
-shared_ptr<WebSocket> SpeechConnection::connect() {
-	HTTPClientSession* cs;
+#ifdef SPEECH_STATISTIC
+bool SpeechConnection::send_trace_info() {
+	TraceInfo info;
+	req_mutex_.lock();
+	if (_trace_infos.size() > 0) {
+		info = _trace_infos.front();
+		_trace_infos.pop_front();
+		req_mutex_.unlock();
 
-	if (!init_ssl()) {
-		Log::e(CONN_TAG, "connect: init ssl failed");
-		return NULL;
-	}
-
-	#if defined(__linux__) && !defined(__ANDROID__)
-	Poco::Net::DNS::reload();
-	#endif
-
-	cs = new HTTPSClientSession(options_.host.c_str(), options_.port);
-	HTTPRequest request(HTTPRequest::HTTP_GET, options_.branch.c_str(),
-			HTTPMessage::HTTP_1_1);
-	HTTPResponse response;
-	shared_ptr<WebSocket> sock;
-
+		PingPayload pp;
+		string buf;
+		system_clock::time_point tp = system_clock::now();
+		int64_t ms = duration_cast<milliseconds>(tp.time_since_epoch()).count();
+		pp.set_req_id(info.id);
+		pp.set_now_tp(ms);
+		ms = duration_cast<milliseconds>(info.req_tp.time_since_epoch()).count();
+		pp.set_req_tp(ms);
+		ms = duration_cast<milliseconds>(info.resp_tp.time_since_epoch()).count();
+		pp.set_resp_tp(ms);
+		if (!pp.SerializeToString(&buf)) {
+			Log::e(CONN_TAG, "PingPayload serialize failed.");
+			return true;
+		}
 #ifdef SPEECH_SDK_DETAIL_TRACE
-	Log::d(CONN_TAG, "server address is %s:%d%s",
-			options_.host.c_str(), options_.port, options_.branch.c_str());
+		Log::d(CONN_TAG, "send trace info, id = %d", info.id);
+#endif
+		ws_send(buf.data(), buf.length(), OpCode::PING);
+		return true;
+	} else
+		req_mutex_.unlock();
+	return false;
+}
 #endif
 
-	try {
-		sock.reset(new WebSocket(*cs, request, response));
-	} catch (Exception& e) {
-		Log::w(CONN_TAG, "websocket connect failed: %s, %s",
-				e.displayText().c_str(), e.className());
-		delete cs;
-		return NULL;
-	}
-	delete cs;
-	return sock;
+void SpeechConnection::prepare_hub() {
+	uWS::Group<uWS::CLIENT>* group = static_cast<uWS::Group<uWS::CLIENT>*>(&hub_);
+	group->onConnection([=](WebSocket<uWS::CLIENT> *ws, uWS::HttpRequest req) {
+			onConnection(ws);
+		});
+	group->onDisconnection([=](WebSocket<uWS::CLIENT> *ws, int code,
+				char* message, size_t length) {
+			onDisconnection(ws, code, message, length);
+		});
+	group->onMessage([=](WebSocket<uWS::CLIENT> *ws, char* message,
+				size_t length, OpCode opcode) {
+			onMessage(ws, message, length, opcode);
+		});
+	group->onError([=](void* userdata) { onError(userdata); });
+	group->onPong([=](WebSocket<uWS::CLIENT> *ws, char* message, size_t length) {
+			onPong(ws, message, length);
+		});
 }
 
-bool SpeechConnection::auth() {
+void SpeechConnection::connect() {
+	string uri = get_server_uri();
+#ifdef SPEECH_SDK_DETAIL_TRACE
+	Log::d(CONN_TAG, "server uri is %s", uri.c_str());
+#endif
+	hub_.connect(uri);
+}
+
+string SpeechConnection::get_server_uri() {
+	char tmp[64];
+	snprintf(tmp, sizeof(tmp), "wss://%s:%u%s",
+			options_.host.c_str(), options_.port, options_.branch.c_str());
+	return string(tmp);
+}
+
+void SpeechConnection::onConnection(WebSocket<uWS::CLIENT> *ws) {
+#ifdef SPEECH_SDK_DETAIL_TRACE
+	Log::d(CONN_TAG, "uws connected, %p", ws);
+#endif
+	stage_ = ConnectStage::UNAUTH;
+	auth(ws);
+}
+
+void SpeechConnection::onDisconnection(uWS::WebSocket<uWS::CLIENT> *ws,
+		int code, char* message, size_t length) {
+#ifdef SPEECH_SDK_DETAIL_TRACE
+	Log::d(CONN_TAG, "uws disconnected, code %d, msg length %d, stage %d",
+			code, length, static_cast<int>(stage_));
+#endif
+	ws_ = NULL;
+	if (stage_ != ConnectStage::RELEASED) {
+		stage_ = ConnectStage::INIT;
+		push_error_resp();
+	}
+}
+
+void SpeechConnection::onMessage(uWS::WebSocket<uWS::CLIENT> *ws,
+		char* message, size_t length, uWS::OpCode opcode) {
+#ifdef SPEECH_SDK_DETAIL_TRACE
+	Log::d(CONN_TAG, "uws recv message, length %d, opcode 0x%x", length, opcode);
+#endif
+	lastest_recv_tp_ = steady_clock::now();
+	switch (stage_) {
+		case ConnectStage::UNAUTH:
+			handle_auth_result(ws, message, length, opcode);
+			break;
+		case ConnectStage::READY:
+			push_resp_data(message, length);
+			break;
+		default:
+			Log::w(CONN_TAG, "recv %d bytes, opcode %d, but connect stage is %d",
+					length, opcode, static_cast<int>(stage_));
+	}
+}
+
+void SpeechConnection::onError(void* userdata) {
+#ifdef SPEECH_SDK_DETAIL_TRACE
+	Log::d(CONN_TAG, "uws error: userdata %p, stage %d", userdata, static_cast<int>(stage_));
+#endif
+	if (ws_) {
+		ws_->close();
+		ws_ = NULL;
+	}
+	if (stage_ != ConnectStage::RELEASED) {
+		stage_ = ConnectStage::INIT;
+		reconn_timepoint_ = steady_clock::now() + milliseconds(RECONN_INTERVAL);
+	}
+}
+
+void SpeechConnection::onPong(uWS::WebSocket<uWS::CLIENT> *ws,
+		char* message, size_t length) {
+#ifdef SPEECH_SDK_DETAIL_TRACE
+	Log::d(CONN_TAG, "uws recv pong: stage %d", static_cast<int>(stage_));
+#endif
+	lastest_recv_tp_ = steady_clock::now();
+}
+
+bool SpeechConnection::auth(WebSocket<uWS::CLIENT> *ws) {
 	AuthRequest req;
 	AuthResponse resp;
 	const char* svc = service_type_.c_str();
@@ -236,173 +347,13 @@ bool SpeechConnection::auth() {
 					api_version_, ts.c_str(),
 					options_.secret.c_str()));
 
-	assert(web_socket_.get());
 	std::string buf;
 	if (!req.SerializeToString(&buf)) {
 		Log::w(CONN_TAG, "auth: protobuf serialize failed");
 		return false;
 	}
-	std::lock_guard<std::mutex> locker(req_mutex_);
-	return this->send((const void*)buf.data(), buf.length());
-}
-
-// return: true  immediate try reconnect
-//         false wait a while and try reconnect
-bool SpeechConnection::do_socket_poll() {
-	Timespan timeout(SOCKET_POLL_TIMEOUT / 1000, 0);
-	int flags;
-	int c;
-	SpeechBinaryResp* bin_resp;
-	bool reconn = true;
-
-	while (true) {
-		if (web_socket_->available() <= 0) {
-			if (!web_socket_->poll(timeout, WebSocket::SELECT_READ
-						| WebSocket::SELECT_ERROR)) {
-				if (!initialized_) {
-#ifdef SPEECH_SDK_DETAIL_TRACE
-					Log::d(CONN_TAG, "connection released, quit do_socket_poll *a*");
-#endif
-					break;
-				}
-
-				if (!check_keepalive())
-					goto close_conn;
-				continue;
-			}
-		}
-		if (!initialized_) {
-			Log::d(CONN_TAG, "connection released, quit do_socket_poll *b*");
-			break;
-		}
-
-		try {
-			flags = 0;
-			c = web_socket_->receiveFrame(buffer_, buffer_size_, flags);
-			_lastest_recv_tp = steady_clock::now();
-#ifdef SPEECH_SDK_DETAIL_TRACE
-			Log::d(CONN_TAG, "socket recv %d bytes, flags 0x%x", c, flags);
-#endif
-		} catch (Exception& e) {
-			Log::w(CONN_TAG, "websocket receive failed, exception = %s",
-					e.displayText().c_str());
-			push_error_resp();
-			goto close_conn;
-		}
-		if ((flags & WebSocket::FRAME_OP_BITMASK) ==
-				WebSocket::FRAME_OP_PONG) {
-#ifdef SPEECH_SDK_DETAIL_TRACE
-			Log::d(CONN_TAG, "recv pong frame");
-#endif
-		} else if (c <= 0) {
-			push_error_resp();
-			goto close_conn;
-		} else {
-			bin_resp = (SpeechBinaryResp*)malloc(c + sizeof(SpeechBinaryResp));
-			bin_resp->length = c;
-			bin_resp->type = BIN_RESP_DATA;
-			memcpy(bin_resp->data, buffer_, c);
-			unique_lock<mutex> locker(resp_mutex_);
-			responses_.push_back(bin_resp);
-			if (stage_ == CONN_WAIT_AUTH) {
-				locker.unlock();
-				AuthResponse auth_res;
-				ConnectionOpResult opr;
-				opr = this->recv(auth_res, AUTH_RESP_TIMEOUT);
-				if (opr != ConnectionOpResult::SUCCESS) {
-					Log::w(CONN_TAG, "auth result recv failed %d, "
-							"try reconnect", opr);
-					reconn = false;
-					goto close_conn;
-				}
-				Log::d(CONN_TAG, "auth result = %d", auth_res.result());
-				if (auth_res.result() != 0) {
-					reconn = false;
-					goto close_conn;
-				}
-				lock_guard<mutex> locker(req_mutex_);
-				stage_ = CONN_READY;
-				req_cond_.notify_all();
-			} else {
-				resp_cond_.notify_one();
-			}
-		}
-	}
-
-close_conn:
-#ifdef SPEECH_SDK_DETAIL_TRACE
-	Log::d(CONN_TAG, "close websocket, reconnect immediate ? %d", reconn);
-#endif
-	unique_lock<mutex> req_locker(req_mutex_);
-	stage_ = CONN_INIT;
-	web_socket_->close();
-	web_socket_.reset();
-	req_locker.unlock();
-
-	// awake 'recv', prevent block forever if server no response
-	lock_guard<mutex> resp_locker(resp_mutex_);
-	resp_cond_.notify_one();
-	return reconn;
-}
-
-void SpeechConnection::push_error_resp() {
-	lock_guard<mutex> locker(resp_mutex_);
-	SpeechBinaryResp* bin_resp;
-	if (stage_ == CONN_READY) {
-#ifdef SPEECH_SDK_DETAIL_TRACE
-		Log::d(CONN_TAG, "push error response to list");
-#endif
-		bin_resp = (SpeechBinaryResp*)malloc(sizeof(SpeechBinaryResp));
-		bin_resp->length = 0;
-		bin_resp->type = BIN_RESP_ERROR;
-		responses_.push_back(bin_resp);
-	}
-}
-
-#ifdef SPEECH_STATISTIC
-void SpeechConnection::ping(const TraceInfo* info) {
-#else
-void SpeechConnection::ping() {
-#endif
-	assert(web_socket_.get());
-#ifdef SPEECH_SDK_DETAIL_TRACE
-	Log::d(CONN_TAG, "send ping frame");
-#endif
-#ifdef SPEECH_STATISTIC
-	if (info != NULL) {
-		PingPayload pp;
-		string buf;
-		system_clock::time_point tp = system_clock::now();
-		int64_t ms = duration_cast<milliseconds>(tp.time_since_epoch()).count();
-		pp.set_req_id(info->id);
-		pp.set_now_tp(ms);
-		ms = duration_cast<milliseconds>(info->req_tp.time_since_epoch()).count();
-		pp.set_req_tp(ms);
-		ms = duration_cast<milliseconds>(info->resp_tp.time_since_epoch()).count();
-		pp.set_resp_tp(ms);
-		if (!pp.SerializeToString(&buf)) {
-			Log::e(CONN_TAG, "PingPayload serialize failed.");
-			return;
-		}
-		lock_guard<mutex> locker(req_mutex_);
-		_lastest_send_tp = steady_clock::now();
-		try {
-			web_socket_->sendFrame(buf.data(), buf.length(), WebSocket::FRAME_FLAG_FIN
-					| WebSocket::FRAME_OP_PING);
-		} catch (Exception& e) {
-			Log::w(CONN_TAG, "send websocket ping frame(with traceinfo) failed: %s", e.displayText().c_str());
-		}
-		return;
-	}
-#endif
-	lock_guard<mutex> locker(req_mutex_);
-	_lastest_send_tp = steady_clock::now();
-	try {
-		web_socket_->sendFrame(NULL, 0, WebSocket::FRAME_FLAG_FIN
-				| WebSocket::FRAME_OP_PING);
-	} catch (Exception& e) {
-		Log::w(CONN_TAG, "send websocket ping frame failed: %s", e.displayText().c_str());
-	}
+	ws->send(buf.data(), buf.length(), OpCode::BINARY);
+	return true;
 }
 
 string SpeechConnection::timestamp() {
@@ -453,105 +404,72 @@ string SpeechConnection::generate_sign(const char* key,
 	return string(buf);
 }
 
-bool SpeechConnection::send(const void* data, uint32_t length) {
-	int c;
-	uint32_t offset = 0;
-
-	assert(web_socket_.get());
-	try {
-		while (offset < length) {
-			c = web_socket_->sendFrame(reinterpret_cast<const char*>(data) + offset,
-					length - offset, WebSocket::FRAME_BINARY);
-			if (c <= 0) {
-				Log::w(CONN_TAG, "socket send failed, res = %d", c);
-				return false;
-			}
-
-			offset += c;
-			_lastest_send_tp = steady_clock::now();
+void SpeechConnection::handle_auth_result(uWS::WebSocket<uWS::CLIENT> *ws,
+		char* message, size_t length, uWS::OpCode opcode) {
+	AuthResponse resp;
+	if (!resp.ParseFromArray(message, length)) {
+		Log::w(CONN_TAG, "auth response parse failed, not correct protobuf");
+		return;
+	}
 #ifdef SPEECH_SDK_DETAIL_TRACE
-			Log::d(CONN_TAG, "websocket send frame %u:%lu bytes",
-					offset, length);
+	Log::d(CONN_TAG, "auth result = %d", resp.result());
 #endif
-		}
-	} catch (Exception& e) {
-		Log::w(CONN_TAG, "send frame failed: %s", e.displayText().c_str());
-		return false;
+	if (resp.result() == 0) {
+		req_mutex_.lock();
+		stage_ = ConnectStage::READY;
+		ws_ = ws;
+		req_cond_.notify_one();
+		req_mutex_.unlock();
+	} else {
+		reconn_timepoint_ = steady_clock::now() + milliseconds(RECONN_INTERVAL);
+		ws->close();
 	}
-	return true;
-}
-
-bool SpeechConnection::init_ssl() {
-	if (!ssl_initialized_) {
-		try {
-			Poco::Net::initializeSSL();
-			SharedPtr<PrivateKeyPassphraseHandler> key_handler
-				= new KeyConsoleHandler(false);
-			SharedPtr<InvalidCertificateHandler> cert_handler
-				= new AcceptCertificateHandler(false);
-			struct Context::Params params;
-#ifdef SSL_NON_VERIFY
-			params.verificationMode = Context::VERIFY_NONE;
-#else
-			params.verificationMode = Context::VERIFY_RELAXED;
-			params.loadDefaultCAs = true;
-#endif
-			Context::Ptr context = new Context(Context::CLIENT_USE, params);
-			SSLManager::instance().initializeClient(key_handler,
-					cert_handler, context);
-		} catch (Exception& e) {
-			Log::e(CONN_TAG, "initialize ssl failed: %s", e.displayText().c_str());
-			return false;
-		}
-		ssl_initialized_ = true;
-	}
-	return true;
 }
 
 bool SpeechConnection::ensure_connection_available(
 		unique_lock<mutex>& locker, uint32_t timeout) {
-	if (stage_ != CONN_READY) {
+	if (stage_ != ConnectStage::READY) {
 		if (timeout == 0)
 			req_cond_.wait(locker);
 		else {
-			duration<int, std::milli> ms(timeout);
+			milliseconds ms(timeout);
 			req_cond_.wait_for(locker, ms);
 		}
 	}
-	return stage_ == CONN_READY;
+	return stage_ == ConnectStage::READY;
 }
 
-bool SpeechConnection::check_keepalive() {
-	steady_clock::time_point now_tp = steady_clock::now();
-
-#ifdef SPEECH_STATISTIC
-	TraceInfo info;
-	req_mutex_.lock();
-	if (_trace_infos.size() > 0) {
-		info = _trace_infos.front();
-		_trace_infos.pop_front();
-		req_mutex_.unlock();
-		ping(&info);
-	} else
-		req_mutex_.unlock();
+void SpeechConnection::push_error_resp() {
+	lock_guard<mutex> locker(resp_mutex_);
+	SpeechBinaryResp* bin_resp;
+	if (stage_ == ConnectStage::READY) {
+#ifdef SPEECH_SDK_DETAIL_TRACE
+		Log::d(CONN_TAG, "push error response to list");
 #endif
+		bin_resp = (SpeechBinaryResp*)malloc(sizeof(SpeechBinaryResp));
+		bin_resp->length = 0;
+		bin_resp->type = BinRespType::ERROR;
+		responses_.push_back(bin_resp);
+		resp_cond_.notify_one();
+	}
+}
 
-	milliseconds ms = duration_cast<milliseconds>(now_tp - _lastest_send_tp);
-	if (ms.count() >= KEEPALIVE_TIMEOUT) {
-		if (stage_ == CONN_WAIT_AUTH) {
-			// auth timeout, reconnect
-			Log::w(CONN_TAG, "wait auth result timeout, try reconnect");
-			return false;
-		}
-		ping();
+void SpeechConnection::push_resp_data(char* msg, size_t length) {
+	SpeechBinaryResp* bin_resp;
+	bin_resp = (SpeechBinaryResp*)malloc(length + sizeof(SpeechBinaryResp));
+	bin_resp->length = length;
+	bin_resp->type = BinRespType::DATA;
+	memcpy(bin_resp->data, msg, length);
+	unique_lock<mutex> locker(resp_mutex_);
+	responses_.push_back(bin_resp);
+	resp_cond_.notify_one();
+}
+
+void SpeechConnection::ws_send(const char* msg, size_t length, uWS::OpCode op) {
+	if (ws_) {
+		ws_->send(msg, length, op);
+		lastest_send_tp_ = steady_clock::now();
 	}
-	ms = duration_cast<milliseconds>(now_tp - _lastest_recv_tp);
-	if (ms.count() >= KEEPALIVE_TIMEOUT * 2) {
-		// timeout, reconnect
-		Log::w(CONN_TAG, "server no response timeout, try reconnect");
-		return false;
-	}
-	return true;
 }
 
 PrepareOptions::PrepareOptions() {
@@ -570,6 +488,8 @@ PrepareOptions& PrepareOptions::operator = (const PrepareOptions& options) {
 	this->device_id = options.device_id;
 	return *this;
 }
+
+
 
 } // namespace speech
 } // namespace rokid
