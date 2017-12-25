@@ -2,7 +2,7 @@ CMAKE_MINIMUM_REQUIRED(VERSION 3.2)
 project(rokidspeech)
 set(VERSION 0.1)
 
-option(BUILD_DEMO "Build demo" ON)
+option(BUILD_DEMO "Build demo" OFF)
 option(BUILD_DEBUG "debug or release" OFF)
 
 # Configuration fails on < 3.9 if only C++ is enabled (TestBigEndian macro)
