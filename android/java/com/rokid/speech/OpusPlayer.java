@@ -8,11 +8,11 @@ import android.util.Log;
 public class OpusPlayer {
 	public OpusPlayer() {
 		_opus = new Opus();
-		_audioTrack = createAudioTrack();
-		_audioTrack.play();
 	}
 
 	public void play(byte[] data) {
+		initAudioTrack();
+
 		Log.d(TAG, "play data " + data.length);
 		data = _opus.decode(data);
 		Log.d(TAG, "play decoded data " + data.length);
@@ -26,17 +26,15 @@ public class OpusPlayer {
 			Log.d(TAG, "write to audio track " + r);
 			if (r < 0) {
 				Log.w(TAG, "audio play write data error: " + r);
-				_audioTrack.release();
-				_audioTrack = createAudioTrack();
-				_audioTrack.play();
+				close();
+				initAudioTrack();
 				break;
 			}
 			if (r == 0) {
 				Log.d(TAG, "write to audio track returns 0, write retry count " + retry);
 				if (retry == 0) {
-					_audioTrack.release();
-					_audioTrack = createAudioTrack();
-					_audioTrack.play();
+					close();
+					initAudioTrack();
 					break;
 				}
 				--retry;
@@ -67,6 +65,13 @@ public class OpusPlayer {
 		}
 	}
 
+	public void close() {
+		if (_audioTrack != null) {
+			_audioTrack.release();
+			_audioTrack = null;
+		}
+	}
+
 	private AudioTrack createAudioTrack() {
 		int bufSize = AudioTrack.getMinBufferSize(SAMPLE_RATE,
 				AudioFormat.CHANNEL_OUT_MONO, AUDIO_ENCODING) * 2;
@@ -82,6 +87,13 @@ public class OpusPlayer {
 					.build())
 			.setBufferSizeInBytes(bufSize)
 			.build();
+	}
+
+	private void initAudioTrack() {
+		if (_audioTrack == null) {
+			_audioTrack = createAudioTrack();
+			_audioTrack.play();
+		}
 	}
 
 	private static final int SAMPLE_RATE = 24000;
