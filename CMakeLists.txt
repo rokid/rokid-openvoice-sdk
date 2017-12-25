@@ -3,6 +3,7 @@ project(rokidspeech)
 set(VERSION 0.1)
 
 option(BUILD_DEMO "Build demo" ON)
+option(BUILD_DEBUG "debug or release" OFF)
 
 # Configuration fails on < 3.9 if only C++ is enabled (TestBigEndian macro)
 if(NOT CMAKE_VERSION VERSION_LESS 3.9.0)
@@ -82,12 +83,18 @@ if (NOT (PROTOBUF_FOUND OR Protobuf_FOUND))
 endif()
 find_package(OpenSSL REQUIRED)
 find_package(UWS REQUIRED)
+find_package(Opus)
 
 set(IGNORED_WARNINGS "-Wno-sign-compare -Wno-unused-parameter -Wno-sign-promo -Wno-error=return-type -Wno-error=non-virtual-dtor")
 
-set(COMMON_CFLAGS "-DSPEECH_SDK_DETAIL_TRACE -DSPEECH_STATISTIC -std=c++11 -pthread -fPIC -frtti -fexceptions -g -O0")
+set(COMMON_CFLAGS "-DSPEECH_SDK_DETAIL_TRACE -DSPEECH_STATISTIC -std=c++11 -pthread -fPIC -frtti -fexceptions")
 
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${IGNORED_WARNINGS} ${COMMON_CFLAGS}")
+if (BUILD_DEBUG)
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O0")
+else()
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
+endif()
 # workaround for g++ threading bug
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wl,--no-as-needed")
 
@@ -147,29 +154,54 @@ install(TARGETS speech
 	PUBLIC_HEADER DESTINATION include
 )
 
+if (Opus_FOUND)
+	set (CODEC_SOURCES
+		src/codec/rkdec.cc
+		include/rkdec.h
+		src/common/log.cc
+		src/common/log.h
+	)
+	add_library(rkcodec SHARED ${CODEC_SOURCES})
+	target_include_directories(rkcodec PRIVATE
+		${COMMON_INCLUDE_DIRS}
+		${Opus_INCLUDE_DIRS}
+	)
+	target_link_libraries(rkcodec
+		speech
+		${Opus_LIBRARIES}
+	)
+endif()
 
 #
 # build demo
 #
 # file(GLOB_RECURSE DEMO_SOURCES demo/*.h demo/*.cc)
-set(DEMO_SOURCES 
-	demo/demo.cc
-	demo/rkaudio.cc
-	demo/rkaudio.h
-)
-list(APPEND DEMO_SOURCES ${PROTO_SRCS})
-add_executable(demo ${DEMO_SOURCES})
-target_include_directories(demo PRIVATE
-	${COMMON_INCLUDE_DIRS}
-	${PROTOBUF_INCLUDE_DIRS}
-	${UWS_INCLUDE_DIRS}
-	${OPENSSL_INCLUDE_DIR}
-	${CMAKE_CURRENT_BINARY_DIR}
-)
-target_link_libraries(demo
-	${UWS_LIBRARIES}
-	${PROTOBUF_LIBRARIES}
-	${OPENSSL_LIBRARIES}
-	-lz
-	speech
-)
+if (BUILD_DEMO)
+	set(DEMO_SOURCES 
+		demo/demo.cc
+		demo/simple_wave.cc
+		demo/simple_wave.h
+	)
+	list(APPEND DEMO_SOURCES ${PROTO_SRCS})
+	add_executable(demo ${DEMO_SOURCES})
+	target_include_directories(demo PRIVATE
+		${COMMON_INCLUDE_DIRS}
+		${PROTOBUF_INCLUDE_DIRS}
+		${UWS_INCLUDE_DIRS}
+		${OPENSSL_INCLUDE_DIR}
+		${CMAKE_CURRENT_BINARY_DIR}
+	)
+	target_link_libraries(demo
+		${UWS_LIBRARIES}
+		${PROTOBUF_LIBRARIES}
+		${OPENSSL_LIBRARIES}
+		${Opus_LIBRARIES}
+		-lz
+		speech
+	)
+	if (Opus_FOUND)
+		target_include_directories(demo PRIVATE ${Opus_INCLUDE_DIRS})
+		target_compile_definitions(demo PRIVATE "HAS_OPUS_CODEC")
+		target_link_libraries(demo rkcodec)
+	endif()
+endif()

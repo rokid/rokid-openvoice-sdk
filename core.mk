@@ -31,7 +31,8 @@ LOCAL_GENERATED_SOURCES := $(PROTOC_GEN_SRC_L)
 LOCAL_C_INCLUDES := \
 	$(PROTOC_OUT_DIR) \
 	$(LOCAL_PATH)/include \
-	$(LOCAL_PATH)/src/common
+	$(LOCAL_PATH)/src/common \
+	external/zlib
 
 $(PROTOC_GEN_SRC_L): $(protoc_stamp)
 
@@ -58,7 +59,7 @@ LOCAL_SRC_FILES := \
 
 LOCAL_CFLAGS := $(COMMON_CFLAGS) \
 	-std=c++11 -frtti -fexceptions
-LOCAL_SHARED_LIBRARIES := liblog libpoco libcrypto
+LOCAL_SHARED_LIBRARIES := liblog libuWS libcrypto libz
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/include
 
 ifeq ($(PLATFORM_SDK_VERSION), 23)
@@ -78,6 +79,31 @@ endif
 
 include $(BUILD_SHARED_LIBRARY)
 
+include $(CLEAR_VARS)
+LOCAL_MODULE := librkcodec
+LOCAL_MODULE_TAGS := optional
+LOCAL_CPP_EXTENSION := .cc
+LOCAL_SRC_FILES := \
+	src/codec/rkdec.cc \
+	include/rkdec.h \
+	src/common/log.cc \
+	src/common/log.h
+LOCAL_C_INCLUDES := \
+	$(LOCAL_PATH)/include \
+	$(LOCAL_PATH)/src/common \
+	external/libopus/include
+LOCAL_SHARED_LIBRARIES := libopus
+LOCAL_CPPFLAGS := -std=c++11
+ifeq ($(PLATFORM_SDK_VERSION), 23)
+LOCAL_CXX_STL := libc++
+else ifeq ($(PLATFORM_SDK_VERSION), 22)
+LOCAL_SHARED_LIBRARIES += libc++ libdl
+else
+LOCAL_SDK_VERSION := 14
+LOCAL_NDK_STL_VARIANT := gnustl_static
+endif
+include $(BUILD_SHARED_LIBRARY)
+
 # module speech_demo
 include $(CLEAR_VARS)
 LOCAL_MODULE := speech_demo
@@ -85,9 +111,7 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_SRC_FILES := \
 	demo/demo.cc \
-	demo/tts_demo.cc \
-	demo/speech_demo.cc \
-	demo/tts_mem_test.cc
+	demo/simple_wave.cc
 LOCAL_C_INCLUDES := \
 	$(PROTOC_OUT_DIR) \
 	$(LOCAL_PATH)/include \
@@ -96,7 +120,7 @@ LOCAL_C_INCLUDES := \
 	external/boringssl/include
 LOCAL_SHARED_LIBRARIES := libpoco libspeech
 LOCAL_CPPFLAGS := $(COMMON_CFLAGS) \
-	-std=c++11 -frtti -fexceptions
+	-std=c++11
 ifeq ($(PLATFORM_SDK_VERSION), 23)
 LOCAL_CXX_STL := libc++
 else ifeq ($(PLATFORM_SDK_VERSION), 22)

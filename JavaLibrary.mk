@@ -9,7 +9,7 @@ LOCAL_CPP_EXTENSION := .cc
 LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/include \
 	$(LOCAL_PATH)/src/common
-LOCAL_CPPFLAGS := $(COMMON_FLAGS) -frtti -std=c++11
+LOCAL_CPPFLAGS := $(COMMON_FLAGS) -std=c++11
 LOCAL_SHARED_LIBRARIES := libnativehelper libspeech liblog
 ifeq ($(PLATFORM_SDK_VERSION), 23)
 LOCAL_CXX_STL := libc++
@@ -69,8 +69,8 @@ include $(BUILD_PREBUILT)
 include $(CLEAR_VARS)
 LOCAL_MODULE := librokid_opus_jni
 LOCAL_CPP_EXTENSION := .cc
-LOCAL_CPPFLAGS := $(COMMON_FLAGS) -frtti -std=c++11
-LOCAL_SHARED_LIBRARIES := libnativehelper libopus liblog libspeech
+LOCAL_CPPFLAGS := $(COMMON_FLAGS) -std=c++11
+LOCAL_SHARED_LIBRARIES := libnativehelper liblog libspeech librkcodec
 LOCAL_C_INCLUDES := \
 	external/libopus/include \
 	$(LOCAL_PATH)/src/common

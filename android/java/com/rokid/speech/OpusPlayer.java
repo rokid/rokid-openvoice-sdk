@@ -7,8 +7,7 @@ import android.util.Log;
 
 public class OpusPlayer {
 	public OpusPlayer() {
-		_opus = new Opus(SAMPLE_RATE, PLAY_CHANNEL, 16000,
-				Opus.OpusApplication.OPUS_AUDIO);
+		_opus = new Opus();
 		_audioTrack = createAudioTrack();
 		_audioTrack.play();
 	}
@@ -69,7 +68,7 @@ public class OpusPlayer {
 	}
 
 	private AudioTrack createAudioTrack() {
-		int bufSize = AudioTrack.getMinBufferSize(SAMPLE_RATE.getValue(),
+		int bufSize = AudioTrack.getMinBufferSize(SAMPLE_RATE,
 				AudioFormat.CHANNEL_OUT_MONO, AUDIO_ENCODING) * 2;
 		return new AudioTrack.Builder()
 			.setAudioAttributes(new AudioAttributes.Builder()
@@ -78,15 +77,14 @@ public class OpusPlayer {
 					.build())
 			.setAudioFormat(new AudioFormat.Builder()
 					.setEncoding(AUDIO_ENCODING)
-					.setSampleRate(SAMPLE_RATE.getValue())
+					.setSampleRate(SAMPLE_RATE)
 					.setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
 					.build())
 			.setBufferSizeInBytes(bufSize)
 			.build();
 	}
 
-	private static final Opus.OpusSampleRate SAMPLE_RATE = Opus.OpusSampleRate.SR_24K;
-	private static final int PLAY_CHANNEL = 1;
+	private static final int SAMPLE_RATE = 24000;
 	private static final int AUDIO_ENCODING = AudioFormat.ENCODING_PCM_16BIT;
 	private static final String TAG = "speech.OpusPlayer";
 
