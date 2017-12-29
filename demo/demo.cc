@@ -1,11 +1,13 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <thread>
+#include <string.h>
 #include "tts.h"
 #include "speech.h"
 #include "simple_wave.h"
 #ifdef HAS_OPUS_CODEC
-#include "rkdec.h"
+#include <sys/mman.h>
+#include "rkcodec.h"
 #endif
 
 using namespace rokid::speech;
@@ -34,6 +36,8 @@ static void decode_write(const string& data, SimpleWaveWriter& writer) {
 		off += rkdecoder.opu_frame_size();
 	}
 }
+static RKOpusEncoder rkencoder;
+#define ENCODE_FRAMES 50
 #endif
 
 static void test_tts(PrepareOptions& opts) {
@@ -43,7 +47,9 @@ static void test_tts(PrepareOptions& opts) {
 
 	tts->prepare(opts);
 	shared_ptr<TtsOptions> tts_opts = TtsOptions::new_instance();
+#ifdef HAS_OPUS_CODEC
 	tts_opts->set_codec(Codec::OPU2);
+#endif
 	tts->config(tts_opts);
 	std::thread poll_thread([&tts, &thflag, speakCount]() {
 			int count = 0;
@@ -119,6 +125,12 @@ static void test_speech(PrepareOptions& opts) {
 	bool thflag = false;
 
 	speech->prepare(opts);
+#ifdef HAS_OPUS_CODEC
+	shared_ptr<SpeechOptions> sopts = SpeechOptions::new_instance();
+	sopts->set_codec(Codec::OPU);
+	speech->config(sopts);
+	rkencoder.init(16000, 27800, 20);
+#endif
 	std::thread poll_thread([&speech, &thflag, reqCount]() {
 			int count = 0;
 			SpeechResult result;
@@ -167,15 +179,41 @@ static void test_speech(PrepareOptions& opts) {
 	uint32_t length;
 	uint32_t frame_len;
 	uint32_t off;
+#ifdef HAS_OPUS_CODEC
+	uint32_t frames_size = ENCODE_FRAMES * rkencoder.pcm_frame_size();
+	uint32_t total_pcm_frames;
+	uint32_t enc_frames, enc_size;
+	const uint8_t* opu;
+#endif
 	for (i = 0; i < reqCount; ++i) {
 		snprintf(fname, sizeof(fname), AUDIO_FILE_NAME_FORMAT, i + 1);
 		if (reader.open(fname)) {
 			data = reader.data();
 			length = reader.size();
-			printf("%s: data length %u, sample rate %u, bits per sample %u",
+			printf("%s: data length %u, sample rate %u, bits per sample %u\n",
 					fname, length, reader.sample_rate(), reader.bits_per_sample());
 			id = speech->start_voice();
 			off = 0;
+#ifdef HAS_OPUS_CODEC
+			total_pcm_frames = length / rkencoder.pcm_frame_size() / sizeof(uint16_t);
+			while (off < total_pcm_frames) {
+				frame_len = total_pcm_frames - off;
+				if (frame_len > ENCODE_FRAMES)
+					frame_len = ENCODE_FRAMES;
+				opu = rkencoder.encode(reinterpret_cast<const uint16_t*>(data)
+						+ off * rkencoder.pcm_frame_size(), frame_len, enc_frames,
+						enc_size);
+				if (opu == NULL) {
+					printf("opu encode failed\n");
+					break;
+				}
+				speech->put_voice(id, opu, enc_size);
+				off += enc_frames;
+				// 模拟真实拾音发送语音数据的频率
+				// std::this_thread::sleep_for(std::chrono::milliseconds(400));
+				usleep(100000);
+			}
+#else
 			while (off < length) {
 				if (length - off > 2048)
 					frame_len = 2048;
@@ -187,6 +225,7 @@ static void test_speech(PrepareOptions& opts) {
 				// std::this_thread::sleep_for(std::chrono::milliseconds(400));
 				usleep(20000);
 			}
+#endif
 			reader.close();
 			speech->end_voice(id);
 		}
@@ -206,7 +245,7 @@ int main(int argc, char** argv) {
 	opts.secret = "rokid_test_secret";
 
 	test_tts(opts);
-	// test_speech(opts);
+	test_speech(opts);
 
 	return 0;
 }

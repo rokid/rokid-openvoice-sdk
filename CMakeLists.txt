@@ -156,8 +156,8 @@ install(TARGETS speech
 
 if (Opus_FOUND)
 	set (CODEC_SOURCES
-		src/codec/rkdec.cc
-		include/rkdec.h
+		src/codec/rkcodec.cc
+		include/rkcodec.h
 		src/common/log.cc
 		src/common/log.h
 	)
