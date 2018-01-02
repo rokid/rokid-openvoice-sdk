@@ -1,7 +1,7 @@
 #include "JNIHelp.h"
 #include "jni.h"
 #include "log.h"
-#include "rkdec.h"
+#include "rkcodec.h"
 #include <cstdlib>
 
 #define TAG "rokid.opus.jni"

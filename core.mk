@@ -84,8 +84,8 @@ LOCAL_MODULE := librkcodec
 LOCAL_MODULE_TAGS := optional
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_SRC_FILES := \
-	src/codec/rkdec.cc \
-	include/rkdec.h \
+	src/codec/rkcodec.cc \
+	include/rkcodec.h \
 	src/common/log.cc \
 	src/common/log.h
 LOCAL_C_INCLUDES := \
