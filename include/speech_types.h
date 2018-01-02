@@ -30,7 +30,8 @@ enum class Lang {
 enum class Codec {
 	PCM,
 	OPU,
-	OPU2
+	OPU2,
+	MP3
 };
 
 enum class VadMode {

@@ -22,7 +22,27 @@ static const char* test_text[] = {
 	"存在一个公式，形式系统既不能推出它，也不能推出它的否定，即形式系统无法判定它"
 };
 
-#ifdef HAS_OPUS_CODEC
+#if defined(TEST_MP3)
+static FILE* mp3_fp = NULL;
+void create_mp3_file(int32_t id) {
+	char fname[32];
+	snprintf(fname, sizeof(fname), "data%d.mp3", id);
+	mp3_fp = fopen(fname, "w+");
+}
+
+void mp3_write(const string& data) {
+	if (mp3_fp == NULL)
+		return;
+	fwrite(data.data(), data.length(), 1, mp3_fp);
+}
+
+void close_mp3_file() {
+	if (mp3_fp) {
+		fclose(mp3_fp);
+		mp3_fp = NULL;
+	}
+}
+#elif defined(HAS_OPUS_CODEC)
 static RKOpusDecoder rkdecoder;
 static void decode_write(const string& data, SimpleWaveWriter& writer) {
 	const char* opu = data.data();
@@ -36,6 +56,9 @@ static void decode_write(const string& data, SimpleWaveWriter& writer) {
 		off += rkdecoder.opu_frame_size();
 	}
 }
+#endif
+
+#ifdef HAS_OPUS_CODEC
 static RKOpusEncoder rkencoder;
 #define ENCODE_FRAMES 50
 #endif
@@ -47,7 +70,9 @@ static void test_tts(PrepareOptions& opts) {
 
 	tts->prepare(opts);
 	shared_ptr<TtsOptions> tts_opts = TtsOptions::new_instance();
-#ifdef HAS_OPUS_CODEC
+#if defined(TEST_MP3)
+	tts_opts->set_codec(Codec::MP3);
+#elif defined(HAS_OPUS_CODEC)
 	tts_opts->set_codec(Codec::OPU2);
 #endif
 	tts->config(tts_opts);
@@ -58,7 +83,7 @@ static void test_tts(PrepareOptions& opts) {
 			SimpleWaveWriter writer;
 
 			thflag = true;
-#ifdef HAS_OPUS_CODEC
+#if !defined(TEST_MP3) && defined(HAS_OPUS_CODEC)
 			rkdecoder.init(24000, 16000, 20);
 #endif
 			while (count < speakCount) {
@@ -67,13 +92,19 @@ static void test_tts(PrepareOptions& opts) {
 				switch (result.type) {
 				case TTS_RES_START:
 					printf("speak %d start\n", result.id);
+#ifdef TEST_MP3
+					create_mp3_file(result.id);
+#else
 					snprintf(fname, sizeof(fname), AUDIO_FILE_NAME_FORMAT, result.id);
 					writer.create(fname, 24000, 16);
+#endif
 					break;
 				case TTS_RES_VOICE:
 					printf("speak %d voice: %d bytes\n", result.id, result.voice->length());
 					if (result.voice.get()) {
-#ifdef HAS_OPUS_CODEC
+#if defined(TEST_MP3)
+						mp3_write(*result.voice);
+#elif defined(HAS_OPUS_CODEC)
 						decode_write(*result.voice, writer);
 #else
 						printf("speak %d voice: %d bytes\n", result.id, result.voice->length());
@@ -84,23 +115,35 @@ static void test_tts(PrepareOptions& opts) {
 				case TTS_RES_END:
 					printf("speak %d end\n", result.id);
 					++count;
+#ifdef TEST_MP3
+					close_mp3_file();
+#else
 					writer.close();
+#endif
 					break;
 				case TTS_RES_CANCELLED:
 					printf("speak %d cancelled\n", result.id);
 					++count;
+#ifdef TEST_MP3
+					close_mp3_file();
+#else
 					writer.close();
+#endif
 					break;
 				case TTS_RES_ERROR:
 					printf("speak %d error: %d\n", result.id, result.err);
 					++count;
+#ifdef TEST_MP3
+					close_mp3_file();
+#else
 					writer.close();
+#endif
 					break;
 				}
 			}
 		});
 
-#ifdef HAS_OPUS_CODEC
+#if !defined(TEST_MP3) && defined(HAS_OPUS_CODEC)
 	rkdecoder.close();
 #endif
 	// wait thread run

@@ -311,6 +311,8 @@ static const char* get_codec_str(Codec codec) {
 		return "opu";
 	case Codec::OPU2:
 		return "opu2";
+	case Codec::MP3:
+		return "mp3";
 	}
 	return NULL;
 }
