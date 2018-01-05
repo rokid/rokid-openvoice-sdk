@@ -470,13 +470,15 @@ void SpeechImpl::req_config(SpeechRequest& req,
 		sopt->set_trigger_start(options->trigger_start);
 		sopt->set_trigger_length(options->trigger_length);
 		sopt->set_skill_options(options->skill_options);
+		sopt->set_voice_extra(options->voice_extra);
 #ifdef SPEECH_SDK_DETAIL_TRACE
 		Log::d(tag__, "VoiceOptions: stack(%s), voice_trigger(%s), "
 				"trigger_start(%u), trigger_length(%u), voice_power(%f), "
-				"skill_options(%s)",
+				"skill_options(%s), voice_extra(%s)",
 				options->stack.c_str(), options->voice_trigger.c_str(),
 				options->trigger_start, options->trigger_length,
-				options->voice_power, options->skill_options.c_str());
+				options->voice_power, options->skill_options.c_str(),
+				options->voice_extra.c_str());
 #endif
 	}
 }
@@ -745,6 +747,7 @@ VoiceOptions& VoiceOptions::operator = (const VoiceOptions& options) {
 	trigger_length = options.trigger_length;
 	voice_power = options.voice_power;
 	skill_options = options.skill_options;
+	voice_extra = options.voice_extra;
 	return *this;
 }
 

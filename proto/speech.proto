@@ -58,6 +58,8 @@ message SpeechOptions {
   //   "media_player_status": "xxx"
   // }
   optional string skill_options = 12;
+
+	optional string voice_extra = 13;
 }
 
 message SpeechRequest {

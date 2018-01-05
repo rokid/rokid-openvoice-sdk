@@ -83,6 +83,7 @@ public:
 	// json string
 	// extra data that will send to skill service
 	std::string skill_options;
+	std::string voice_extra;
 };
 
 class Speech {
