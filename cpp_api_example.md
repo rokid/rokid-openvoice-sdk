@@ -101,7 +101,7 @@ while (true) {
 
 ~ | 名称 | 类型 | 描述
 ---|---|---|---
-接口 | put_voice | | 发送语音数据, 一次speech的语音数据可分多次发送
+接口 | put\_voice | | 发送语音数据, 一次speech的语音数据可分多次发送
 参数 | id | int32 | speech id
 参数 | data | const uint8* | 语音数据
 参数 | length | uint32 | 数据长度
@@ -220,7 +220,7 @@ device\_id | string | 设备id，用于tts服务认证
 
 ~ | 名称 | 类型 | 描述
 ---|---|---|---
-接口 | set\_no\_intermediate_asr | | 设定是否需要服务端给出中间asr结果
+接口 | set\_no\_intermediate\_asr | | 设定是否需要服务端给出中间asr结果
 参数 | v | boolean |
 
 #### <a id="vo"></a>VoiceOptions
@@ -228,10 +228,10 @@ device\_id | string | 设备id，用于tts服务认证
 名称 | 类型 | 描述
 ---|---|---
 stack | String |
-voice_trigger | string | 激活词
-trigger_start | uint32 | 语音数据中激活词的开始位置
-trigger_length | uint32 | 激活词语音数据长度
-skill_options | string |
+voice\_trigger | string | 激活词
+trigger\_start | uint32 | 语音数据中激活词的开始位置
+trigger\_length | uint32 | 激活词语音数据长度
+skill\_options | string |
 
 ### <a id="errcode"></a>错误码
 

@@ -364,7 +364,7 @@ device\_id | String | 设备id，用于tts服务认证
 
 ~ | 名称 | 类型 | 描述
 ---|---|---|---
-接口 | set\_no\_intermediate_asr | | 设定是否需要服务端给出中间asr结果
+接口 | set\_no\_intermediate\_asr | | 设定是否需要服务端给出中间asr结果
 参数 | v | boolean |
 
 #### <a id="vo"></a>VoiceOptions
@@ -372,10 +372,10 @@ device\_id | String | 设备id，用于tts服务认证
 名称 | 类型 | 描述
 ---|---|---
 stack | String |
-voice_trigger | String | 激活词
-trigger_start | int | 语音数据中激活词的开始位置
-trigger_length | int | 激活词语音数据长度
-skill_options | String |
+voice\_trigger | String | 激活词
+trigger\_start | int | 语音数据中激活词的开始位置
+trigger\_length | int | 激活词语音数据长度
+skill\_options | String |
 
 #### <a id="jsonconf"></a>Json格式配置字串
 
@@ -391,10 +391,10 @@ device\_id | 设备名，用于服务登录
 codec | 语音编码格式:<br>speech服务可选项"pcm" "opu"<br>tts服务可选项 "pcm" "opu2"
 speech服务专有配置 | ...
 lang | 语音语言: "zh"或"en"
-vad_mode | 判断语音结束算法部署位置:<br>"cloud" 云端运行算法，准备确率高<br>"local" 本地运行算法
-vend_timeout | 用于判断语音结束的参数，一般不需设置，使用默认值
-no_nlp | true或false: 是否接收nlp/action结果
-no_intermediate_asr | true或false: 是否接收asr中间识别结果
+vad\_mode | 判断语音结束算法部署位置:<br>"cloud" 云端运行算法，准备确率高<br>"local" 本地运行算法
+vend\_timeout | 用于判断语音结束的参数，一般不需设置，使用默认值
+no\_nlp | true或false: 是否接收nlp/action结果
+no\_intermediate\_asr | true或false: 是否接收asr中间识别结果
 tts服务专有配置 | ...
 declaimer | 语音播报员设置<br>目前只有一个播报员，默认名"zh"。未来将扩展多个播报员。
 
