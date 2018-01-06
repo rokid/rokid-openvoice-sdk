@@ -83,7 +83,7 @@ if (NOT (PROTOBUF_FOUND OR Protobuf_FOUND))
 	set(PROTOBUF_PROTOC_EXECUTABLE ${ProtobufPrefix}/bin/protoc)
 endif()
 find_package(OpenSSL REQUIRED)
-find_package(UWS REQUIRED)
+find_package(uWS)
 find_package(Opus)
 
 set(IGNORED_WARNINGS "-Wno-sign-compare -Wno-unused-parameter -Wno-sign-promo -Wno-error=return-type -Wno-error=non-virtual-dtor")

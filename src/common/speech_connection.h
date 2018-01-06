@@ -7,7 +7,7 @@
 #include <thread>
 #include <list>
 #include "speech_types.h"
-#include "Hub.h"
+#include <uWS/Hub.h>
 #include "log.h"
 
 #define CONN_TAG "speech.Connection"
