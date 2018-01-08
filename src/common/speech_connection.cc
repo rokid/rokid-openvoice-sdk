@@ -4,6 +4,11 @@
 #include "speech_connection.h"
 #include "auth.pb.h"
 #include "speech_types.pb.h"
+#if !defined(__ANDROID__)
+#include <netinet/in.h>
+#include <arpa/nameser.h>
+#include <resolv.h>
+#endif
 
 #define RECONN_INTERVAL 20000
 #ifdef SPEECH_STATISTIC
@@ -249,6 +254,9 @@ void SpeechConnection::connect() {
 	string uri = get_server_uri();
 #ifdef SPEECH_SDK_DETAIL_TRACE
 	Log::d(CONN_TAG, "server uri is %s", uri.c_str());
+#endif
+#if !defined(__ANDROID__)
+	res_init();
 #endif
 	hub_.connect(uri);
 }

@@ -148,7 +148,12 @@ target_include_directories(speech PRIVATE
 	${OPENSSL_INCLUDE_DIR}
 	${CMAKE_CURRENT_BINARY_DIR}
 )
-target_link_libraries(speech ${UWS_LIBRARIES} ${PROTOBUF_LIBRARIES} ${OPENSSL_LIBRARIES})
+target_link_libraries(speech
+	${UWS_LIBRARIES}
+	${PROTOBUF_LIBRARIES}
+	${OPENSSL_LIBRARIES}
+	-lresolv
+)
 install(TARGETS speech
 	RUNTIME DESTINATION bin
 	LIBRARY DESTINATION lib
