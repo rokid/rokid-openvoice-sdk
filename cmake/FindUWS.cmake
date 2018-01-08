@@ -36,7 +36,7 @@ endif()
 
 # if installed directory structure, set full include dir
 if(UWS_INSTALLED)
-	set(UWS_INCLUDE_DIRS ${UWS_ROOT_DIR}/include/uWS CACHE PATH "The global include path for uWebsockets")
+	set(UWS_INCLUDE_DIRS ${UWS_ROOT_DIR}/include CACHE PATH "The global include path for uWebsockets")
 endif()
 
 find_library(
