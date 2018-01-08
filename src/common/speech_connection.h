@@ -7,7 +7,11 @@
 #include <thread>
 #include <list>
 #include "speech_types.h"
+#ifdef __ANDROID__
+#include "Hub.h"
+#else
 #include <uWS/Hub.h>
+#endif
 #include "log.h"
 
 #define CONN_TAG "speech.Connection"
