@@ -4,7 +4,7 @@
 #include "speech_connection.h"
 #include "auth.pb.h"
 #include "speech_types.pb.h"
-#if !defined(__ANDROID__)
+#if defined(__GNU_LIBRARY__) || defined(__GLIBC__)
 #include <netinet/in.h>
 #include <arpa/nameser.h>
 #include <resolv.h>
@@ -255,7 +255,13 @@ void SpeechConnection::connect() {
 #ifdef SPEECH_SDK_DETAIL_TRACE
 	Log::d(CONN_TAG, "server uri is %s", uri.c_str());
 #endif
-#if !defined(__ANDROID__)
+// glibc bug: gethostbyname not reread resolv.conf if the file changed
+// glibc 2.26 fix the bug
+#if defined(__GLIBC__)
+	if (__GLIBC__ <= 2 && __GLIBC_MINOR__ <= 26)
+		res_init();
+// old version glibc not defined __GLIBC__, but defined __GNU_LIBRARY__ and __GNU_LIBRARY_MINOR__
+#elif defined(__GNU_LIBRARY__)
 	res_init();
 #endif
 	hub_.connect(uri);
