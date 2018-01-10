@@ -3,8 +3,6 @@
 **sdk依赖模块下载**
 
 ```
-git clone https://github.com/Rokid/rokid-openvoice-sdk-deps-fastjson.git
-
 *** android 6.0 ***
 git clone https://github.com/Rokid/rokid-openvoice-sdk-deps-protobuf -b android23
 *** android 5.0 ***
@@ -12,11 +10,11 @@ git clone https://github.com/Rokid/rokid-openvoice-sdk-deps-protobuf -b android2
 *** android 4.4 ***
 不需要额外下载protobuf模块
 
-git clone https://github.com/Rokid/rokid-openvoice-sdk-deps-poco.git
+git clone https://github.com/Rokid/rokid-openvoice-sdk-deps-uWS.git
 
 将以上模块目录放入android工程任意位置
-如 <android_project>/openvoice/poco
-  <android_project>/openvoice/fastjson
+如 <android_project>/openvoice/uWS
+  <android_project>/openvoice/protobuf
 ```
 
 **sdk编译**
@@ -63,43 +61,41 @@ make
 sudo apt-get install libssl-dev
 ```
 
-* 编译安装poco
+* 编译安装protobuf
 
-[下载链接](https://pocoproject.org/releases/poco-1.7.8/poco-1.7.8p2-all.tar.gz)
+[protobuf源码地址](https://github.com/google/protobuf)
 
-```
-tar xvfz poco-1.7.8p2-all.tar.gz
-cd poco-1.7.8p2-all
-./configure --config=Linux --shared --no-tests --no-samples --omit=CppUnit,CppParser,CodeGeneration,PageCompiler,Remoting,Data/MySQL,Data/ODBC,Zip,XML --prefix=${poco_install_dir}
-make
-make install
-```
+* 编译安装uWebSockets
 
-* 安装protobuf
+[uWebSockets源码地址](https://github.com/uNetworking/uWebSockets)
 
-```
-git clone https://github.com/google/protobuf.git
-cd protobuf
-git checkout v2.6.1
-编辑autogen.sh，删除安装gtest的命令。否则会出错，该url已经不存在了。
-./autogen.sh
-./configure --prefix=${protobuf_install_dir}
-make
-make install
-```
+**sdk编译**
 
-**sdk主体编译**
-
-依赖cmake 2.8以上
+依赖cmake 3.2以上
 
 ```
 git clone https://github.com/Rokid/rokid-openvoice-sdk.git
 cd rokid-openvoice-sdk
-mkdir build
+./config --uws=uWebSockets安装路径
 cd build
-cmake .. -DProtobufPrefix=${protobuf_install_dir} -DPocoPrefix=${poco_install_dir}
 make
 ```
+
+## sdk交叉编译
+
+```
+git clone https://github.com/Rokid/rokid-openvoice-sdk.git
+cd rokid-openvoice-sdk
+./config --toolchain=工具链安装目录 --cross-prefix=工具链编译命令前缀 --cross-root-path=搜索依赖库的根路径 --host-protoc=宿主系统可执行的protoc路径
+cd build
+make
+```
+
+例如使用uclibc交叉编译工具链
+./config --toolchain=/home/username/bin/uclibc --cross-prefix=arm-buildroot-linux-uclibcgnueabihf- --cross-root-path=/home/username/uclibc-out --host-protoc=/usr/local/bin/protoc
+
+注：/home/username/uclibc-out/usr/include下可找到openssl, uWebsockets, protobuf头文件
+/home/username/uclibc-out/usr/lib下可找到openssl, uWebsockets, protobuf库文件
 
 ## SDK接口定义
 

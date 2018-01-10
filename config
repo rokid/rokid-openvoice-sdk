@@ -1,0 +1,66 @@
+#!/bin/bash
+
+function print_prompt
+{
+	cat << CONFEOF
+Usage: $0 [OPTION]... [VAR=VALUE]...
+
+Configuration:
+    --help                      display this help and exit
+
+Dependencies:
+    --uws=DIR                   uWebsockets libs and header files dir
+    --opus=DIR                  opus libs and header files dir
+
+Cross Compile:
+    --toolchain=DIR             toolchain install dir
+    --cross-prefix=PREFIX       compiler name prefix
+    --cross-root-path=DIR       root dir for search dependencies libs
+    --host-protoc=PATHNAME      protoc executable in host os
+CONFEOF
+}
+
+CMAKE_ARGS=
+for conf_opt
+do
+	case $conf_opt in
+		*=?*) conf_optarg=`expr "X$conf_opt" : '[^=]*=\(.*\)'` ;;
+		*) conf_optarg= ;;
+	esac
+
+	case $conf_opt in
+		--help)
+			print_prompt
+			exit 0
+			;;
+		--uws=*)
+			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DUWSPrefix=$conf_optarg)
+			;;
+		--opus=*)
+			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DOpusPrefix=$conf_optarg)
+			;;
+		--toolchain=*)
+			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DTOOLCHAIN_HOME=$conf_optarg)
+			CROSS_COMPILE=yes
+			;;
+		--cross-prefix=*)
+			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DCROSS_PREFIX=$conf_optarg)
+			;;
+		--cross-root-path=*)
+			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DCROSS_ROOT_PATH=$conf_optarg)
+			;;
+		--host-protoc=*)
+			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DHOST_PROTOC=$conf_optarg)
+			;;
+	esac
+done
+
+if [ x$CROSS_COMPILE = x"yes" ]; then
+CUR_DIR=`pwd`
+CMAKE_ARGS=(${CMAKE_ARGS[@]} -DCMAKE_TOOLCHAIN_FILE=$CUR_DIR/cmake/toolchain.cmake)
+fi
+
+mkdir -p build
+cd build
+cmake .. \
+	${CMAKE_ARGS[@]}
