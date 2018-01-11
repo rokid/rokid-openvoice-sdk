@@ -74,7 +74,10 @@ static void test_tts(PrepareOptions& opts) {
 	tts_opts->set_codec(Codec::MP3);
 #elif defined(HAS_OPUS_CODEC)
 	tts_opts->set_codec(Codec::OPU2);
+#else
+	tts_opts->set_codec(Codec::PCM);
 #endif
+	tts_opts->set_samplerate(16000);
 	tts->config(tts_opts);
 	std::thread poll_thread([&tts, &thflag, speakCount]() {
 			int count = 0;
@@ -84,7 +87,7 @@ static void test_tts(PrepareOptions& opts) {
 
 			thflag = true;
 #if !defined(TEST_MP3) && defined(HAS_OPUS_CODEC)
-			rkdecoder.init(24000, 16000, 20);
+			rkdecoder.init(16000, 16000, 20);
 #endif
 			while (count < speakCount) {
 				if (!tts->poll(result))
@@ -96,18 +99,17 @@ static void test_tts(PrepareOptions& opts) {
 					create_mp3_file(result.id);
 #else
 					snprintf(fname, sizeof(fname), AUDIO_FILE_NAME_FORMAT, result.id);
-					writer.create(fname, 24000, 16);
+					writer.create(fname, 16000, 16);
 #endif
 					break;
 				case TTS_RES_VOICE:
-					printf("speak %d voice: %d bytes\n", result.id, result.voice->length());
 					if (result.voice.get()) {
 #if defined(TEST_MP3)
 						mp3_write(*result.voice);
 #elif defined(HAS_OPUS_CODEC)
 						decode_write(*result.voice, writer);
 #else
-						printf("speak %d voice: %d bytes\n", result.id, result.voice->length());
+						printf("speak %d voice: %lu bytes\n", result.id, result.voice->length());
 						writer.write(result.voice->data(), result.voice->length());
 #endif
 					}

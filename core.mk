@@ -5,42 +5,28 @@ LOCAL_MODULE_CLASS := SHARED_LIBRARIES
 LOCAL_MODULE_TAGS := optional
 LOCAL_CPP_EXTENSION := .cc
 
-# protobuf source generate
-SPEECH_PROTO_FILE := \
-	$(LOCAL_PATH)/proto/speech_types.proto \
-	$(LOCAL_PATH)/proto/auth.proto \
-	$(LOCAL_PATH)/proto/tts.proto \
-	$(LOCAL_PATH)/proto/speech.proto
-ifeq ($(PLATFORM_SDK_VERSION), 19)
-PROTOC_OUT_DIR := $(call local-intermediates-dir)/gen
-else
-PROTOC_OUT_DIR := $(call local-generated-sources-dir)
-endif
 PROTOC_GEN_SRC := \
-	speech_types.pb.cc \
-	auth.pb.cc \
-	tts.pb.cc \
-	speech.pb.cc
-PROTOC_GEN_SRC_L := $(addprefix $(PROTOC_OUT_DIR)/, $(PROTOC_GEN_SRC))
-protoc_stamp := $(PROTOC_OUT_DIR)/stamp
-$(protoc_stamp): PRIVATE_CUSTOM_TOOL := $(PROTOC) -I$(LOCAL_PATH)/proto --cpp_out=$(PROTOC_OUT_DIR) $(SPEECH_PROTO_FILE) && touch $(protoc_stamp)
-$(protoc_stamp): $(SPEECH_PROTO_FILE) $(PROTOC)
-	$(transform-generated-source)
-LOCAL_GENERATED_SOURCES := $(PROTOC_GEN_SRC_L)
+	nanopb-gen/speech_types.pb.c \
+	nanopb-gen/auth.pb.c \
+	nanopb-gen/tts.pb.c \
+	nanopb-gen/speech.pb.c
 
 LOCAL_C_INCLUDES := \
-	$(PROTOC_OUT_DIR) \
 	$(LOCAL_PATH)/include \
 	$(LOCAL_PATH)/src/common \
+	$(LOCAL_PATH)/nanopb \
+	$(LOCAL_PATH)/nanopb-gen \
 	external/zlib
-
-$(PROTOC_GEN_SRC_L): $(protoc_stamp)
 
 COMMON_SRC := \
 	src/common/log.cc \
 	src/common/log.h \
 	src/common/speech_connection.cc \
-	src/common/speech_connection.h
+	src/common/speech_connection.h \
+	src/common/nanopb_encoder.cc \
+	src/common/nanopb_encoder.h \
+	src/common/nanopb_decoder.cc \
+	src/common/nanopb_decoder.h
 
 TTS_SRC := \
 	src/tts/tts_impl.cc \
@@ -52,10 +38,17 @@ SPEECH_SRC := \
 	src/speech/speech_impl.h \
 	src/speech/types.h
 
+NANOPB_SRC := \
+	nanopb/pb_common.c \
+	nanopb/pb_decode.c \
+	nanopb/pb_encode.c
+
 LOCAL_SRC_FILES := \
 	$(COMMON_SRC) \
 	$(TTS_SRC) \
-	$(SPEECH_SRC)
+	$(SPEECH_SRC) \
+	$(PROTOC_GEN_SRC) \
+	$(NANOPB_SRC)
 
 LOCAL_CFLAGS := $(COMMON_CFLAGS) \
 	-std=c++11 -frtti -fexceptions
@@ -63,18 +56,14 @@ LOCAL_SHARED_LIBRARIES := liblog libuWS libcrypto libz
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/include
 
 ifeq ($(PLATFORM_SDK_VERSION), 23)
-LOCAL_SHARED_LIBRARIES += libprotobuf-rokid-cpp-full
 LOCAL_CXX_STL := libc++
 else ifeq ($(PLATFORM_SDK_VERSION), 22)
-LOCAL_SHARED_LIBRARIES += libc++ libdl libprotobuf-rokid-cpp-full
+LOCAL_SHARED_LIBRARIES += libc++ libdl
 LOCAL_C_INCLUDES += external/libcxx/include
-LOCAL_CPPFLAGS := -DLOW_PB_VERSION
 else
-LOCAL_STATIC_LIBRARIES := libprotobuf-cpp-2.3.0-full-gnustl-rtti
 LOCAL_SDK_VERSION := 14
 LOCAL_NDK_STL_VARIANT := gnustl_static
-LOCAL_CPPFLAGS := -D__STDC_FORMAT_MACROS -DLOW_PB_VERSION
-LOCAL_C_INCLUDES += external/protobuf/src
+LOCAL_CPPFLAGS := -D__STDC_FORMAT_MACROS
 endif
 
 include $(BUILD_SHARED_LIBRARY)
@@ -116,9 +105,8 @@ LOCAL_C_INCLUDES := \
 	$(PROTOC_OUT_DIR) \
 	$(LOCAL_PATH)/include \
 	$(LOCAL_PATH)/src/common \
-	external/protobuf/src \
 	external/boringssl/include
-LOCAL_SHARED_LIBRARIES := libpoco libspeech
+LOCAL_SHARED_LIBRARIES := libspeech
 LOCAL_CPPFLAGS := $(COMMON_CFLAGS) \
 	-std=c++11
 ifeq ($(PLATFORM_SDK_VERSION), 23)

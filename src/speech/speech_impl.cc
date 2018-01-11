@@ -8,10 +8,6 @@ using std::mutex;
 using std::lock_guard;
 using std::make_shared;
 using std::chrono::system_clock;
-using rokid::open::speech::v2::SpeechRequest;
-using rokid::open::speech::v2::SpeechResponse;
-using rokid::open::speech::v1::ReqType;
-using rokid::open::speech::v1::SpeechErrorCode;
 
 namespace rokid {
 namespace speech {
@@ -456,10 +452,10 @@ bool SpeechImpl::do_ctl_change_op(shared_ptr<SpeechReqInfo>& req) {
 
 void SpeechImpl::req_config(SpeechRequest& req,
 		const shared_ptr<VoiceOptions>& options) {
-	rokid::open::speech::v2::SpeechOptions* sopt = req.mutable_options();
-	sopt->set_lang(static_cast<rokid::open::speech::v2::Lang>(options_.lang));
-	sopt->set_codec(static_cast<rokid::open::speech::v1::Codec>(options_.codec));
-	sopt->set_vad_mode(static_cast<rokid::open::speech::v2::VadMode>(options_.vad_mode));
+	SpeechOptionsEnc* sopt = req.mutable_options();
+	sopt->set_lang(static_cast<rokid_open_speech_v2_Lang>(options_.lang));
+	sopt->set_codec(static_cast<rokid_open_speech_v1_Codec>(options_.codec));
+	sopt->set_vad_mode(static_cast<rokid_open_speech_v2_VadMode>(options_.vad_mode));
 	sopt->set_vend_timeout(options_.vend_timeout);
 	sopt->set_no_nlp(options_.no_nlp);
 	sopt->set_no_intermediate_asr(options_.no_intermediate_asr);
@@ -489,7 +485,7 @@ int32_t SpeechImpl::do_request(shared_ptr<SpeechReqInfo>& req) {
 	switch (req->type) {
 		case SpeechReqType::TEXT: {
 			treq.set_id(req->id);
-			treq.set_type(ReqType::TEXT);
+			treq.set_type(rokid_open_speech_v1_ReqType_TEXT);
 			treq.set_asr(*req->data);
 			req_config(treq, req->options);
 			rv = 0;
@@ -507,7 +503,7 @@ int32_t SpeechImpl::do_request(shared_ptr<SpeechReqInfo>& req) {
 		}
 		case SpeechReqType::VOICE_START: {
 			treq.set_id(req->id);
-			treq.set_type(ReqType::START);
+			treq.set_type(rokid_open_speech_v1_ReqType_START);
 			req_config(treq, req->options);
 
 #ifdef SPEECH_STATISTIC
@@ -523,7 +519,7 @@ int32_t SpeechImpl::do_request(shared_ptr<SpeechReqInfo>& req) {
 		}
 		case SpeechReqType::VOICE_END:
 			treq.set_id(req->id);
-			treq.set_type(ReqType::END);
+			treq.set_type(rokid_open_speech_v1_ReqType_END);
 			rv = 0;
 #ifdef SPEECH_SDK_DETAIL_TRACE
 			Log::d(tag__, "SpeechImpl.do_request (%d) send voice end",
@@ -532,7 +528,7 @@ int32_t SpeechImpl::do_request(shared_ptr<SpeechReqInfo>& req) {
 			break;
 		case SpeechReqType::CANCELLED:
 			treq.set_id(req->id);
-			treq.set_type(ReqType::END);
+			treq.set_type(rokid_open_speech_v1_ReqType_END);
 #ifdef SPEECH_SDK_DETAIL_TRACE
 			Log::d(tag__, "SpeechImpl.do_request (%d) send voice end"
 					" because req cancelled", req->id);
@@ -543,7 +539,7 @@ int32_t SpeechImpl::do_request(shared_ptr<SpeechReqInfo>& req) {
 			break;
 		case SpeechReqType::VOICE_DATA:
 			treq.set_id(req->id);
-			treq.set_type(ReqType::VOICE);
+			treq.set_type(rokid_open_speech_v1_ReqType_VOICE);
 			treq.set_voice(*req->data);
 #ifdef SPEECH_SDK_DETAIL_TRACE
 			Log::d(tag__, "SpeechImpl.do_request (%d) send voice data",
@@ -680,20 +676,20 @@ void SpeechImpl::gen_result_by_resp(SpeechResponse& resp) {
 		}
 		resin = make_shared<SpeechResultIn>();
 		switch (resp.type()) {
-		case rokid::open::speech::v2::INTERMEDIATE:
+		case rokid_open_speech_v2_RespType_INTERMEDIATE:
 			resin->asr = resp.asr();
 			resin->asr_finish = false;
 			responses_.stream(resp.id(), resin);
 			new_data = true;
 			break;
-		case rokid::open::speech::v2::ASR_FINISH:
+		case rokid_open_speech_v2_RespType_ASR_FINISH:
 			resin->asr = resp.asr();
 			resin->asr_finish = true;
 			responses_.stream(resp.id(), resin);
 			new_data = true;
 			break;
-		case rokid::open::speech::v2::FINISH:
-			if (resp.result() == SpeechErrorCode::SUCCESS) {
+		case rokid_open_speech_v2_RespType_FINISH:
+			if (resp.result() == rokid_open_speech_v1_SpeechErrorCode_SUCCESS) {
 				resin->nlp = resp.nlp();
 				resin->action = resp.action();
 				resin->asr_finish = false;

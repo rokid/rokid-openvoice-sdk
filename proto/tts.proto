@@ -2,19 +2,20 @@ syntax = "proto2";
 
 package rokid.open.speech.v1;
 
-import "speech_types.proto";
+import public "speech_types.proto";
 
 message TtsRequest {
-  required int32 id = 1;
-  required string text = 2;
-  optional string declaimer = 3;
-  optional string codec = 4;
+  required int32 id           = 1;
+  required string text        = 2;
+  optional string declaimer   = 3;
+  optional string codec       = 4;
+  optional uint32 sample_rate = 5;
 }
 
 message TtsResponse {
-  required int32 id = 1;
+  required int32 id               = 1;
   required SpeechErrorCode result = 2;
-  optional string text = 3;
-  optional bytes voice = 4;
-  optional bool finish = 5;
+  optional string text            = 3;
+  optional bytes voice            = 4;
+  optional bool finish            = 5;
 }

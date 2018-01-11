@@ -8,10 +8,11 @@
 #include <thread>
 #include "speech.h"
 #include "types.h"
-#include "speech.pb.h"
 #include "op_ctl.h"
 #include "pending_queue.h"
 #include "speech_connection.h"
+#include "nanopb_encoder.h"
+#include "nanopb_decoder.h"
 
 namespace rokid {
 namespace speech {
@@ -62,7 +63,7 @@ private:
 
 	void gen_results();
 
-	void gen_result_by_resp(rokid::open::speech::v2::SpeechResponse& resp);
+	void gen_result_by_resp(SpeechResponse& resp);
 
 	bool gen_result_by_status();
 
@@ -70,7 +71,7 @@ private:
 
 	bool do_ctl_change_op(std::shared_ptr<SpeechReqInfo>& req);
 
-	void req_config(rokid::open::speech::v2::SpeechRequest& req,
+	void req_config(SpeechRequest& req,
 			const std::shared_ptr<VoiceOptions>& options);
 
 	void erase_req(int32_t id);

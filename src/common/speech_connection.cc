@@ -2,8 +2,8 @@
 #include <sys/time.h>
 #include "openssl/md5.h"
 #include "speech_connection.h"
-#include "auth.pb.h"
-#include "speech_types.pb.h"
+#include "nanopb_encoder.h"
+#include "nanopb_decoder.h"
 #if defined(__GNU_LIBRARY__) || defined(__GLIBC__)
 #include <netinet/in.h>
 #include <arpa/nameser.h>
@@ -32,9 +32,6 @@ using std::chrono::duration_cast;
 using uWS::Hub;
 using uWS::WebSocket;
 using uWS::OpCode;
-using rokid::open::speech::AuthRequest;
-using rokid::open::speech::AuthResponse;
-using rokid::open::speech::v1::PingPayload;
 
 namespace rokid {
 namespace speech {
@@ -338,7 +335,6 @@ void SpeechConnection::onPong(uWS::WebSocket<uWS::CLIENT> *ws,
 
 bool SpeechConnection::auth(WebSocket<uWS::CLIENT> *ws) {
 	AuthRequest req;
-	AuthResponse resp;
 	const char* svc = service_type_.c_str();
 	string ts = timestamp();
 	if (options_.key.empty()

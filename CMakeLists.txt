@@ -5,6 +5,7 @@ set(VERSION 0.1)
 option(BUILD_DEMO "Build demo" OFF)
 option(TEST_MP3 "test tts mp3 codec" OFF)
 option(BUILD_DEBUG "debug or release" OFF)
+option(SPEECH_STATISTIC "speech statistic" ON)
 
 # Configuration fails on < 3.9 if only C++ is enabled (TestBigEndian macro)
 if(NOT CMAKE_VERSION VERSION_LESS 3.9.0)
@@ -76,22 +77,13 @@ if(NOT CMAKE_INSTALL_RPATH AND CMAKE_INSTALL_PREFIX)
 	message(STATUS "Setting install rpath to ${CMAKE_INSTALL_RPATH}")
 endif()
 
-find_package(Protobuf REQUIRED)
-if (NOT (PROTOBUF_FOUND OR Protobuf_FOUND))
-	set(PROTOBUF_INCLUDE_DIRS ${ProtobufPrefix}/include)
-	set(PROTOBUF_LIBRARIES -L${ProtobufPrefix}/lib -lprotobuf -Wl,-rpath,${ProtobufPrefix}/lib)
-	set(PROTOBUF_PROTOC_EXECUTABLE ${ProtobufPrefix}/bin/protoc)
-endif()
-if (HOST_PROTOC)
-	set(PROTOBUF_PROTOC_EXECUTABLE ${HOST_PROTOC})
-endif()
 find_package(OpenSSL REQUIRED)
 find_package(UWS)
 find_package(Opus)
 
 set(IGNORED_WARNINGS "-Wno-sign-compare -Wno-unused-parameter -Wno-sign-promo -Wno-error=return-type -Wno-error=non-virtual-dtor")
 
-set(COMMON_CFLAGS "-DSPEECH_SDK_DETAIL_TRACE -DSPEECH_STATISTIC -std=c++11 -pthread -fPIC -frtti -fexceptions")
+set(COMMON_CFLAGS "-DSPEECH_SDK_DETAIL_TRACE -std=c++11 -pthread -fPIC -frtti -fexceptions")
 
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${IGNORED_WARNINGS} ${COMMON_CFLAGS}")
 if (CROSS_COMPILE_CXXFLAGS)
@@ -102,18 +94,11 @@ if (BUILD_DEBUG)
 else()
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
 endif()
+if (SPEECH_STATISTIC)
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSPEECH_STATISTIC")
+endif()
 # workaround for g++ threading bug
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wl,--no-as-needed")
-
-#
-# Build gennerated protobuf cpp files.
-#
-PROTOBUF_GENERATE_CPP(PROTO_SRCS PROTO_HDRS
-	proto/speech_types.proto
-	proto/auth.proto
-	proto/tts.proto
-	proto/speech.proto
-)
 
 # install include files.
 set(HEADER_FILES
@@ -146,17 +131,37 @@ file (GLOB_RECURSE TTS_SOURCES
 	src/tts/*.cc
 )
 set (COMMON_INCLUDE_DIRS include src/common)
-add_library(speech SHARED ${COMMON_SOURCES} ${SPEECH_SOURCES} ${TTS_SOURCES} ${PROTO_SRCS})
+set (PROTO_SRCS
+	nanopb-gen/auth.pb.c
+	nanopb-gen/speech.pb.c
+	nanopb-gen/tts.pb.c
+	nanopb-gen/speech_types.pb.c
+)
+set (NANOPB_SRCS
+	nanopb/pb_common.c
+	nanopb/pb_decode.c
+	nanopb/pb_encode.c
+)
+set (NANOPB_INCLUDE_DIRS
+	nanopb-gen
+	nanopb
+)
+add_library(speech SHARED
+	${COMMON_SOURCES}
+	${SPEECH_SOURCES}
+	${TTS_SOURCES}
+	${PROTO_SRCS}
+	${NANOPB_SRCS}
+)
 target_include_directories(speech PRIVATE
 	${COMMON_INCLUDE_DIRS}
-	${PROTOBUF_INCLUDE_DIRS}
 	${UWS_INCLUDE_DIRS}
 	${OPENSSL_INCLUDE_DIR}
+	${NANOPB_INCLUDE_DIRS}
 	${CMAKE_CURRENT_BINARY_DIR}
 )
 target_link_libraries(speech
 	${UWS_LIBRARIES}
-	${PROTOBUF_LIBRARIES}
 	${OPENSSL_LIBRARIES}
 	-lresolv
 )
@@ -189,23 +194,20 @@ endif()
 #
 # file(GLOB_RECURSE DEMO_SOURCES demo/*.h demo/*.cc)
 if (BUILD_DEMO)
-	set(DEMO_SOURCES 
+	set(DEMO_SOURCES
 		demo/demo.cc
 		demo/simple_wave.cc
 		demo/simple_wave.h
 	)
-	list(APPEND DEMO_SOURCES ${PROTO_SRCS})
 	add_executable(demo ${DEMO_SOURCES})
 	target_include_directories(demo PRIVATE
 		${COMMON_INCLUDE_DIRS}
-		${PROTOBUF_INCLUDE_DIRS}
 		${UWS_INCLUDE_DIRS}
 		${OPENSSL_INCLUDE_DIR}
 		${CMAKE_CURRENT_BINARY_DIR}
 	)
 	target_link_libraries(demo
 		${UWS_LIBRARIES}
-		${PROTOBUF_LIBRARIES}
 		${OPENSSL_LIBRARIES}
 		${Opus_LIBRARIES}
 		-lz
@@ -220,3 +222,15 @@ if (BUILD_DEMO)
 		target_compile_definitions(demo PRIVATE "TEST_MP3")
 	endif()
 endif()
+
+add_executable(nanopb-demo
+	${PROTO_SRCS}
+	${NANOPB_SRCS}
+	demo/nanopb_demo.cc
+	src/common/nanopb_encoder.cc
+)
+target_include_directories(nanopb-demo PRIVATE
+	nanopb
+	nanopb-gen
+	src/common
+)

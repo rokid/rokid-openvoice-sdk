@@ -1,5 +1,6 @@
 #include <chrono>
 #include "tts_impl.h"
+#include "nanopb_encoder.h"
 
 #define WS_SEND_TIMEOUT 10000
 
@@ -15,11 +16,10 @@ using std::unique_lock;
 using std::lock_guard;
 using std::list;
 using std::chrono::system_clock;
-using rokid::open::speech::v1::TtsRequest;
-using rokid::open::speech::v1::TtsResponse;
 
 static const uint32_t MODIFY_CODEC = 1;
 static const uint32_t MODIFY_DECLAIMER = 2;
+static const uint32_t MODIFY_SAMPLERATE = 4;
 
 class TtsOptionsModifier : public TtsOptionsHolder, public TtsOptions {
 public:
@@ -43,6 +43,13 @@ public:
 			options.codec = codec;
 		if (_mask & MODIFY_DECLAIMER)
 			options.declaimer = declaimer;
+		if (_mask & MODIFY_SAMPLERATE)
+			options.samplerate = samplerate;
+	}
+
+	void set_samplerate(uint32_t samplerate) {
+		this->samplerate = samplerate;
+		_mask |= MODIFY_SAMPLERATE;
 	}
 
 private:
@@ -319,14 +326,16 @@ static const char* get_codec_str(Codec codec) {
 
 bool TtsImpl::do_request(shared_ptr<TtsReqInfo>& req) {
 #ifdef SPEECH_SDK_DETAIL_TRACE
-	Log::d(tag__, "do_request: send req to server. (%d:%s), codec(%s), declaimer(%s)",
-			req->id, req->data.c_str(), get_codec_str(options_.codec), options_.declaimer.c_str());
+	Log::d(tag__, "do_request: send req to server. (%d:%s), codec(%s), declaimer(%s), samplerate(%u)",
+			req->id, req->data.c_str(), get_codec_str(options_.codec),
+			options_.declaimer.c_str(), options_.samplerate);
 #endif
 	TtsRequest treq;
 	treq.set_id(req->id);
 	treq.set_text(req->data.c_str());
 	treq.set_declaimer(options_.declaimer);
 	treq.set_codec(get_codec_str(options_.codec));
+	treq.set_sample_rate(options_.samplerate);
 #ifdef SPEECH_STATISTIC
 	cur_trace_info_.id = req->id;
 	cur_trace_info_.req_tp = system_clock::now();
@@ -477,7 +486,7 @@ shared_ptr<Tts> Tts::new_instance() {
 	return make_shared<TtsImpl>();
 }
 
-TtsOptionsHolder::TtsOptionsHolder() : codec(Codec::PCM), declaimer("zh") {
+TtsOptionsHolder::TtsOptionsHolder() : codec(Codec::PCM), declaimer("zh"), samplerate(24000) {
 }
 
 shared_ptr<TtsOptions> TtsOptions::new_instance() {

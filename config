@@ -7,6 +7,9 @@ Usage: $0 [OPTION]... [VAR=VALUE]...
 
 Configuration:
     --help                      display this help and exit
+    --debug                     build for debug
+    --build-demo                build demo program
+    --disable-statistic         disable speech statistic feature
 
 Dependencies:
     --uws=DIR                   uWebsockets libs and header files dir
@@ -16,7 +19,6 @@ Cross Compile:
     --toolchain=DIR             toolchain install dir
     --cross-prefix=PREFIX       compiler name prefix
     --cross-root-path=DIR       root dir for search dependencies libs
-    --host-protoc=PATHNAME      protoc executable in host os
 CONFEOF
 }
 
@@ -33,6 +35,15 @@ do
 			print_prompt
 			exit 0
 			;;
+		--debug)
+			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DBUILD_DEBUG=ON)
+			;;
+		--build-demo)
+			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DBUILD_DEMO=ON)
+			;;
+		--disable-statistic)
+			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DSPEECH_STATISTIC=OFF)
+			;;
 		--uws=*)
 			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DUWSPrefix=$conf_optarg)
 			;;
@@ -48,9 +59,6 @@ do
 			;;
 		--cross-root-path=*)
 			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DCROSS_ROOT_PATH=$conf_optarg)
-			;;
-		--host-protoc=*)
-			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DHOST_PROTOC=$conf_optarg)
 			;;
 	esac
 done

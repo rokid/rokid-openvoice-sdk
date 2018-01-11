@@ -53,6 +53,8 @@ public:
 	// default declaimer "zh"
 	virtual void set_declaimer(const std::string& declaimer) = 0;
 
+	virtual void set_samplerate(uint32_t samplerate) = 0;
+
 	static std::shared_ptr<TtsOptions> new_instance();
 };
 
