@@ -172,6 +172,10 @@ private:
 
 #ifdef SPEECH_STATISTIC
 	bool send_trace_info();
+
+	void ping(std::string* payload = NULL);
+#else
+	void ping();
 #endif
 
 private:
@@ -190,7 +194,7 @@ private:
 	PrepareOptions options_;
 	std::string service_type_;
 	std::chrono::steady_clock::time_point reconn_timepoint_;
-	std::chrono::steady_clock::time_point lastest_send_tp_;
+	std::chrono::steady_clock::time_point lastest_ping_tp_;
 	std::chrono::steady_clock::time_point lastest_recv_tp_;
 	ConnectStage stage_;
 #ifdef SPEECH_STATISTIC

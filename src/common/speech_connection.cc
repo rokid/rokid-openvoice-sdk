@@ -101,6 +101,28 @@ void SpeechConnection::add_trace_info(const TraceInfo& info) {
 
 	reconn_cond_.notify_one();
 }
+
+void SpeechConnection::ping(string* payload) {
+	const char* data = NULL;
+	size_t len = 0;
+	if (payload) {
+		data = payload->data();
+		len = payload->length();
+	}
+#ifdef SPEECH_SDK_DETAIL_TRACE
+	Log::d(CONN_TAG, "send ping frame, payload %lu bytes", len);
+#endif
+	ws_send(data, len, OpCode::PING);
+	lastest_ping_tp_ = steady_clock::now();
+}
+#else
+void SpeechConnection::ping() {
+#ifdef SPEECH_SDK_DETAIL_TRACE
+	Log::d(CONN_TAG, "send ping frame");
+#endif
+	ws_send(NULL, 0, OpCode::PING);
+	lastest_ping_tp_ = steady_clock::now();
+}
 #endif
 
 void SpeechConnection::run() {
@@ -165,18 +187,15 @@ void SpeechConnection::keepalive_run() {
 #ifdef SPEECH_STATISTIC
 			has_trace_info = send_trace_info();
 #endif
-			if (now - lastest_send_tp_ >= ping_interval_) {
-#ifdef SPEECH_SDK_DETAIL_TRACE
-				Log::d(CONN_TAG, "send ping frame");
-#endif
-				ws_send(NULL, 0, OpCode::PING);
+			if (now - lastest_ping_tp_ >= ping_interval_) {
+				ping();
 			}
 			if (now - lastest_recv_tp_ >= no_resp_timeout_) {
 				Log::w(CONN_TAG, "server may no response, try reconnect");
 				lastest_recv_tp_ = steady_clock::now();
 				ws_->close();
 			}
-			auto d1 = ping_interval_ - (now - lastest_send_tp_);
+			auto d1 = ping_interval_ - (now - lastest_ping_tp_);
 			auto d2 = no_resp_timeout_ - (now - lastest_recv_tp_);
 			timeout = duration_cast<milliseconds>(d1 < d2 ? d1 : d2);
 			if (timeout.count() < 0)
@@ -220,7 +239,7 @@ bool SpeechConnection::send_trace_info() {
 #ifdef SPEECH_SDK_DETAIL_TRACE
 		Log::d(CONN_TAG, "send trace info, id = %d", info.id);
 #endif
-		ws_send(buf.data(), buf.length(), OpCode::PING);
+		ping(&buf);
 		return true;
 	} else
 		req_mutex_.unlock();
@@ -476,10 +495,8 @@ void SpeechConnection::push_resp_data(char* msg, size_t length) {
 }
 
 void SpeechConnection::ws_send(const char* msg, size_t length, uWS::OpCode op) {
-	if (ws_) {
+	if (ws_)
 		ws_->send(msg, length, op);
-		lastest_send_tp_ = steady_clock::now();
-	}
 }
 
 PrepareOptions::PrepareOptions() {

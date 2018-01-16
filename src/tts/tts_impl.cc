@@ -356,7 +356,7 @@ bool TtsImpl::do_request(shared_ptr<TtsReqInfo>& req) {
 	Log::d(tag__, "req (%d) sent, req done", req->id);
 #endif
 	lock_guard<mutex> locker(resp_mutex_);
-	controller_.refresh_op_time();
+	controller_.refresh_op_time(false);
 	return true;
 }
 
@@ -379,7 +379,7 @@ void TtsImpl::gen_results() {
 			break;
 		locker.lock();
 		if (r == ConnectionOpResult::SUCCESS) {
-			controller_.refresh_op_time();
+			controller_.refresh_op_time(true);
 			gen_result_by_resp(resp);
 		} else if (r == ConnectionOpResult::TIMEOUT) {
 			if (controller_.op_timeout() == 0) {
