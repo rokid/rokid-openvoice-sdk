@@ -54,8 +54,8 @@ popts.device_id = "SmartDonkey";
 tts->prepare(popts);
 
 // 在prepare后任意时刻，都可以调用config修改配置
-// 默认配置codec = PCM, declaimer = ZH
-// 下面的代码将codec修改为OPU2，declaimer保持原状不变
+// 默认配置codec = PCM, declaimer = ZH, samplerate = 24000
+// 下面的代码将codec修改为OPU2，declaimer、samplerate保持原状不变
 shared_ptr<TtsOptions> topts = TtsOptions::new_instance();
 topts->set_codec(Codec::OPU2);
 tts->config(topts);
@@ -187,12 +187,17 @@ device\_id | string | 设备id，用于tts服务认证
 ~ | 名称 | 类型 | 描述
 ---|---|---|---
 接口 | set\_codec | | 设定编码格式，默认PCM
-参数 | codec | enum Codec | 限定值PCM, OPU2
+参数 | codec | enum Codec | 限定值PCM, OPU2, MP3
 
 ~ | 名称 | 类型 | 描述
 ---|---|---|---
 接口 | set\_declaimer | | 设定语音朗读者，默认"zh"
 参数 | declaimer | string | 限定值"zh"
+
+~ | 名称 | 类型 | 描述
+---|---|---|---
+接口 | set\_samplerate | | 设定语音采样率，默认24000
+参数 | samplerate | uint32 |
 
 #### <a id="so"></a>SpeechOptions
 

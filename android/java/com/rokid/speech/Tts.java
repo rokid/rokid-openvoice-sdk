@@ -113,6 +113,8 @@ public class Tts extends GenericConfig {
 		v = json_obj.optString("declaimer", null);
 		if (v != null)
 			opt.set_declaimer(v);
+		int i = json_obj.optInt("samplerate", 24000);
+		opt.set_samplerate(i);
 		_sdk_config(_sdk_tts, opt);
 	}
 

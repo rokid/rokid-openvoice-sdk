@@ -191,10 +191,21 @@ public class Speech extends GenericConfig {
 	}
 
 	public static class VoiceOptions {
+		// 当前应用栈，只记录当前应用与上一应用
 		public String stack;
+		// 当前语音包含的激活词
 		public String voice_trigger;
+		// 当前语音包含的激活词开始点
 		public int trigger_start;
+		// 当前语音包含的激活词数据长度
 		public int trigger_length;
+		// 给skill传的额外参数，json格式
+		//   媒体播放状态
+		//   当前音乐的播放进度
+		//   其它
 		public String skill_options;
+		// 当前语音的额外参数
+		//   噪声阈值
+		public String voice_extra;
 	}
 }

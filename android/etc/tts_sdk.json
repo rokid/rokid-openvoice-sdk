@@ -7,5 +7,6 @@
 	'secret': 'your_secret',
 	'device_id': 'your_device_id',
 	'codec': 'pcm',
-	'declaimer': 'zh'
+	'declaimer': 'zh',
+	'samplerate': 24000
 }

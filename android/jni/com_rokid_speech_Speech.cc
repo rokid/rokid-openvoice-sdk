@@ -32,6 +32,7 @@ enum VoiceOptionsFieldAlias {
 	OPTS_TRIGGER_START,
 	OPTS_TRIGGER_LENGTH,
 	OPTS_SKILL_OPTIONS,
+	OPTS_VOICE_EXTRA,
 
 	OPTS_FIELD_NUM
 };
@@ -158,6 +159,8 @@ static void com_rokid_speech_Speech__sdk_init(JNIEnv *env,
 			options_cls, "trigger_length", "I");
 	constants_.voice_options_fields[OPTS_SKILL_OPTIONS] = env->GetFieldID(
 			options_cls, "skill_options", "Ljava/lang/String;");
+	constants_.voice_options_fields[OPTS_VOICE_EXTRA] = env->GetFieldID(
+			options_cls, "voice_extra", "Ljava/lang/String;");
 	constants_.voice_options_class = (jclass)env->NewGlobalRef(options_cls);
 }
 
@@ -226,6 +229,14 @@ static void jobj_to_voice_options(JNIEnv* env, jobject obj, VoiceOptions& opts) 
 		opts.skill_options = str;
 		env->ReleaseStringUTFChars(sv, str);
 	}
+
+	sv = (jstring)env->GetObjectField(obj, constants_.voice_options_fields[OPTS_VOICE_EXTRA]);
+	if (sv != NULL) {
+		str = env->GetStringUTFChars(sv, NULL);
+		opts.voice_extra = str;
+		env->ReleaseStringUTFChars(sv, str);
+	}
+
 }
 
 static jint com_rokid_speech_Speech__sdk_put_text(JNIEnv *env, jobject thiz, jlong speechl, jstring str, jobject opts) {

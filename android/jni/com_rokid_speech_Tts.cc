@@ -198,6 +198,8 @@ static void com_rokid_speech_TtsOptions_native_set_codec(JNIEnv *env, jobject th
 	Codec codec;
 	if (strcmp(sv, "opu2") == 0)
 		codec = Codec::OPU2;
+	else if (strcmp(sv, "mp3") == 0)
+		codec = Codec::MP3;
 	else
 		codec = Codec::PCM;
 	native_info->opts->set_codec(codec);
@@ -208,6 +210,11 @@ static void com_rokid_speech_TtsOptions_native_set_declaimer(JNIEnv *env, jobjec
 	TtsOptionsNativeInfo* native_info = reinterpret_cast<TtsOptionsNativeInfo*>(opt);
 	// only support declaimer "zh" now
 	native_info->opts->set_declaimer("zh");
+}
+
+static void com_rokid_speech_TtsOptions_native_set_samplerate(JNIEnv *env, jobject thiz, jlong opt, jint v) {
+	TtsOptionsNativeInfo* native_info = reinterpret_cast<TtsOptionsNativeInfo*>(opt);
+	native_info->opts->set_samplerate(v);
 }
 
 static JNINativeMethod _tts_nmethods[] = {
@@ -236,6 +243,7 @@ static JNINativeMethod _tts_opt_nmethods[] = {
 	{ "native_release", "(J)V", (void*)com_rokid_speech_TtsOptions_native_release },
 	{ "native_set_codec", "(JLjava/lang/String;)V", (void*)com_rokid_speech_TtsOptions_native_set_codec },
 	{ "native_set_declaimer", "(JLjava/lang/String;)V", (void*)com_rokid_speech_TtsOptions_native_set_declaimer },
+	{ "native_set_samplerate", "(JI)V", (void*)com_rokid_speech_TtsOptions_native_set_samplerate },
 };
 
 int register_com_rokid_speech_TtsOptions(JNIEnv* env) {

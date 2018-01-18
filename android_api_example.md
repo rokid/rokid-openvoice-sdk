@@ -76,7 +76,7 @@
 ---|---|---|---
 接口 | onVoice| | 语音数据流
 参数 | id | int |
-参数 | data | byte[] | 语音数据，根据[TtsOptions](#to)决定编码格式(PCM或OPU2)
+参数 | data | byte[] | 语音数据，根据[TtsOptions](#to)决定编码格式
 返回值 | 无 | |
 
 ~ | 名称 | 类型 | 描述
@@ -127,8 +127,8 @@ popts.device_id = "SmartDonkey";
 tts.prepare(popts);
 
 // 在prepare后任意时刻，都可以调用config修改配置
-// 默认配置codec = "pcm", declaimer = "zh"
-// 下面的代码将codec修改为"opu2"，declaimer保存原状不变
+// 默认配置codec = "pcm", declaimer = "zh", samplerate = 24000
+// 下面的代码将codec修改为"opu2"，declaimer、samplerate保持原状不变
 TtsOptions topts = new TtsOptions();
 topts.set_codec("opu2");
 tts.config(topts);
@@ -155,8 +155,8 @@ Tts tts = new Tts();
 tts.prepare("/system/etc/tts_sdk.json");
 
 // 在prepare后任意时刻，都可以调用config修改配置
-// 默认配置codec = "pcm", declaimer = "zh"
-// 下面的代码将codec修改为"opu2"，declaimer保持原状不变
+// 默认配置codec = "pcm", declaimer = "zh", samplerate = 24000
+// 下面的代码将codec修改为"opu2"，declaimer、samplerate保持原状不变
 TtsOptions topts = new TtsOptions();
 topts.set_codec("opu2");
 tts.config(topts);
@@ -176,8 +176,8 @@ opts.device_id = sn;
 tts.prepare(opts);
 
 // 在prepare后任意时刻，都可以调用config修改配置
-// 默认配置codec = "pcm", declaimer = "zh"
-// 下面的代码将codec修改为"opu2"，declaimer保持原状不变
+// 默认配置codec = "pcm", declaimer = "zh", samplerate = 24000
+// 下面的代码将codec修改为"opu2"，declaimer、samplerate保持原状不变
 TtsOptions topts = new TtsOptions();
 topts.set_codec("opu2");
 tts.config(topts);
@@ -331,12 +331,17 @@ device\_id | String | 设备id，用于tts服务认证
 ~ | 名称 | 类型 | 描述
 ---|---|---|---
 接口 | set\_codec | | 设定编码格式，默认PCM
-参数 | codec | String | 编码格式，限定值"pcm", "opu2"
+参数 | codec | String | 编码格式，限定值"pcm", "opu2", "mp3"
 
 ~ | 名称 | 类型 | 描述
 ---|---|---|---
 接口 | set\_declaimer | | 设定语音朗读者，默认"zh"
 参数 | declaimer | String | 限定值"zh"
+
+~ | 名称 | 类型 | 描述
+---|---|---|---
+接口 | set\_samplerate | | 设定语音采样率，默认24000
+参数 | samplerate | int |
 
 #### <a id="so"></a>SpeechOptions
 
@@ -388,7 +393,7 @@ key | 用于服务登录认证　
 device\_type\_id | 用于服务登录认证
 secret | 用于服务登录认证
 device\_id | 设备名，用于服务登录
-codec | 语音编码格式:<br>speech服务可选项"pcm" "opu"<br>tts服务可选项 "pcm" "opu2"
+codec | 语音编码格式:<br>speech服务可选项"pcm" "opu"<br>tts服务可选项 "pcm" "opu2" "mp3"
 speech服务专有配置 | ...
 lang | 语音语言: "zh"或"en"
 vad\_mode | 判断语音结束算法部署位置:<br>"cloud" 云端运行算法，准备确率高<br>"local" 本地运行算法
