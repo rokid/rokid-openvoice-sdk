@@ -50,20 +50,19 @@ LOCAL_SRC_FILES := \
 	$(PROTOC_GEN_SRC) \
 	$(NANOPB_SRC)
 
-LOCAL_CFLAGS := $(COMMON_CFLAGS) \
-	-std=c++11 -frtti -fexceptions
+LOCAL_CPPFLAGS := $(COMMON_CFLAGS) -std=c++11
 LOCAL_SHARED_LIBRARIES := liblog libuWS libcrypto libz
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/include
 
-ifeq ($(PLATFORM_SDK_VERSION), 23)
-LOCAL_CXX_STL := libc++
-else ifeq ($(PLATFORM_SDK_VERSION), 22)
+ifeq ($(PLATFORM_SDK_VERSION), 22)
 LOCAL_SHARED_LIBRARIES += libc++ libdl
 LOCAL_C_INCLUDES += external/libcxx/include
-else
+else ifeq ($(PLATFORM_SDK_VERSION), 19)
 LOCAL_SDK_VERSION := 14
 LOCAL_NDK_STL_VARIANT := gnustl_static
 LOCAL_CPPFLAGS := -D__STDC_FORMAT_MACROS
+else
+LOCAL_CXX_STL := libc++
 endif
 
 include $(BUILD_SHARED_LIBRARY)
@@ -83,13 +82,13 @@ LOCAL_C_INCLUDES := \
 	external/libopus/include
 LOCAL_SHARED_LIBRARIES := libopus
 LOCAL_CPPFLAGS := -std=c++11
-ifeq ($(PLATFORM_SDK_VERSION), 23)
-LOCAL_CXX_STL := libc++
-else ifeq ($(PLATFORM_SDK_VERSION), 22)
+ifeq ($(PLATFORM_SDK_VERSION), 22)
 LOCAL_SHARED_LIBRARIES += libc++ libdl
-else
+else ifeq ($(PLATFORM_SDK_VERSION), 19)
 LOCAL_SDK_VERSION := 14
 LOCAL_NDK_STL_VARIANT := gnustl_static
+else
+LOCAL_CXX_STL := libc++
 endif
 include $(BUILD_SHARED_LIBRARY)
 
@@ -109,12 +108,12 @@ LOCAL_C_INCLUDES := \
 LOCAL_SHARED_LIBRARIES := libspeech
 LOCAL_CPPFLAGS := $(COMMON_CFLAGS) \
 	-std=c++11
-ifeq ($(PLATFORM_SDK_VERSION), 23)
-LOCAL_CXX_STL := libc++
-else ifeq ($(PLATFORM_SDK_VERSION), 22)
+ifeq ($(PLATFORM_SDK_VERSION), 22)
 LOCAL_SHARED_LIBRARIES += libc++ libdl
-else
+else ifeq ($(PLATFORM_SDK_VERSION), 19)
 LOCAL_SDK_VERSION := 14
 LOCAL_NDK_STL_VARIANT := gnustl_static
+else
+LOCAL_CXX_STL := libc++
 endif
 include $(BUILD_EXECUTABLE)

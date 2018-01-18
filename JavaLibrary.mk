@@ -11,15 +11,15 @@ LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/src/common
 LOCAL_CPPFLAGS := $(COMMON_FLAGS) -std=c++11
 LOCAL_SHARED_LIBRARIES := libnativehelper libspeech liblog
-ifeq ($(PLATFORM_SDK_VERSION), 23)
-LOCAL_CXX_STL := libc++
-else ifeq ($(PLATFORM_SDK_VERSION), 22)
+ifeq ($(PLATFORM_SDK_VERSION), 22)
 LOCAL_SHARED_LIBRARIES += libc++ libdl
 LOCAL_C_INCLUDES += external/libcxx/include
-else
+else ifeq ($(PLATFORM_SDK_VERSION), 19)
 LOCAL_SDK_VERSION := 14
 LOCAL_NDK_STL_VARIANT := gnustl_static
 LOCAL_C_INCLUDES += libnativehelper/include/nativehelper
+else
+LOCAL_CXX_STL := libc++
 endif
 LOCAL_SRC_FILES := \
 		$(JNI_DIR)/com_rokid_speech_Tts.cc \
@@ -74,15 +74,15 @@ LOCAL_SHARED_LIBRARIES := libnativehelper liblog libspeech librkcodec
 LOCAL_C_INCLUDES := \
 	external/libopus/include \
 	$(LOCAL_PATH)/src/common
-ifeq ($(PLATFORM_SDK_VERSION), 23)
-LOCAL_CXX_STL := libc++
-else ifeq ($(PLATFORM_SDK_VERSION), 22)
+ifeq ($(PLATFORM_SDK_VERSION), 22)
 LOCAL_SHARED_LIBRARIES += libc++ libdl
 LOCAL_C_INCLUDES += external/libcxx/include
-else
+else ifeq ($(PLATFORM_SDK_VERSION), 19)
 LOCAL_SDK_VERSION := 14
 LOCAL_NDK_STL_VARIANT := gnustl_static
 LOCAL_C_INCLUDES += libnativehelper/include/nativehelper
+else
+LOCAL_CXX_STL := libc++
 endif
 LOCAL_SRC_FILES := \
 		$(JNI_DIR)/com_rokid_speech_Opus.cc
