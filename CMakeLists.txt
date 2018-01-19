@@ -77,9 +77,15 @@ if(NOT CMAKE_INSTALL_RPATH AND CMAKE_INSTALL_PREFIX)
 	message(STATUS "Setting install rpath to ${CMAKE_INSTALL_RPATH}")
 endif()
 
-find_package(OpenSSL REQUIRED)
 find_package(UWS)
 find_package(Opus)
+# if cross compile, don't search openssl dir
+# cross compiler have openssl lib default
+if (CMAKE_TOOLCHAIN_FILE)
+set (OPENSSL_LIBRARIES -lssl -lcrypto)
+else()
+find_package(OpenSSL REQUIRED)
+endif()
 
 set(IGNORED_WARNINGS "-Wno-sign-compare -Wno-unused-parameter -Wno-sign-promo -Wno-error=return-type -Wno-error=non-virtual-dtor")
 
