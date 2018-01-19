@@ -16,6 +16,8 @@ public:
 protected:
 	void init_string_field(pb_callback_t* cb, std::shared_ptr<std::string>* strp);
 
+	virtual void clear_super_data() {}
+
 private:
 	static bool decode_string(pb_istream_t *stream, const pb_field_t *field,
 			void **arg);
@@ -58,6 +60,9 @@ public:
 	inline bool finish() const {
 		return nanopbStruct.finish;
 	}
+
+protected:
+	void clear_super_data();
 
 private:
 	rokid_open_speech_v1_TtsResponse nanopbStruct;
@@ -104,6 +109,9 @@ public:
 			return _empty_string;
 		return *_extra;
 	}
+
+protected:
+	void clear_super_data();
 
 private:
 	rokid_open_speech_v2_SpeechResponse nanopbStruct;

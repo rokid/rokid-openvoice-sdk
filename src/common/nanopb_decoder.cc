@@ -9,6 +9,7 @@ namespace rokid {
 namespace speech {
 
 bool NanoPBDecoder::ParseFromArray(const char* data, uint32_t length) {
+	clear_super_data();
 	pb_istream_t istream = pb_istream_from_buffer((const pb_byte_t*)data, length);
 	return pb_decode(&istream, nanopbFields, nanopbStructPointer);
 }
@@ -63,6 +64,11 @@ string* TtsResponse::release_voice() {
 	return str;
 }
 
+void TtsResponse::clear_super_data() {
+	_text.reset();
+	_voice.reset();
+}
+
 SpeechResponse::SpeechResponse() {
 	nanopbStruct = rokid_open_speech_v2_SpeechResponse_init_default;
 	nanopbStructPointer = &nanopbStruct;
@@ -71,6 +77,13 @@ SpeechResponse::SpeechResponse() {
 	init_string_field(&nanopbStruct.nlp, &_nlp);
 	init_string_field(&nanopbStruct.action, &_action);
 	init_string_field(&nanopbStruct.extra, &_extra);
+}
+
+void SpeechResponse::clear_super_data() {
+	_asr.reset();
+	_nlp.reset();
+	_action.reset();
+	_extra.reset();
 }
 
 } // namespace speech
