@@ -78,6 +78,9 @@ public:
 			Log::w(CONN_TAG, "send: protobuf serialize failed");
 			return ConnectionOpResult::INVALID_PB_OBJ;
 		}
+#ifdef SPEECH_SDK_DETAIL_TRACE
+		Log::d(CONN_TAG, "SpeechConnection.send: pb serialize result %lu bytes", buf.length());
+#endif
 		if (!ensure_connection_available(locker, timeout)) {
 			Log::i(CONN_TAG, "send: connection not available");
 			return ConnectionOpResult::CONNECTION_NOT_AVAILABLE;

@@ -495,8 +495,12 @@ void SpeechConnection::push_resp_data(char* msg, size_t length) {
 }
 
 void SpeechConnection::ws_send(const char* msg, size_t length, uWS::OpCode op) {
-	if (ws_)
+	if (ws_) {
+#ifdef SPEECH_SDK_DETAIL_TRACE
+		Log::d(CONN_TAG, "SpeechConnection.ws_send: %lu bytes", length);
+#endif
 		ws_->send(msg, length, op);
+	}
 }
 
 PrepareOptions::PrepareOptions() {
