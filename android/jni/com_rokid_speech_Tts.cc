@@ -208,8 +208,9 @@ static void com_rokid_speech_TtsOptions_native_set_codec(JNIEnv *env, jobject th
 
 static void com_rokid_speech_TtsOptions_native_set_declaimer(JNIEnv *env, jobject thiz, jlong opt, jstring v) {
 	TtsOptionsNativeInfo* native_info = reinterpret_cast<TtsOptionsNativeInfo*>(opt);
-	// only support declaimer "zh" now
-	native_info->opts->set_declaimer("zh");
+	const char* sv = env->GetStringUTFChars(v, NULL);
+	native_info->opts->set_declaimer(sv);
+	env->ReleaseStringUTFChars(v, sv);
 }
 
 static void com_rokid_speech_TtsOptions_native_set_samplerate(JNIEnv *env, jobject thiz, jlong opt, jint v) {
