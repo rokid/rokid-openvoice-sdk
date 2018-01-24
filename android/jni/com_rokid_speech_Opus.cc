@@ -44,7 +44,7 @@ static jbyteArray native_opus_decode(JNIEnv *env, jobject clazz, jlong dec, jbyt
 		memcpy(pcm + i * pcm_frame_size, pcm_buf, pcm_frame_size);
 	}
 	env->ReleaseByteArrayElements(in, opu, JNI_ABORT);
-	env->ReleaseByteArrayElements(out, pcm, JNI_COMMIT);
+	env->ReleaseByteArrayElements(out, pcm, 0);
 	return out;
 }
 

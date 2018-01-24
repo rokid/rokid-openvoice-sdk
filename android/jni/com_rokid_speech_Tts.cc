@@ -77,7 +77,7 @@ private:
 			voice_obj = env_->NewByteArray(result.voice->length());
 			jbyte* tmp = env_->GetByteArrayElements(voice_obj, NULL);
 			memcpy(tmp, result.voice->data(), result.voice->length());
-			env_->ReleaseByteArrayElements(voice_obj, tmp, JNI_COMMIT);
+			env_->ReleaseByteArrayElements(voice_obj, tmp, 0);
 		}
 		env_->SetObjectField(res_obj, constants_.result_fields[RES_VOICE], voice_obj);
 		return res_obj;
