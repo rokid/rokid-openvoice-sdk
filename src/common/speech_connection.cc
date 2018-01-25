@@ -36,6 +36,8 @@ using uWS::OpCode;
 namespace rokid {
 namespace speech {
 
+const char* CONN_TAG = "speech.Connection";
+static char CONN_TAG_BUF[32];
 milliseconds SpeechConnection::ping_interval_ = milliseconds(30000);
 milliseconds SpeechConnection::no_resp_timeout_ = milliseconds(45000);
 
@@ -46,6 +48,8 @@ SpeechConnection::SpeechConnection() : work_thread_(NULL),
 
 void SpeechConnection::initialize(int32_t ws_buf_size,
 		const PrepareOptions& options, const char* svc) {
+	snprintf(CONN_TAG_BUF, sizeof(CONN_TAG_BUF), "rokid.Connection.%s", svc);
+	CONN_TAG = CONN_TAG_BUF;
 	options_ = options;
 	service_type_ = svc;
 	stage_ = ConnectStage::INIT;
@@ -458,6 +462,9 @@ void SpeechConnection::handle_auth_result(uWS::WebSocket<uWS::CLIENT> *ws,
 bool SpeechConnection::ensure_connection_available(
 		unique_lock<mutex>& locker, uint32_t timeout) {
 	if (stage_ != ConnectStage::READY) {
+#ifdef SPEECH_SDK_DETAIL_TRACE
+		Log::d(CONN_TAG, "stage is %d, wait connection available, timeout %u ms", stage_, timeout);
+#endif
 		if (timeout == 0)
 			req_cond_.wait(locker);
 		else {

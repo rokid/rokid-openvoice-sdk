@@ -14,8 +14,6 @@
 #endif
 #include "log.h"
 
-#define CONN_TAG "speech.Connection"
-
 namespace rokid {
 namespace speech {
 
@@ -60,6 +58,8 @@ typedef struct {
 	std::chrono::system_clock::time_point resp_tp;
 } TraceInfo;
 #endif
+
+extern const char* CONN_TAG;
 
 class SpeechConnection {
 public:
