@@ -5,6 +5,7 @@
 #include "tts.h"
 #include "speech.h"
 #include "simple_wave.h"
+#include "speech_express_test.h"
 #ifdef HAS_OPUS_CODEC
 #include <sys/mman.h>
 #include "rkcodec.h"
@@ -279,6 +280,11 @@ static void test_speech(PrepareOptions& opts) {
 	speech->release();
 }
 
+static void test_speech_express(const PrepareOptions& opts) {
+	SpeechExpressTest test;
+	test.run(opts, 1);
+}
+
 int main(int argc, char** argv) {
 	PrepareOptions opts;
 	opts.host = "apigwws.open.rokid.com";
@@ -289,8 +295,9 @@ int main(int argc, char** argv) {
 	opts.device_id = "ming.qiwo";
 	opts.secret = "rokid_test_secret";
 
-	test_tts(opts);
-	test_speech(opts);
+	// test_tts(opts);
+	// test_speech(opts);
+	test_speech_express(opts);
 
 	return 0;
 }

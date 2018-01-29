@@ -206,6 +206,8 @@ if (BUILD_DEMO)
 		demo/demo.cc
 		demo/simple_wave.cc
 		demo/simple_wave.h
+		demo/speech_express_test.cc
+		demo/speech_express_test.h
 	)
 	add_executable(demo ${DEMO_SOURCES})
 	target_include_directories(demo PRIVATE
