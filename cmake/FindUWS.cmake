@@ -8,7 +8,7 @@ set(UWS_HINTS
 
 # look for the root directory, first for the source-tree variant
 find_path(UWS_ROOT_DIR 
-	NAMES src/Hub.h
+	NAMES src/Hub.h uWS/Hub.h
 	HINTS ${UWS_HINTS}
 )
 if(NOT UWS_ROOT_DIR)
