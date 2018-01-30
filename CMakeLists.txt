@@ -6,6 +6,7 @@ option(BUILD_DEMO "Build demo" OFF)
 option(TEST_MP3 "test tts mp3 codec" OFF)
 option(BUILD_DEBUG "debug or release" OFF)
 option(SPEECH_STATISTIC "speech statistic" ON)
+option(DETAIL_TRACE "print sdk detail trace" ON)
 
 # Configuration fails on < 3.9 if only C++ is enabled (TestBigEndian macro)
 if(NOT CMAKE_VERSION VERSION_LESS 3.9.0)
@@ -89,7 +90,7 @@ endif()
 
 set(IGNORED_WARNINGS "-Wno-sign-compare -Wno-unused-parameter -Wno-sign-promo -Wno-error=return-type -Wno-error=non-virtual-dtor")
 
-set(COMMON_CFLAGS "-DSPEECH_SDK_DETAIL_TRACE -std=c++11 -pthread -fPIC -frtti -fexceptions")
+set(COMMON_CFLAGS "-std=c++11 -pthread -fPIC -frtti -fexceptions")
 
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${IGNORED_WARNINGS} ${COMMON_CFLAGS}")
 if (CROSS_COMPILE_CXXFLAGS)
@@ -104,6 +105,9 @@ else()
 endif()
 if (SPEECH_STATISTIC)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSPEECH_STATISTIC")
+endif()
+if (DETAIL_TRACE)
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSPEECH_SDK_DETAIL_TRACE")
 endif()
 # workaround for g++ threading bug
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wl,--no-as-needed")
@@ -206,8 +210,8 @@ if (BUILD_DEMO)
 		demo/demo.cc
 		demo/simple_wave.cc
 		demo/simple_wave.h
-		demo/speech_express_test.cc
-		demo/speech_express_test.h
+		demo/speech_stress_test.cc
+		demo/speech_stress_test.h
 	)
 	add_executable(demo ${DEMO_SOURCES})
 	target_include_directories(demo PRIVATE

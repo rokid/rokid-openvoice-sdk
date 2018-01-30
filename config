@@ -10,6 +10,8 @@ Configuration:
     --debug                     build for debug
     --build-demo                build demo program
     --disable-statistic         disable speech statistic feature
+    --test-mp3                  tts codec set to mp3
+    --disable-detail-trace      disable print sdk detail trace
 
 Dependencies:
     --uws=DIR                   uWebsockets libs and header files dir
@@ -44,6 +46,12 @@ do
 		--disable-statistic)
 			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DSPEECH_STATISTIC=OFF)
 			;;
+    --test-mp3)
+			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DTEST_MP3=ON)
+      ;;
+    --disable-detail-trace)
+			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DDETAIL_TRACE=OFF)
+      ;;
 		--uws=*)
 			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DUWSPrefix=$conf_optarg)
 			;;

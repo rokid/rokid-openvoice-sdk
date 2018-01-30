@@ -16,7 +16,7 @@ typedef struct {
 	std::chrono::steady_clock::time_point start_tp;
 } SpeechReqInfo;
 
-class SpeechExpressTest {
+class SpeechStressTest {
 public:
 	void run(const rokid::speech::PrepareOptions& opts, uint32_t repeat);
 

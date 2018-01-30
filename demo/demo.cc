@@ -5,7 +5,7 @@
 #include "tts.h"
 #include "speech.h"
 #include "simple_wave.h"
-#include "speech_express_test.h"
+#include "speech_stress_test.h"
 #ifdef HAS_OPUS_CODEC
 #include <sys/mman.h>
 #include "rkcodec.h"
@@ -20,7 +20,8 @@ using std::string;
 static const char* test_text[] = {
 	"你好若琪，我是你爹",
 	"只要998，若琪抱回家。998你买不了吃亏，998你买不了上当",
-	"存在一个公式，形式系统既不能推出它，也不能推出它的否定，即形式系统无法判定它"
+	"芋头科技是一家好公司，让你明白劳动光荣，不劳动可耻的道理，还管饭。",
+	"米萨咖啡是一家好咖啡厅，年年超额完成任务，这当然是因为他们咖啡泡得好，绝对不是因为有其它创收渠道。"
 };
 
 #if defined(TEST_MP3)
@@ -67,6 +68,7 @@ static RKOpusEncoder rkencoder;
 static void test_tts(PrepareOptions& opts) {
 	shared_ptr<Tts> tts = Tts::new_instance();
 	int speakCount = sizeof(test_text) / sizeof(char*);
+	int repeat = 100;
 	bool thflag = false;
 
 	tts->prepare(opts);
@@ -80,7 +82,7 @@ static void test_tts(PrepareOptions& opts) {
 #endif
 	tts_opts->set_samplerate(16000);
 	tts->config(tts_opts);
-	std::thread poll_thread([&tts, &thflag, speakCount]() {
+	std::thread poll_thread([&tts, &thflag, speakCount, repeat]() {
 			int count = 0;
 			TtsResult result;
 			char fname[32];
@@ -90,16 +92,16 @@ static void test_tts(PrepareOptions& opts) {
 #if !defined(TEST_MP3) && defined(HAS_OPUS_CODEC)
 			rkdecoder.init(16000, 16000, 20);
 #endif
-			while (count < speakCount) {
+			while (count < speakCount * repeat) {
 				if (!tts->poll(result))
 					break;
 				switch (result.type) {
 				case TTS_RES_START:
 					printf("speak %d start\n", result.id);
 #ifdef TEST_MP3
-					create_mp3_file(result.id);
+					create_mp3_file(result.id % speakCount);
 #else
-					snprintf(fname, sizeof(fname), AUDIO_FILE_NAME_FORMAT, result.id);
+					snprintf(fname, sizeof(fname), AUDIO_FILE_NAME_FORMAT, result.id % speakCount);
 					writer.create(fname, 16000, 16);
 #endif
 					break;
@@ -158,8 +160,11 @@ static void test_tts(PrepareOptions& opts) {
 	// tts_opts->set_codec(Codec::OPU2);
 	// tts->config(tts_opts);
 	int i;
-	for (i = 0; i < speakCount; ++i) {
-		tts->speak(test_text[i]);
+	while (repeat) {
+		for (i = 0; i < speakCount; ++i) {
+			tts->speak(test_text[i]);
+		}
+		--repeat;
 	}
 	poll_thread.join();
 	tts->release();
@@ -280,8 +285,8 @@ static void test_speech(PrepareOptions& opts) {
 	speech->release();
 }
 
-static void test_speech_express(const PrepareOptions& opts) {
-	SpeechExpressTest test;
+static void test_speech_stress(const PrepareOptions& opts) {
+	SpeechStressTest test;
 	test.run(opts, 1);
 }
 
@@ -306,8 +311,8 @@ int main(int argc, char** argv) {
 
 	// test_tts(opts);
 	// test_speech(opts);
-	// test_speech_express(opts);
-	test_reconn(opts);
+	// test_reconn(opts);
+	test_speech_stress(opts);
 
 	return 0;
 }

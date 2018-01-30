@@ -1,20 +1,21 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <assert.h>
-#include "speech_express_test.h"
+#include <chrono>
+#include "speech_stress_test.h"
 #include "log.h"
 
 #define AUDIO_FILE "rkpcmrec"
 #define PCM_FRAME_SIZE 320
 // 10ms, 10000ns
 #define PCM_FRAME_DURATION 10000
-#define TAG "SpeechExpressTest"
+#define TAG "SpeechStressTest"
 
 using namespace rokid::speech;
 using namespace std;
 using namespace std::chrono;
 
-void SpeechExpressTest::run(const PrepareOptions& opts, uint32_t repeat) {
+void SpeechStressTest::run(const PrepareOptions& opts, uint32_t repeat) {
 	init(opts);
 
 	FILE* fp = fopen(AUDIO_FILE, "r");
@@ -30,6 +31,9 @@ void SpeechExpressTest::run(const PrepareOptions& opts, uint32_t repeat) {
 
 	uint8_t pcmbuf[PCM_FRAME_SIZE];
 	size_t c;
+	steady_clock::time_point prev_tp = steady_clock::now();
+	steady_clock::time_point tmp;
+	nanoseconds dur;
 	while (repeat) {
 		--repeat;
 		pcm_offset = 0;
@@ -49,8 +53,16 @@ void SpeechExpressTest::run(const PrepareOptions& opts, uint32_t repeat) {
 				break;
 			}
 			pcm_offset += c;
+//			tmp = steady_clock::now();
+//			dur = duration_cast<nanoseconds>(tmp - prev_tp);
+//			prev_tp = tmp;
+#ifdef SPEECH_SDK_DETAIL_TRACE
 			Log::d(TAG, "send pcm offset %u/%u", pcm_offset, pcm_file_size);
+#endif
 			speech->put_voice(cur_speech_id, pcmbuf, c);
+//			if (dur.count() < PCM_FRAME_DURATION) {
+//				usleep(PCM_FRAME_DURATION - dur.count());
+//			}
 			usleep(PCM_FRAME_DURATION);
 		}
 	}
@@ -62,7 +74,7 @@ exit:
 	final();
 }
 
-void SpeechExpressTest::init(const PrepareOptions& opts) {
+void SpeechStressTest::init(const PrepareOptions& opts) {
 	speech = Speech::new_instance();
 	speech->prepare(opts);
 	shared_ptr<SpeechOptions> sopts = SpeechOptions::new_instance();
@@ -75,7 +87,7 @@ void SpeechExpressTest::init(const PrepareOptions& opts) {
 	speech_req_success = 0;
 }
 
-void SpeechExpressTest::final() {
+void SpeechStressTest::final() {
 	speech->release();
 	poll_thread->join();
 	delete poll_thread;
@@ -84,7 +96,7 @@ void SpeechExpressTest::final() {
 	pending_speech_reqs.clear();
 }
 
-void SpeechExpressTest::add_speech_req(int32_t id) {
+void SpeechStressTest::add_speech_req(int32_t id) {
 	SpeechReqInfo info;
 	info.id = id;
 	info.start_tp = steady_clock::now();
@@ -92,7 +104,7 @@ void SpeechExpressTest::add_speech_req(int32_t id) {
 	pending_speech_reqs.push_back(info);
 }
 
-void SpeechExpressTest::run_speech_poll() {
+void SpeechStressTest::run_speech_poll() {
 	SpeechResult result;
 	SpeechReqInfo* reqinfo;
 
@@ -105,17 +117,17 @@ void SpeechExpressTest::run_speech_poll() {
 	}
 }
 
-SpeechReqInfo* SpeechExpressTest::get_top_speech_req() {
+SpeechReqInfo* SpeechStressTest::get_top_speech_req() {
 	lock_guard<mutex> locker(list_mutex);
 	return &pending_speech_reqs.front();
 }
 
-void SpeechExpressTest::pop_speech_req() {
+void SpeechStressTest::pop_speech_req() {
 	lock_guard<mutex> locker(list_mutex);
 	pending_speech_reqs.pop_front();
 }
 
-void SpeechExpressTest::handle_speech_result(SpeechReqInfo* reqinfo,
+void SpeechStressTest::handle_speech_result(SpeechReqInfo* reqinfo,
 		const SpeechResult& result) {
 	FailedSpeech fs;
 	switch (result.type) {
@@ -137,14 +149,14 @@ void SpeechExpressTest::handle_speech_result(SpeechReqInfo* reqinfo,
 	}
 }
 
-void SpeechExpressTest::wait_pending_reqs() {
+void SpeechStressTest::wait_pending_reqs() {
 	while (pending_speech_reqs.size())
 		sleep(1);
 }
 
-void SpeechExpressTest::print_test_result() {
+void SpeechStressTest::print_test_result() {
 	size_t i;
-	Log::i(TAG, "==============speech express test result===============");
+	Log::i(TAG, "==============speech stress test result===============");
 	Log::i(TAG, "speech request number %u, success %u", speech_req_count, speech_req_success);
 	for (i = 0; i < failed_speech.size(); ++i) {
 		Log::i(TAG, "id: %lu  duration: %u  error: %d",
