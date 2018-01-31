@@ -20,6 +20,9 @@ public:
 	std::string device_type_id;
 	std::string secret;
 	std::string device_id;
+
+	// milliseconds
+	uint32_t reconn_interval;
 };
 
 enum class Lang {

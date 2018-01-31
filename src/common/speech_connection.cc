@@ -10,7 +10,6 @@
 #include <resolv.h>
 #endif
 
-#define RECONN_INTERVAL 20000
 #ifdef SPEECH_STATISTIC
 #define MAX_PENDING_TRACE_INFOS 128
 #define SEND_TRACE_INFO_INTERVAL 1000
@@ -36,13 +35,12 @@ using uWS::OpCode;
 namespace rokid {
 namespace speech {
 
-const char* CONN_TAG = "speech.Connection";
-static char CONN_TAG_BUF[32];
 milliseconds SpeechConnection::ping_interval_ = milliseconds(30000);
 milliseconds SpeechConnection::no_resp_timeout_ = milliseconds(45000);
 
 SpeechConnection::SpeechConnection() : work_thread_(NULL),
-		keepalive_thread_(NULL), ws_(NULL), stage_(ConnectStage::INIT) {
+		keepalive_thread_(NULL), ws_(NULL), stage_(ConnectStage::INIT),
+		CONN_TAG("speech.Connection") {
 	prepare_hub();
 }
 
@@ -344,7 +342,7 @@ void SpeechConnection::onError(void* userdata) {
 	}
 	if (stage_ != ConnectStage::RELEASED) {
 		stage_ = ConnectStage::INIT;
-		reconn_timepoint_ = steady_clock::now() + milliseconds(RECONN_INTERVAL);
+		reconn_timepoint_ = steady_clock::now() + milliseconds(options_.reconn_interval);
 	}
 }
 
@@ -454,7 +452,7 @@ void SpeechConnection::handle_auth_result(uWS::WebSocket<uWS::CLIENT> *ws,
 		req_cond_.notify_one();
 		req_mutex_.unlock();
 	} else {
-		reconn_timepoint_ = steady_clock::now() + milliseconds(RECONN_INTERVAL);
+		reconn_timepoint_ = steady_clock::now() + milliseconds(options_.reconn_interval);
 		ws->close();
 	}
 }
@@ -514,6 +512,7 @@ PrepareOptions::PrepareOptions() {
 	host = "localhost";
 	port = 80;
 	branch = "/";
+	reconn_interval = 20000;
 }
 
 PrepareOptions& PrepareOptions::operator = (const PrepareOptions& options) {
@@ -524,6 +523,7 @@ PrepareOptions& PrepareOptions::operator = (const PrepareOptions& options) {
 	this->device_type_id = options.device_type_id;
 	this->secret = options.secret;
 	this->device_id = options.device_id;
+	this->reconn_interval = options.reconn_interval;
 	return *this;
 }
 

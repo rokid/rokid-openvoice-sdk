@@ -285,6 +285,15 @@ static void test_speech_express(const PrepareOptions& opts) {
 	test.run(opts, 1);
 }
 
+static void test_reconn(PrepareOptions& opts) {
+	opts.reconn_interval = 2000;
+	shared_ptr<Speech> speech = Speech::new_instance();
+	speech->prepare(opts);
+	printf("press enter key to quit\n");
+	getchar();
+	speech->release();
+}
+
 int main(int argc, char** argv) {
 	PrepareOptions opts;
 	opts.host = "apigwws.open.rokid.com";
@@ -297,7 +306,8 @@ int main(int argc, char** argv) {
 
 	// test_tts(opts);
 	// test_speech(opts);
-	test_speech_express(opts);
+	// test_speech_express(opts);
+	test_reconn(opts);
 
 	return 0;
 }

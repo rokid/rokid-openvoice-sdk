@@ -59,8 +59,6 @@ typedef struct {
 } TraceInfo;
 #endif
 
-extern const char* CONN_TAG;
-
 class SpeechConnection {
 public:
 	SpeechConnection();
@@ -157,7 +155,7 @@ private:
 
 	static std::string timestamp();
 
-	static std::string generate_sign(const char* key, const char* devtype,
+	std::string generate_sign(const char* key, const char* devtype,
 			const char* devid, const char* svc, const char* version,
 			const char* ts, const char* secret);
 
@@ -203,6 +201,9 @@ private:
 #ifdef SPEECH_STATISTIC
 	std::list<TraceInfo> _trace_infos;
 #endif
+
+	const char* CONN_TAG;
+	char CONN_TAG_BUF[32];
 
 	static std::chrono::milliseconds ping_interval_;
 	static std::chrono::milliseconds no_resp_timeout_;
