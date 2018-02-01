@@ -68,6 +68,7 @@ public class GenericConfig {
 		opt.device_type_id = json_obj.optString("device_type_id", null);
 		opt.secret = json_obj.optString("secret", null);
 		opt.device_id = json_obj.optString("device_id", null);
+		opt.reconn_interval = json_obj.optInt("reconn", 20000);
 
 		special_config(json_obj);
 

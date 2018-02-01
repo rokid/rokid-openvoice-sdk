@@ -68,6 +68,9 @@ void jobj_to_prepare_opts(JNIEnv* env, jobject obj, PrepareOptions& opts) {
 		opts.device_id = str;
 		env->ReleaseStringUTFChars(sv, str);
 	}
+
+	fld = env->GetFieldID(cls, "reconn_interval", "I");
+	opts.reconn_interval = env->GetIntField(obj, fld);
 }
 
 } // namespace speech
