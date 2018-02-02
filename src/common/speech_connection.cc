@@ -195,7 +195,7 @@ void SpeechConnection::keepalive_run() {
 			if (now - lastest_recv_tp_ >= no_resp_timeout_) {
 				Log::w(CONN_TAG, "server may no response, try reconnect");
 				lastest_recv_tp_ = steady_clock::now();
-				ws_->close();
+				ws_->terminate();
 			}
 			auto d1 = ping_interval_ - (now - lastest_ping_tp_);
 			auto d2 = no_resp_timeout_ - (now - lastest_recv_tp_);
@@ -449,6 +449,9 @@ void SpeechConnection::handle_auth_result(uWS::WebSocket<uWS::CLIENT> *ws,
 		req_mutex_.lock();
 		stage_ = ConnectStage::READY;
 		ws_ = ws;
+		// workaround for Hub loop nerver return when server no response
+		// set a timer, epoll_wait will awake periodic
+		hub_.getDefaultGroup<uWS::CLIENT>().setTimer(4000);
 		req_cond_.notify_one();
 		req_mutex_.unlock();
 	} else {

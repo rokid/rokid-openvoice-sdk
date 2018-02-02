@@ -8,14 +8,15 @@ set(UWS_HINTS
 
 # look for the root directory, first for the source-tree variant
 find_path(UWS_ROOT_DIR 
-	NAMES src/Hub.h uWS/Hub.h
+	NAMES src/Hub.h
 	HINTS ${UWS_HINTS}
 )
+
 if(NOT UWS_ROOT_DIR)
 	# this means uWebsockets may have a different directory structure, maybe it was installed, let's check for that
 	message(STATUS "Looking for uWebsockets install directory structure.")
 	find_path(UWS_ROOT_DIR 
-		NAMES include/uWS/Hub.h
+		NAMES include/uWS/Hub.h uWS/Hub.h
 		HINTS ${UWS_HINTS}
 	)
 	if(NOT UWS_ROOT_DIR) 
