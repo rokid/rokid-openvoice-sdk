@@ -273,7 +273,13 @@ bool SpeechImpl::poll(SpeechResult& res) {
 	unique_lock<mutex> locker(resp_mutex_);
 	while (initialized_) {
 		op = controller_.front_op();
+#ifdef SPEECH_SDK_DETAIL_TRACE
+		Log::d(tag__, "SpeechImpl.poll: front op = %p", op.get());
+#endif
 		if (op.get()) {
+#ifdef SPEECH_SDK_DETAIL_TRACE
+			Log::d(tag__, "SpeechImpl.poll: front op status = %d", op->status);
+#endif
 			if (op->status == SpeechStatus::CANCELLED) {
 				if (responses_.erase(op->id)) {
 					responses_.pop(id, resin, err);
