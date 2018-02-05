@@ -68,7 +68,17 @@ public class GenericConfig {
 		opt.device_type_id = json_obj.optString("device_type_id", null);
 		opt.secret = json_obj.optString("secret", null);
 		opt.device_id = json_obj.optString("device_id", null);
-		opt.reconn_interval = json_obj.optInt("reconn", 20000);
+
+		int v;
+		v = json_obj.optInt("reconn", 0);
+		if (v > 0)
+			opt.reconn_interval = v;
+		v = json_obj.optInt("keepalive", 0);
+		if (v > 0)
+			opt.ping_interval = v;
+		v = json_obj.optInt("noresp_timeout", 0);
+		if (v > 0)
+			opt.no_resp_timeout = v;
 
 		special_config(json_obj);
 

@@ -35,8 +35,8 @@ using uWS::OpCode;
 namespace rokid {
 namespace speech {
 
-milliseconds SpeechConnection::ping_interval_ = milliseconds(30000);
-milliseconds SpeechConnection::no_resp_timeout_ = milliseconds(45000);
+// milliseconds SpeechConnection::ping_interval_ = milliseconds(30000);
+// milliseconds SpeechConnection::no_resp_timeout_ = milliseconds(45000);
 
 SpeechConnection::SpeechConnection() : work_thread_(NULL),
 		keepalive_thread_(NULL), ws_(NULL), stage_(ConnectStage::INIT),
@@ -49,6 +49,10 @@ void SpeechConnection::initialize(int32_t ws_buf_size,
 	snprintf(CONN_TAG_BUF, sizeof(CONN_TAG_BUF), "rokid.Connection.%s", svc);
 	CONN_TAG = CONN_TAG_BUF;
 	options_ = options;
+#ifdef SPEECH_SDK_DETAIL_TRACE
+	Log::d(CONN_TAG, "reconn interval = %u, ping interval = %u, no resp timeout = %u",
+			options_.reconn_interval, options_.ping_interval, options_.no_resp_timeout);
+#endif
 	service_type_ = svc;
 	stage_ = ConnectStage::INIT;
 	// unique_lock<recursive_mutex> locker(reconn_mutex_);
@@ -179,6 +183,8 @@ void SpeechConnection::keepalive_run() {
 	steady_clock::time_point now;
 	unique_lock<recursive_mutex> locker(reconn_mutex_, defer_lock);
 	milliseconds timeout;
+	milliseconds ping_interval = milliseconds(options_.ping_interval);
+	milliseconds no_resp_timeout = milliseconds(options_.no_resp_timeout);
 #ifdef SPEECH_STATISTIC
 	bool has_trace_info;
 #endif
@@ -189,16 +195,16 @@ void SpeechConnection::keepalive_run() {
 #ifdef SPEECH_STATISTIC
 			has_trace_info = send_trace_info();
 #endif
-			if (now - lastest_ping_tp_ >= ping_interval_) {
+			if (now - lastest_ping_tp_ >= ping_interval) {
 				ping();
 			}
-			if (now - lastest_recv_tp_ >= no_resp_timeout_) {
+			if (now - lastest_recv_tp_ >= no_resp_timeout) {
 				Log::w(CONN_TAG, "server may no response, try reconnect");
 				lastest_recv_tp_ = steady_clock::now();
 				ws_->terminate();
 			}
-			auto d1 = ping_interval_ - (now - lastest_ping_tp_);
-			auto d2 = no_resp_timeout_ - (now - lastest_recv_tp_);
+			auto d1 = ping_interval - (now - lastest_ping_tp_);
+			auto d2 = no_resp_timeout - (now - lastest_recv_tp_);
 			timeout = duration_cast<milliseconds>(d1 < d2 ? d1 : d2);
 			if (timeout.count() < 0)
 				timeout = milliseconds(0);
@@ -207,7 +213,7 @@ void SpeechConnection::keepalive_run() {
 				timeout = milliseconds(SEND_TRACE_INFO_INTERVAL);
 #endif
 		} else {
-			timeout = milliseconds(ping_interval_);
+			timeout = ping_interval;
 		}
 		locker.lock();
 		reconn_cond_.wait_for(locker, timeout);
@@ -516,6 +522,8 @@ PrepareOptions::PrepareOptions() {
 	port = 80;
 	branch = "/";
 	reconn_interval = 20000;
+	ping_interval = 30000;
+	no_resp_timeout = 45000;
 }
 
 PrepareOptions& PrepareOptions::operator = (const PrepareOptions& options) {
@@ -527,6 +535,8 @@ PrepareOptions& PrepareOptions::operator = (const PrepareOptions& options) {
 	this->secret = options.secret;
 	this->device_id = options.device_id;
 	this->reconn_interval = options.reconn_interval;
+	this->ping_interval = options.ping_interval;
+	this->no_resp_timeout = options.no_resp_timeout;
 	return *this;
 }
 

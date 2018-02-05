@@ -71,6 +71,10 @@ void jobj_to_prepare_opts(JNIEnv* env, jobject obj, PrepareOptions& opts) {
 
 	fld = env->GetFieldID(cls, "reconn_interval", "I");
 	opts.reconn_interval = env->GetIntField(obj, fld);
+	fld = env->GetFieldID(cls, "ping_interval", "I");
+	opts.ping_interval = env->GetIntField(obj, fld);
+	fld = env->GetFieldID(cls, "no_resp_timeout", "I");
+	opts.no_resp_timeout = env->GetIntField(obj, fld);
 }
 
 } // namespace speech

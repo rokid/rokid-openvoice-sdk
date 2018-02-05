@@ -99,7 +99,8 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_SRC_FILES := \
 	demo/demo.cc \
-	demo/simple_wave.cc
+	demo/simple_wave.cc \
+	demo/speech_stress_test.cc
 LOCAL_C_INCLUDES := \
 	$(PROTOC_OUT_DIR) \
 	$(LOCAL_PATH)/include \

@@ -23,6 +23,8 @@ public:
 
 	// milliseconds
 	uint32_t reconn_interval;
+	uint32_t ping_interval;
+	uint32_t no_resp_timeout;
 };
 
 enum class Lang {
