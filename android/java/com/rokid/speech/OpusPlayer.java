@@ -77,7 +77,7 @@ public class OpusPlayer {
 				AudioFormat.CHANNEL_OUT_MONO, AUDIO_ENCODING) * 2;
 		return new AudioTrack.Builder()
 			.setAudioAttributes(new AudioAttributes.Builder()
-					.setUsage(AudioAttributes.USAGE_ALARM)
+					.setUsage(AudioAttributes.USAGE_MEDIA)
 					.setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
 					.build())
 			.setAudioFormat(new AudioFormat.Builder()
