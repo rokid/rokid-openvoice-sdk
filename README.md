@@ -50,11 +50,13 @@ make
 sudo apt-get install libssl-dev
 ```
 
-* 编译安装uWebSockets
+* 编译uWebSockets
 
-[uWebSockets源码地址](https://github.com/uNetworking/uWebSockets)
-
-> 修改uWebSockets Makefile，加上编译参数-DUWS_THREADSAFE
+```
+git clone https://github.com/Rokid/rokid-openvoice-sdk-deps-uWS.git -b uWS
+cd uWS
+make
+```
 
 **sdk编译**
 
