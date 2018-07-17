@@ -1,9 +1,8 @@
 #include <jni.h>
 #include <thread>
 #include <assert.h>
-#include "log.h"
+#include "rlog.h"
 #include "speech.h"
-#include "JNIHelp.h"
 
 using std::thread;
 using std::shared_ptr;
@@ -185,7 +184,7 @@ static jboolean com_rokid_speech_Speech__sdk_prepare(JNIEnv *env, jobject thiz, 
 	PrepareOptions popts;
 	jobj_to_prepare_opts(env, opt, popts);
 	if (!p->speech->prepare(popts)) {
-		Log::d(tag_, "prepare failed");
+		KLOGD(tag_, "prepare failed");
 		return false;
 	}
 	p->poll_thread = new SpeechPollThread();
@@ -408,10 +407,10 @@ int register_com_rokid_speech_Speech(JNIEnv* env) {
 	const char* kclass = "com/rokid/speech/Speech";
 	jclass target = env->FindClass(kclass);
 	if (target == NULL) {
-		Log::e("find class for %s failed", kclass);
+		KLOGE("find class for %s failed", kclass);
 		return -1;
 	}
-	return jniRegisterNativeMethods(env, kclass, _nmethods, NELEM(_nmethods));
+    return env->RegisterNatives(target, _nmethods, sizeof(_nmethods) / sizeof(JNINativeMethod));
 }
 
 static JNINativeMethod _options_nmethods[] = {
@@ -428,10 +427,10 @@ int register_com_rokid_speech_SpeechOptions(JNIEnv* env) {
 	const char* kclass = "com/rokid/speech/SpeechOptions";
 	jclass target = env->FindClass(kclass);
 	if (target == NULL) {
-		Log::e("find class for %s failed", kclass);
+		KLOGE("find class for %s failed", kclass);
 		return -1;
 	}
-	return jniRegisterNativeMethods(env, kclass, _options_nmethods, NELEM(_options_nmethods));
+	return env->RegisterNatives(target, _options_nmethods, sizeof(_options_nmethods) / sizeof(JNINativeMethod));
 }
 
 } // namespace speech

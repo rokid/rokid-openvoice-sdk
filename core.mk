@@ -19,8 +19,8 @@ LOCAL_C_INCLUDES := \
 	external/zlib
 
 COMMON_SRC := \
-	src/common/log.cc \
-	src/common/log.h \
+	src/common/rlog.c \
+	src/common/rlog.h \
 	src/common/speech_connection.cc \
 	src/common/speech_connection.h \
 	src/common/nanopb_encoder.cc \
@@ -73,14 +73,12 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_SRC_FILES := \
 	src/codec/rkcodec.cc \
-	include/rkcodec.h \
-	src/common/log.cc \
-	src/common/log.h
+	include/rkcodec.h
 LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/include \
 	$(LOCAL_PATH)/src/common \
 	external/libopus/include
-LOCAL_SHARED_LIBRARIES := libopus
+LOCAL_SHARED_LIBRARIES := libopus libspeech
 LOCAL_CPPFLAGS := -std=c++11
 ifeq ($(PLATFORM_SDK_VERSION), 22)
 LOCAL_SHARED_LIBRARIES += libc++ libdl

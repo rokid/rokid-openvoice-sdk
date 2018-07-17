@@ -2,9 +2,9 @@
 
 #include <stdint.h>
 #include <condition_variable>
-#include <chrono>
 #include <mutex>
 #include <list>
+#include "alt_chrono.h"
 
 #define NOOP_TIMEOUT 10000
 #define NORESP_TIMEOUT 30000
@@ -19,8 +19,8 @@ public:
 		int32_t id;
 		TStatus status;
 		TError error;
-		std::chrono::time_point<std::chrono::steady_clock> begin_timepoint;
-		std::chrono::time_point<std::chrono::steady_clock> lastest_recv_timepoint;
+		SteadyClock::time_point begin_timepoint;
+		SteadyClock::time_point lastest_recv_timepoint;
 		bool calc_op_timeout;
 	} Operation;
 
@@ -29,7 +29,7 @@ public:
 		op->id = id;
 		op->status = status;
 		op->calc_op_timeout = false;
-		op->lastest_recv_timepoint = std::chrono::steady_clock::now();
+		op->lastest_recv_timepoint = SteadyClock::now();
 		operations_.push_back(op);
 		if (status == TStatus::START)
 			current_op_ = op;
@@ -92,7 +92,7 @@ public:
 	void refresh_op_time(bool recv) {
 		if (current_op_.get()) {
 			current_op_->calc_op_timeout = true;
-			current_op_->begin_timepoint = std::chrono::steady_clock::now();
+			current_op_->begin_timepoint = SteadyClock::now();
 			if (recv)
 				current_op_->lastest_recv_timepoint = current_op_->begin_timepoint;
 		}
@@ -104,7 +104,7 @@ public:
 		if (!current_op_->calc_op_timeout)
 			return NOOP_TIMEOUT;
 		uint32_t t1, t2;
-		std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+		SteadyClock::time_point now = SteadyClock::now();
 
 		// cacl no operation timeout
 		std::chrono::duration<uint32_t, std::milli> dur =

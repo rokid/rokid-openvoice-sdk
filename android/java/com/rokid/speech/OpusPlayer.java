@@ -2,7 +2,8 @@ package com.rokid.speech;
 
 import android.media.AudioTrack;
 import android.media.AudioFormat;
-import android.media.AudioAttributes;
+//import android.media.AudioAttributes;
+import android.media.AudioManager;
 import android.util.Log;
 
 public class OpusPlayer {
@@ -75,18 +76,21 @@ public class OpusPlayer {
 	private AudioTrack createAudioTrack() {
 		int bufSize = AudioTrack.getMinBufferSize(SAMPLE_RATE,
 				AudioFormat.CHANNEL_OUT_MONO, AUDIO_ENCODING) * 2;
-		return new AudioTrack.Builder()
-			.setAudioAttributes(new AudioAttributes.Builder()
-					.setUsage(AudioAttributes.USAGE_MEDIA)
-					.setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-					.build())
-			.setAudioFormat(new AudioFormat.Builder()
-					.setEncoding(AUDIO_ENCODING)
-					.setSampleRate(SAMPLE_RATE)
-					.setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-					.build())
-			.setBufferSizeInBytes(bufSize)
-			.build();
+//		return new AudioTrack.Builder()
+//			.setAudioAttributes(new AudioAttributes.Builder()
+//					.setUsage(AudioAttributes.USAGE_MEDIA)
+//					.setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+//					.build())
+//			.setAudioFormat(new AudioFormat.Builder()
+//					.setEncoding(AUDIO_ENCODING)
+//					.setSampleRate(SAMPLE_RATE)
+//					.setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+//					.build())
+//			.setBufferSizeInBytes(bufSize)
+//			.build();
+		return new AudioTrack(AudioManager.STREAM_MUSIC,
+				SAMPLE_RATE, AudioFormat.CHANNEL_OUT_MONO,
+				AUDIO_ENCODING, bufSize, AudioTrack.MODE_STREAM);
 	}
 
 	private void initAudioTrack() {

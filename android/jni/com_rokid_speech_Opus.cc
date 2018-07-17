@@ -1,6 +1,6 @@
-#include "JNIHelp.h"
+#include <string.h>
 #include "jni.h"
-#include "log.h"
+#include "rlog.h"
 #include "rkcodec.h"
 #include <cstdlib>
 
@@ -16,7 +16,7 @@ static jlong native_opus_decoder_create(JNIEnv *env, jobject thiz) {
 	int error;
 	RKOpusDecoder* decoder = new RKOpusDecoder();
 	if (!decoder->init(SAMPLE_RATE, OPU_BITRATE, DURATION)) {
-		Log::w(TAG, "decoder create error");
+		KLOGW(TAG, "decoder create error");
 		return 0;
 	}
 	return (jlong)decoder;
@@ -66,11 +66,10 @@ int register_com_rokid_speech_Opus(JNIEnv *env) {
 	const char *kclass = "com/rokid/speech/Opus";
 	jclass clazz = env->FindClass (kclass);
 	if (clazz == NULL) {
-		Log::e(TAG, "find class %s failed.", kclass);
+		KLOGE(TAG, "find class %s failed.", kclass);
 		return -1;
 	}
-	return jniRegisterNativeMethods(env, kclass,
-															 method_table, NELEM(method_table));
+    return env->RegisterNatives(clazz, method_table, sizeof(method_table) / sizeof(JNINativeMethod));
 }
 
 } // namespace speech
@@ -80,7 +79,7 @@ extern "C" jint JNI_OnLoad(JavaVM* vm, void* reserved) {
 	JNIEnv* env;
 
 	if (vm->GetEnv((void**)&env, JNI_VERSION_1_4) != JNI_OK) {
-		rokid::speech::Log::e(TAG, "JNI_OnLoad failed");
+		KLOGE(TAG, "JNI_OnLoad failed");
 		return -1;
 	}
 	rokid::speech::register_com_rokid_speech_Opus(env);

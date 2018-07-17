@@ -13,6 +13,9 @@
 #include "speech_connection.h"
 #include "nanopb_encoder.h"
 #include "nanopb_decoder.h"
+#ifdef HAS_OPUS_CODEC
+#include "rkcodec.h"
+#endif
 
 namespace rokid {
 namespace speech {
@@ -29,14 +32,18 @@ public:
 	Codec codec;
 	VadMode vad_mode;
 	uint32_t vend_timeout;
+	uint32_t vad_begin;
 	uint32_t no_nlp:1;
 	uint32_t no_intermediate_asr:1;
-	uint32_t unused:30;
+	uint32_t no_trigger_confirm:1;
+	uint32_t unused:29;
 };
 
 class SpeechImpl : public Speech {
 public:
 	SpeechImpl();
+
+	~SpeechImpl();
 
 	bool prepare(const PrepareOptions& options);
 
@@ -87,6 +94,7 @@ private:
 	std::list<std::shared_ptr<SpeechReqInfo> > text_reqs_;
 	ReqStreamQueue voice_reqs_;
 	RespStreamQueue responses_;
+	std::mutex init_mutex_;
 	std::mutex req_mutex_;
 	std::condition_variable req_cond_;
 	std::mutex resp_mutex_;
@@ -95,6 +103,9 @@ private:
 	std::thread* req_thread_;
 	std::thread* resp_thread_;
 	bool initialized_;
+#ifdef HAS_OPUS_CODEC
+	RKOpusEncoder opus_encoder_;
+#endif
 #ifdef SPEECH_STATISTIC
 	TraceInfo cur_trace_info_;
 #endif

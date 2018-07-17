@@ -2,7 +2,7 @@
 #include "tts_impl.h"
 #include "nanopb_encoder.h"
 
-#define WS_SEND_TIMEOUT 10000
+#define WS_SEND_TIMEOUT 5000
 
 namespace rokid {
 namespace speech {
@@ -62,6 +62,10 @@ TtsImpl::TtsImpl() : initialized_(false) {
 #endif
 }
 
+TtsImpl::~TtsImpl() {
+	release();
+}
+
 bool TtsImpl::prepare(const PrepareOptions& options) {
 	lock_guard<mutex> locker(req_mutex_);
 	if (initialized_)
@@ -75,9 +79,7 @@ bool TtsImpl::prepare(const PrepareOptions& options) {
 }
 
 void TtsImpl::release() {
-#ifdef SPEECH_SDK_DETAIL_TRACE
-	Log::d(tag__, "TtsImpl.release, initialized = %d", initialized_);
-#endif
+	KLOGV(tag__, "TtsImpl.release, initialized = %d", initialized_);
 	unique_lock<mutex> req_locker(req_mutex_);
 	if (initialized_) {
 		// notify req thread to exit
@@ -103,9 +105,7 @@ void TtsImpl::release() {
 int32_t TtsImpl::speak(const char* text) {
 	if (!initialized_)
 		return -1;
-#ifdef SPEECH_SDK_DETAIL_TRACE
-	Log::d(tag__, "speak %s", text);
-#endif
+	KLOGD(tag__, "speak %s", text);
 	shared_ptr<TtsReqInfo> req(new TtsReqInfo());
 	req->data = text;
 	req->deleted = false;
@@ -124,9 +124,7 @@ void TtsImpl::cancel(int32_t id) {
 	lock_guard<mutex> locker(req_mutex_);
 	if (!initialized_)
 		return;
-#ifdef SPEECH_SDK_DETAIL_TRACE
-	Log::d(tag__, "cancel %d", id);
-#endif
+	KLOGV(tag__, "cancel %d", id);
 	it = requests_.begin();
 	while (it != requests_.end()) {
 		if (id <= 0 || (*it)->id == id) {
@@ -206,10 +204,8 @@ bool TtsImpl::poll(TtsResult& res) {
 				res.type = TTS_RES_CANCELLED;
 				res.err = TTS_SUCCESS;
 				controller_.remove_front_op();
-#ifdef SPEECH_SDK_DETAIL_TRACE
-				Log::d(tag__, "TtsImpl.poll (%d) cancelled, "
+				KLOGV(tag__, "TtsImpl.poll (%d) cancelled, "
 						"remove front op", op->id);
-#endif
 				return true;
 			} else if (op->status == TtsStatus::ERROR) {
 				if (responses_.erase(op->id)) {
@@ -220,10 +216,8 @@ bool TtsImpl::poll(TtsResult& res) {
 				res.type = TTS_RES_ERROR;
 				res.err = op->error;
 				controller_.remove_front_op();
-#ifdef SPEECH_SDK_DETAIL_TRACE
-				Log::d(tag__, "TtsImpl.poll (%d) error, "
+				KLOGV(tag__, "TtsImpl.poll (%d) error, "
 						"remove front op", op->id);
-#endif
 				return true;
 			} else {
 				poptype = responses_.pop(id, voice, err);
@@ -233,45 +227,33 @@ bool TtsImpl::poll(TtsResult& res) {
 					res.type = poptype_to_restype(poptype);
 					res.err = integer_to_reserr(err);
 					res.voice = voice;
-#ifdef SPEECH_SDK_DETAIL_TRACE
-					Log::d(tag__, "TtsImpl.poll return result id(%d), "
+					KLOGV(tag__, "TtsImpl.poll return result id(%d), "
 							"type(%d)", res.id, res.type);
-#endif
 					if (res.type == TTS_RES_END) {
-#ifdef SPEECH_SDK_DETAIL_TRACE
-						Log::d(tag__, "TtsImpl.poll (%d) end", res.id);
-#endif
+						KLOGV(tag__, "TtsImpl.poll (%d) end", res.id);
 						controller_.remove_front_op();
 					}
 					return true;
 				}
 			}
 		}
-#ifdef SPEECH_SDK_DETAIL_TRACE
-		Log::d(tag__, "TtsImpl.poll wait");
-#endif
+		KLOGV(tag__, "TtsImpl.poll wait");
 		resp_cond_.wait(locker);
 	}
-#ifdef SPEECH_SDK_DETAIL_TRACE
-	Log::d(tag__, "TtsImpl.poll return false, sdk released");
-#endif
+	KLOGV(tag__, "TtsImpl.poll return false, sdk released");
 	return false;
 }
 
 void TtsImpl::send_reqs() {
 	shared_ptr<TtsReqInfo> req;
 	TtsStatus status;
-#ifdef SPEECH_SDK_DETAIL_TRACE
-	Log::d(tag__, "thread 'send_reqs' begin");
-#endif
+	KLOGV(tag__, "thread 'send_reqs' begin");
 	while (true) {
 		unique_lock<mutex> locker(req_mutex_);
 		if (!initialized_)
 			break;
 		if (requests_.empty()) {
-#ifdef SPEECH_SDK_DETAIL_TRACE
-			Log::d(tag__, "TtsImpl.send_reqs wait req available");
-#endif
+			KLOGV(tag__, "TtsImpl.send_reqs wait req available");
 			req_cond_.wait(locker);
 		} else {
 			req = requests_.front();
@@ -280,32 +262,24 @@ void TtsImpl::send_reqs() {
 			locker.unlock();
 
 			if (status == TtsStatus::START && do_request(req)) {
-#ifdef SPEECH_SDK_DETAIL_TRACE
-				Log::d(tag__, "TtsImpl.send_reqs wait op finish");
-#endif
+				KLOGV(tag__, "TtsImpl.send_reqs wait op finish");
 				unique_lock<mutex> resp_locker(resp_mutex_);
 				controller_.wait_op_finish(req->id, resp_locker);
 			}
 		}
 	}
-#ifdef SPEECH_SDK_DETAIL_TRACE
-	Log::d(tag__, "thread 'send_reqs' quit");
-#endif
+	KLOGV(tag__, "thread 'send_reqs' quit");
 }
 
 TtsStatus TtsImpl::do_ctl_new_op(shared_ptr<TtsReqInfo>& req) {
 	lock_guard<mutex> locker(resp_mutex_);
 	if (req->deleted) {
-#ifdef SPEECH_SDK_DETAIL_TRACE
-		Log::d(tag__, "do_ctl_new_op: cancelled");
-#endif
+		KLOGV(tag__, "do_ctl_new_op: cancelled");
 		controller_.new_op(req->id, TtsStatus::CANCELLED);
 		resp_cond_.notify_one();
 		return TtsStatus::CANCELLED;
 	}
-#ifdef SPEECH_SDK_DETAIL_TRACE
-	Log::d(tag__, "do_ctl_new_op: start");
-#endif
+	KLOGV(tag__, "do_ctl_new_op: start");
 	controller_.new_op(req->id, TtsStatus::START);
 	return TtsStatus::START;
 }
@@ -325,11 +299,9 @@ static const char* get_codec_str(Codec codec) {
 }
 
 bool TtsImpl::do_request(shared_ptr<TtsReqInfo>& req) {
-#ifdef SPEECH_SDK_DETAIL_TRACE
-	Log::d(tag__, "do_request: send req to server. (%d:%s), codec(%s), declaimer(%s), samplerate(%u)",
+	KLOGV(tag__, "do_request: send req to server. (%d:%s), codec(%s), declaimer(%s), samplerate(%u)",
 			req->id, req->data.c_str(), get_codec_str(options_.codec),
 			options_.declaimer.c_str(), options_.samplerate);
-#endif
 	TtsRequest treq;
 	treq.set_id(req->id);
 	treq.set_text(req->data.c_str());
@@ -345,16 +317,14 @@ bool TtsImpl::do_request(shared_ptr<TtsReqInfo>& req) {
 		TtsError err = TTS_UNKNOWN;
 		if (r == ConnectionOpResult::CONNECTION_NOT_AVAILABLE)
 			err = TTS_SERVICE_UNAVAILABLE;
-		Log::w(tag__, "do_request: (%d) send req failed %d, "
+		KLOGW(tag__, "do_request: (%d) send req failed %d, "
 				"set op error", req->id, r);
 		lock_guard<mutex> locker(resp_mutex_);
 		controller_.set_op_error(err);
 		resp_cond_.notify_one();
 		return false;
 	}
-#ifdef SPEECH_SDK_DETAIL_TRACE
-	Log::d(tag__, "req (%d) sent, req done", req->id);
-#endif
+	KLOGD(tag__, "req (%d) sent, req done", req->id);
 	lock_guard<mutex> locker(resp_mutex_);
 	controller_.refresh_op_time(false);
 	return true;
@@ -366,9 +336,7 @@ void TtsImpl::gen_results() {
 	TtsError err;
 	uint32_t timeout;
 
-#ifdef SPEECH_SDK_DETAIL_TRACE
-	Log::d(tag__, "thread 'gen_results' run");
-#endif
+	KLOGV(tag__, "thread 'gen_results' run");
 	while (true) {
 		unique_lock<mutex> locker(resp_mutex_);
 		timeout = controller_.op_timeout();
@@ -383,7 +351,7 @@ void TtsImpl::gen_results() {
 			gen_result_by_resp(resp);
 		} else if (r == ConnectionOpResult::TIMEOUT) {
 			if (controller_.op_timeout() == 0) {
-				Log::w(tag__, "gen_results: (%d) op timeout, "
+				KLOGI(tag__, "gen_results: (%d) op timeout, "
 						"set op error", controller_.current_op()->id);
 				controller_.set_op_error(TTS_TIMEOUT);
 				resp_cond_.notify_one();
@@ -406,9 +374,7 @@ void TtsImpl::gen_results() {
 		}
 		locker.unlock();
 	}
-#ifdef SPEECH_SDK_DETAIL_TRACE
-	Log::d(tag__, "thread 'gen_results' quit");
-#endif
+	KLOGV(tag__, "thread 'gen_results' quit");
 }
 
 void TtsImpl::gen_result_by_resp(TtsResponse& resp) {
@@ -420,16 +386,12 @@ void TtsImpl::gen_result_by_resp(TtsResponse& resp) {
 			responses_.start(resp.id());
 			new_data = true;
 			op->status = TtsStatus::STREAMING;
-#ifdef SPEECH_SDK_DETAIL_TRACE
-			Log::d(tag__, "gen_result_by_resp(%d): push start resp, "
+			KLOGD(tag__, "gen_result_by_resp(%d): push start resp, "
 					"Status Start --> Streaming", resp.id());
-#endif
 		}
 
-#ifdef SPEECH_SDK_DETAIL_TRACE
-		Log::d(tag__, "TtsResponse has_voice(%d), finish(%d)",
+		KLOGV(tag__, "TtsResponse has_voice(%d), finish(%d)",
 				resp.has_voice(), resp.finish());
-#endif
 		if (resp.has_voice()) {
 			shared_ptr<string> voice;
 #ifdef LOW_PB_VERSION
@@ -439,10 +401,8 @@ void TtsImpl::gen_result_by_resp(TtsResponse& resp) {
 #endif
 			responses_.stream(resp.id(), voice);
 			new_data = true;
-#ifdef SPEECH_SDK_DETAIL_TRACE
-			Log::d(tag__, "gen_result_by_resp(%d): push voice "
+			KLOGV(tag__, "gen_result_by_resp(%d): push voice "
 					"resp, %d bytes", resp.id(), voice->length());
-#endif
 		}
 
 		if (resp.finish()) {
@@ -451,10 +411,8 @@ void TtsImpl::gen_result_by_resp(TtsResponse& resp) {
 			if (op->status != TtsStatus::CANCELLED
 					&& op->status != TtsStatus::ERROR) {
 				op->status = TtsStatus::END;
-#ifdef SPEECH_SDK_DETAIL_TRACE
-				Log::d(tag__, "gen_result_by_resp(%d): push end resp, "
+				KLOGD(tag__, "gen_result_by_resp(%d): push end resp, "
 						"Status Streaming --> End", resp.id());
-#endif
 			}
 			controller_.finish_op();
 #ifdef SPEECH_STATISTIC
@@ -463,10 +421,8 @@ void TtsImpl::gen_result_by_resp(TtsResponse& resp) {
 		}
 
 		if (new_data) {
-#ifdef SPEECH_SDK_DETAIL_TRACE
-			Log::d(tag__, "some responses put to queue, "
+			KLOGV(tag__, "some responses put to queue, "
 					"awake poll thread");
-#endif
 			resp_cond_.notify_one();
 		}
 	}

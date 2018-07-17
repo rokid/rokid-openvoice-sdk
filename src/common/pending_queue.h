@@ -7,7 +7,7 @@
 #include <list>
 #include <map>
 #include <memory>
-#include "log.h"
+#include "rlog.h"
 
 using namespace std;
 
@@ -197,10 +197,8 @@ public:
 
 	bool start(int32_t id) {
 		if (item_tags_.find(id) != item_tags_.end()) {
-#ifdef SPEECH_SDK_STREAM_QUEUE_TRACE
-			Log::i(STREAM_QUEUE_TAG, "add tag for %d failed, "
+			KLOGV(STREAM_QUEUE_TAG, "add tag for %d failed, "
 					"already existed", id);
-#endif
 			return false;
 		}
 
@@ -213,9 +211,7 @@ public:
 		it = queue_.insert(queue_.end(), item);
 		item_tags_.insert(pair<int, StreamingItemPos>(item->id, it));
 		tag_queue_.push_back(it);
-#ifdef SPEECH_SDK_STREAM_QUEUE_TRACE
-		Log::d(STREAM_QUEUE_TAG, "add tag for id %d", id);
-#endif
+		KLOGV(STREAM_QUEUE_TAG, "add tag for id %d", id);
 		return true;
 	}
 
@@ -224,14 +220,12 @@ public:
 		it = item_tags_.find(id);
 		if (it == item_tags_.end()
 				|| (*it->second)->type != QueueItem::uncompleted) {
-#ifdef SPEECH_SDK_STREAM_QUEUE_TRACE
 			if (it == item_tags_.end())
-				Log::i(STREAM_QUEUE_TAG, "add data for id %d failed, "
+				KLOGV(STREAM_QUEUE_TAG, "add data for id %d failed, "
 						"the tag not existed", id);
 			else
-				Log::i(STREAM_QUEUE_TAG, "add data for id %d failed, "
+				KLOGV(STREAM_QUEUE_TAG, "add data for id %d failed, "
 						"the tag type is %d", id, (*it->second)->type);
-#endif
 			return false;
 		}
 
@@ -240,11 +234,9 @@ public:
 		item->content = data;
 		queue_.insert(it->second, item);
 		++(*it->second)->data_count;
-#ifdef SPEECH_SDK_STREAM_QUEUE_TRACE
-		Log::d(STREAM_QUEUE_TAG, "add data for id %d, "
+		KLOGV(STREAM_QUEUE_TAG, "add data for id %d, "
 				"data count is %d", id,
 				(*it->second)->data_count);
-#endif
 		return true;
 	}
 
@@ -253,19 +245,15 @@ public:
 
 		it = item_tags_.find(id);
 		if (it == item_tags_.end()) {
-#ifdef SPEECH_SDK_STREAM_QUEUE_TRACE
-			Log::i(STREAM_QUEUE_TAG, "complete tag for id %d failed, "
+			KLOGV(STREAM_QUEUE_TAG, "complete tag for id %d failed, "
 					"tag not existed", id);
-#endif
 			return false;
 		}
 		(*it->second)->type = QueueItem::completed;
 		if (data.get())
 			(*it->second)->content = data;
-#ifdef SPEECH_SDK_STREAM_QUEUE_TRACE
-		Log::d(STREAM_QUEUE_TAG, "complete tag for id %d, "
+		KLOGV(STREAM_QUEUE_TAG, "complete tag for id %d, "
 				"data count is %d", id, (*it->second)->data_count);
-#endif
 		return true;
 	}
 
@@ -274,10 +262,8 @@ public:
 
 		it = item_tags_.find(id);
 		if (it == item_tags_.end()) {
-#ifdef SPEECH_SDK_STREAM_QUEUE_TRACE
-			Log::i(STREAM_QUEUE_TAG, "set_arg for id %d failed, "
+			KLOGV(STREAM_QUEUE_TAG, "set_arg for id %d failed, "
 					"tag not existed", id);
-#endif
 			return;
 		}
 		(*it->second)->arg = arg;
@@ -288,10 +274,8 @@ public:
 
 		it = item_tags_.find(id);
 		if (it == item_tags_.end()) {
-#ifdef SPEECH_SDK_STREAM_QUEUE_TRACE
-			Log::i(STREAM_QUEUE_TAG, "get_arg for id %d failed, "
+			KLOGV(STREAM_QUEUE_TAG, "get_arg for id %d failed, "
 					"tag not existed", id);
-#endif
 			return NULL;
 		}
 		return (*it->second)->arg;
@@ -331,11 +315,9 @@ public:
 				(*last_it)->type = QueueItem::deleted;
 			if (first_it != last_it) {
 				(*last_it)->data_count -= c;
-#ifdef SPEECH_SDK_STREAM_QUEUE_TRACE
-				Log::d(STREAM_QUEUE_TAG, "erase %d data for id %d, "
+				KLOGV(STREAM_QUEUE_TAG, "erase %d data for id %d, "
 						"data count is %d, err %d", c, id,
 						(*last_it)->data_count, err);
-#endif
 				queue_.erase(first_it, last_it);
 			}
 			return true;
@@ -365,11 +347,9 @@ public:
 				(*it)->type = QueueItem::deleted;
 				(*it)->content.reset();
 				(*it)->data_count -= c;
-#ifdef SPEECH_SDK_STREAM_QUEUE_TRACE
-				Log::d(STREAM_QUEUE_TAG, "clear queue, erase %d data "
+				KLOGV(STREAM_QUEUE_TAG, "clear queue, erase %d data "
 						"for id %d, finally count is %d", c,
 						(*it)->id, (*it)->data_count);
-#endif
 				++it;
 			}
 		}
@@ -404,9 +384,7 @@ public:
 
 	int32_t pop(int32_t& id, T_sp& res, uint32_t& err) {
 		if (tag_queue_.empty()) {
-#ifdef SPEECH_SDK_STREAM_QUEUE_TRACE
-			Log::d(STREAM_QUEUE_TAG, "pop return EMPTY");
-#endif
+			KLOGV(STREAM_QUEUE_TAG, "pop return EMPTY");
 			return POP_TYPE_EMPTY;
 		}
 		StreamingItemPos ip = tag_queue_.front();
@@ -417,19 +395,15 @@ public:
 			if (!item->polling) {
 				id = item->id;
 				item->polling = 1;
-#ifdef SPEECH_SDK_STREAM_QUEUE_TRACE
-				Log::d(STREAM_QUEUE_TAG, "pop return start for id %d, "
+				KLOGV(STREAM_QUEUE_TAG, "pop return start for id %d, "
 						"data count %d", id, item->data_count);
-#endif
 				return POP_TYPE_START;
 			}
 			if (ip == queue_.begin()) {
 				if (item->type == QueueItem::uncompleted) {
-#ifdef SPEECH_SDK_STREAM_QUEUE_TRACE
-					Log::d(STREAM_QUEUE_TAG, "pop return EMPTY, "
+					KLOGV(STREAM_QUEUE_TAG, "pop return EMPTY, "
 							"id %d, data count = %d", item->id,
 							item->data_count);
-#endif
 					// if ip == queue_.begin(),
 					// the stream no data available now,
 					// not end, wait for more data.
@@ -441,19 +415,15 @@ public:
 				item_tags_.erase(item->id);
 				tag_queue_.pop_front();
 				queue_.pop_front();
-#ifdef SPEECH_SDK_STREAM_QUEUE_TRACE
-				Log::d(STREAM_QUEUE_TAG, "pop return complete for "
+				KLOGV(STREAM_QUEUE_TAG, "pop return complete for "
 						"id %d, data count %d", item->id,
 						item->data_count);
-#endif
 				return POP_TYPE_END;
 			}
 			id = item->id;
 			--item->data_count;
-#ifdef SPEECH_SDK_STREAM_QUEUE_TRACE
-			Log::d(STREAM_QUEUE_TAG, "pop return data for id %d, "
+			KLOGV(STREAM_QUEUE_TAG, "pop return data for id %d, "
 					"data count %d", item->id, item->data_count);
-#endif
 			item = queue_.front();
 			assert(item->type == QueueItem::data);
 			queue_.pop_front();
@@ -464,10 +434,8 @@ public:
 			item_tags_.erase(item->id);
 			tag_queue_.pop_front();
 			queue_.pop_front();
-#ifdef SPEECH_SDK_STREAM_QUEUE_TRACE
-			Log::d(STREAM_QUEUE_TAG, "pop return deleted for id %d, "
+			KLOGV(STREAM_QUEUE_TAG, "pop return deleted for id %d, "
 					"data count %d", item->id, item->data_count);
-#endif
 			return POP_TYPE_REMOVED;
 		}
 		id = item->id;
@@ -475,10 +443,8 @@ public:
 		item_tags_.erase(item->id);
 		tag_queue_.pop_front();
 		queue_.pop_front();
-#ifdef SPEECH_SDK_STREAM_QUEUE_TRACE
-		Log::d(STREAM_QUEUE_TAG, "pop return error for id %d, "
+		KLOGV(STREAM_QUEUE_TAG, "pop return error for id %d, "
 				"data count %d", item->id, item->data_count);
-#endif
 		return POP_TYPE_ERROR;
 	}
 

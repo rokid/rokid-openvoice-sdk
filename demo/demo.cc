@@ -1,11 +1,16 @@
 #include <stdio.h>
 #include <unistd.h>
+#include <stdlib.h>
 #include <thread>
 #include <string.h>
 #include "tts.h"
 #include "speech.h"
 #include "simple_wave.h"
 #include "speech_stress_test.h"
+#include "speech_release_test.h"
+#include "speech_base_test.h"
+#include "clargs.h"
+#include "defs.h"
 #ifdef HAS_OPUS_CODEC
 #include <sys/mman.h>
 #include "rkcodec.h"
@@ -18,10 +23,8 @@ using std::string;
 #define AUDIO_FILE_NAME_FORMAT "data%d.wav"
 
 static const char* test_text[] = {
-	"你好若琪，我是你爹",
-	"只要998，若琪抱回家。998你买不了吃亏，998你买不了上当",
-	"芋头科技是一家好公司，让你明白劳动光荣，不劳动可耻的道理，还管饭。",
-	"米萨咖啡是一家好咖啡厅，年年超额完成任务，这当然是因为他们咖啡泡得好，绝对不是因为有其它创收渠道。"
+	"若琪，今天天气怎么样",
+	"若琪，唱一首歌"
 };
 
 #if defined(TEST_MP3)
@@ -60,15 +63,10 @@ static void decode_write(const string& data, SimpleWaveWriter& writer) {
 }
 #endif
 
-#ifdef HAS_OPUS_CODEC
-static RKOpusEncoder rkencoder;
-#define ENCODE_FRAMES 50
-#endif
-
 static void test_tts(PrepareOptions& opts) {
 	shared_ptr<Tts> tts = Tts::new_instance();
 	int speakCount = sizeof(test_text) / sizeof(char*);
-	int repeat = 100;
+	int repeat = 1;
 	bool thflag = false;
 
 	tts->prepare(opts);
@@ -101,7 +99,7 @@ static void test_tts(PrepareOptions& opts) {
 #ifdef TEST_MP3
 					create_mp3_file(result.id % speakCount);
 #else
-					snprintf(fname, sizeof(fname), AUDIO_FILE_NAME_FORMAT, result.id % speakCount);
+					snprintf(fname, sizeof(fname), AUDIO_FILE_NAME_FORMAT, ((result.id - 1) % speakCount) + 1);
 					writer.create(fname, 16000, 16);
 #endif
 					break;
@@ -176,12 +174,11 @@ static void test_speech(PrepareOptions& opts) {
 	bool thflag = false;
 
 	speech->prepare(opts);
-#ifdef HAS_OPUS_CODEC
 	shared_ptr<SpeechOptions> sopts = SpeechOptions::new_instance();
-	sopts->set_codec(Codec::OPU);
+	sopts->set_codec(Codec::PCM);
+	// sopts->set_vad_begin(55);
+	// sopts->set_no_trigger_confirm(true);
 	speech->config(sopts);
-	rkencoder.init(16000, 27800, 20);
-#endif
 	std::thread poll_thread([&speech, &thflag, reqCount]() {
 			int count = 0;
 			SpeechResult result;
@@ -230,12 +227,7 @@ static void test_speech(PrepareOptions& opts) {
 	uint32_t length;
 	uint32_t frame_len;
 	uint32_t off;
-#ifdef HAS_OPUS_CODEC
-	uint32_t frames_size = ENCODE_FRAMES * rkencoder.pcm_frame_size();
-	uint32_t total_pcm_frames;
-	uint32_t enc_frames, enc_size;
-	const uint8_t* opu;
-#endif
+
 	for (i = 0; i < reqCount; ++i) {
 		snprintf(fname, sizeof(fname), AUDIO_FILE_NAME_FORMAT, i + 1);
 		if (reader.open(fname)) {
@@ -245,26 +237,6 @@ static void test_speech(PrepareOptions& opts) {
 					fname, length, reader.sample_rate(), reader.bits_per_sample());
 			id = speech->start_voice();
 			off = 0;
-#ifdef HAS_OPUS_CODEC
-			total_pcm_frames = length / rkencoder.pcm_frame_size() / sizeof(uint16_t);
-			while (off < total_pcm_frames) {
-				frame_len = total_pcm_frames - off;
-				if (frame_len > ENCODE_FRAMES)
-					frame_len = ENCODE_FRAMES;
-				opu = rkencoder.encode(reinterpret_cast<const uint16_t*>(data)
-						+ off * rkencoder.pcm_frame_size(), frame_len, enc_frames,
-						enc_size);
-				if (opu == NULL) {
-					printf("opu encode failed\n");
-					break;
-				}
-				speech->put_voice(id, opu, enc_size);
-				off += enc_frames;
-				// 模拟真实拾音发送语音数据的频率
-				// std::this_thread::sleep_for(std::chrono::milliseconds(400));
-				usleep(100000);
-			}
-#else
 			while (off < length) {
 				if (length - off > 2048)
 					frame_len = 2048;
@@ -276,18 +248,12 @@ static void test_speech(PrepareOptions& opts) {
 				// std::this_thread::sleep_for(std::chrono::milliseconds(400));
 				usleep(20000);
 			}
-#endif
 			reader.close();
 			speech->end_voice(id);
 		}
 	}
 	poll_thread.join();
 	speech->release();
-}
-
-static void test_speech_stress(const PrepareOptions& opts) {
-	SpeechStressTest test;
-	test.run(opts, 1);
 }
 
 static void test_reconn(PrepareOptions& opts) {
@@ -299,20 +265,124 @@ static void test_reconn(PrepareOptions& opts) {
 	speech->release();
 }
 
+static void test_file_log(PrepareOptions& opts) {
+	enable_file_log(true, ".");
+	test_tts(opts);
+	enable_file_log(false, NULL);
+	test_speech(opts);
+}
+
+static void print_cmdline_prompt(const char* progname) {
+	static const char* prompt = "USAGE: %s [options]\n"
+		"\n"
+		"OPTIONS:\n"
+		"-t,--test=TESTCASE\n"
+		"\tTESTCASE: stress|speech-release|speech-base\n"
+		"-p,--pcm=FILE\n"
+		"--wav=FILE\n"
+		"\n"
+		"TESTCASE: speech-release\n"
+		"\t--test-duration=DUR   set test duration time(seconds)\n"
+		"\t--min-release-interval=T   set minimal release interval time(ms)\n"
+		"\t--max-release-interval=T   set maximal release interval time(ms)\n";
+	printf(prompt, progname);
+}
+
+static void init_demo_options_value(DemoOptions& opts) {
+	memset(&opts, 0, sizeof(opts));
+	opts.test_duration = 120;
+	opts.min_release_interval = 10000;
+	opts.max_release_interval = 30000;
+}
+
+static bool check_demo_options_valid(const DemoOptions& opts) {
+	if (opts.testcase == 0)
+		return false;
+	if (opts.testcase == 1 && opts.pcm == nullptr)
+		return false;
+	if (opts.testcase == 3 && opts.pcm == nullptr && opts.wav == nullptr)
+		return false;
+	if (opts.testcase > 3)
+		return false;
+	return true;
+}
+
+static bool create_demo_options(clargs_h handle, DemoOptions& opts) {
+	const char* key;
+	const char* value;
+	int32_t r;
+
+	init_demo_options_value(opts);
+	while (true) {
+		r = clargs_opt_next(handle, &key, &value);
+		if (r)
+			break;
+		if (strcmp(key, "t") == 0 || strcmp(key, "test") == 0) {
+			if (value) {
+				if (strcmp(value, "stress") == 0) {
+					opts.testcase = 1;
+				} else if (strcmp(value, "speech-release") == 0) {
+					opts.testcase = 2;
+				} else if (strcmp(value, "speech-base") == 0) {
+					opts.testcase = 3;
+				}
+			}
+		} else if (strcmp(key, "p") == 0 || strcmp(key, "pcm") == 0) {
+			opts.pcm = value;
+		} else if (strcmp(key, "wav") == 0) {
+			opts.wav = value;
+		} else if (strcmp(key, "test-duration") == 0) {
+			opts.test_duration = atoi(value);
+		} else if (strcmp(key, "min-release-interval") == 0) {
+			opts.min_release_interval = atoi(value);
+		} else if (strcmp(key, "max-release-interval") == 0) {
+			opts.max_release_interval = atoi(value);
+		}
+	}
+
+	// check valid
+	if (!check_demo_options_valid(opts))
+		return false;
+	return true;
+}
+
 int main(int argc, char** argv) {
+	clargs_h h = clargs_parse(argc, argv);
+	DemoOptions demo_options;
 	PrepareOptions opts;
+
+	if (h == 0) {
+		goto failed;
+	}
+	if (!create_demo_options(h, demo_options)) {
+		clargs_destroy(h);
+		goto failed;
+	}
+
 	opts.host = "apigwws.open.rokid.com";
 	opts.port = 443;
 	opts.branch = "/api";
-	opts.key = "rokid_test_key";
-	opts.device_type_id = "rokid_test_device_type_id";
-	opts.device_id = "ming.qiwo";
-	opts.secret = "rokid_test_secret";
+	opts.key = "6DDECE40ED024837AC9BDC4039DC3245";
+	opts.device_type_id = "B16B2DFB5A004DCBAFD0C0291C211CE1";
+	opts.device_id = "ming.demo";
+	opts.secret = "F2A1FDC667A042F3A44E516282C3E1D7";
 
-	// test_tts(opts);
-	// test_speech(opts);
-	// test_reconn(opts);
-	test_speech_stress(opts);
+	switch (demo_options.testcase) {
+		case 1: // stress test
+			SpeechStressTest::test(opts, demo_options.pcm, 1);
+			break;
+		case 2: // speech release test
+			SpeechReleaseTest::test(opts, demo_options);
+			break;
+		case 3:
+			SpeechBaseTest::test(opts, demo_options);
+			break;
+	}
 
+	clargs_destroy(h);
 	return 0;
+
+failed:
+	print_cmdline_prompt(argv[0]);
+	return 1;
 }

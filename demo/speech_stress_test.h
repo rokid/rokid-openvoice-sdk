@@ -1,6 +1,6 @@
 #include <vector>
 #include <thread>
-#include <chrono>
+#include "alt_chrono.h"
 #include <mutex>
 #include <list>
 #include "speech.h"
@@ -13,15 +13,17 @@ typedef struct {
 
 typedef struct {
 	int32_t id;
-	std::chrono::steady_clock::time_point start_tp;
+	SteadyClock::time_point start_tp;
 } SpeechReqInfo;
 
 class SpeechStressTest {
 public:
-	void run(const rokid::speech::PrepareOptions& opts, uint32_t repeat);
+	static void test(const rokid::speech::PrepareOptions& opts, const char* pcm_file, uint32_t repeat);
 
 private:
-	void init(const rokid::speech::PrepareOptions& opts);
+	void run(std::shared_ptr<rokid::speech::Speech>& sp, uint8_t* pcm, uint32_t size, uint32_t repeat);
+
+	void init();
 
 	void final();
 

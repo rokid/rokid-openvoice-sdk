@@ -6,7 +6,7 @@
 namespace rokid {
 namespace speech {
 
-// opus -->  pcm
+// tts  opus -->  pcm
 class RKOpusDecoder {
 public:
 	RKOpusDecoder();
@@ -42,7 +42,7 @@ private:
 	uint16_t* _pcm_buffer;
 };
 
-// pcm -->  opus
+// speech  pcm -->  opus
 class RKOpusEncoder {
 public:
 	RKOpusEncoder();
@@ -59,12 +59,12 @@ public:
 		return _pcm_frame_size;
 	}
 
-	// param 'pcm': pcm frame data, length must be 'num_frames' * pcm_frame_size
-	//       'enc_frames':  encoded pcm frames in this invocation of 'encode'
-	//       'enc_size':  opus data size in bytes in this invocation of 'encode'
+	// param 'pcm': pcm data, in short
+	//       'size':  pcm data size, in short
+	//       'enc_size':  opus data size in bytes at this invocation of 'encode'
 	// return opus data, length is 'enc_size'
-	const uint8_t* encode(const uint16_t* pcm, uint32_t num_frames,
-			uint32_t& enc_frames, uint32_t& enc_size);
+	const uint8_t* encode(const uint16_t* pcm, uint32_t size,
+			uint32_t& enc_size);
 
 	void close();
 
@@ -73,6 +73,10 @@ private:
 	uint32_t _pcm_frame_size;
 	OpusEncoder* _opus_encoder;
 	uint8_t* _opus_buffer;
+	// a pcm frame array
+	// size == _pcm_frame_size
+	uint16_t* a_pcm_frame;
+	uint32_t pcm_frame_used_bytes;
 };
 
 } // namespace speech

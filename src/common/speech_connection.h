@@ -1,18 +1,14 @@
 #pragma once
 
 #include <assert.h>
-#include <chrono>
 #include <mutex>
 #include <condition_variable>
 #include <thread>
 #include <list>
-#include "speech_types.h"
-#ifdef __ANDROID__
+#include "speech_common.h"
 #include "Hub.h"
-#else
-#include <uWS/Hub.h>
-#endif
-#include "log.h"
+#include "rlog.h"
+#include "alt_chrono.h"
 
 namespace rokid {
 namespace speech {
@@ -25,9 +21,6 @@ enum class ConnectStage {
 	UNAUTH,
 	// connected and authorized
 	READY,
-	// SpeechConnection.release invoked, wait all threads quit
-	RELEASING,
-	RELEASED
 };
 
 enum class ConnectionOpResult {
@@ -73,14 +66,12 @@ public:
 		std::string buf;
 		std::unique_lock<std::mutex> locker(req_mutex_);
 		if (!pbitem.SerializeToString(&buf)) {
-			Log::w(CONN_TAG, "send: protobuf serialize failed");
+			KLOGW(CONN_TAG, "send: protobuf serialize failed");
 			return ConnectionOpResult::INVALID_PB_OBJ;
 		}
-#ifdef SPEECH_SDK_DETAIL_TRACE
-		Log::d(CONN_TAG, "SpeechConnection.send: pb serialize result %lu bytes", buf.length());
-#endif
+		KLOGV(CONN_TAG, "SpeechConnection.send: pb serialize result %lu bytes", buf.length());
 		if (!ensure_connection_available(locker, timeout)) {
-			Log::i(CONN_TAG, "send: connection not available");
+			KLOGI(CONN_TAG, "send: connection not available");
 			return ConnectionOpResult::CONNECTION_NOT_AVAILABLE;
 		}
 		ws_send(buf.data(), buf.length(), uWS::OpCode::BINARY);
@@ -92,6 +83,8 @@ public:
 		SpeechBinaryResp* resp_data;
 		std::unique_lock<std::mutex> locker(resp_mutex_);
 
+		if (working_ == 0)
+			return ConnectionOpResult::NOT_READY;
 		if (responses_.empty()) {
 			if (timeout == 0)
 				resp_cond_.wait(locker);
@@ -109,16 +102,16 @@ public:
 						resp_data->length);
 				free(resp_data);
 				if (!r) {
-					Log::w(CONN_TAG, "recv: protobuf parse failed");
+					KLOGW(CONN_TAG, "recv: protobuf parse failed");
 					return ConnectionOpResult::INVALID_PB_DATA;
 				}
 				return ConnectionOpResult::SUCCESS;
 			}
-			Log::w(CONN_TAG, "recv: failed, connection broken");
+			KLOGI(CONN_TAG, "recv: failed, connection broken");
 			free(resp_data);
 			return ConnectionOpResult::CONNECTION_BROKEN;
 		}
-		if (stage_ == ConnectStage::RELEASED)
+		if (working_ == 0)
 			return ConnectionOpResult::NOT_READY;
 		return ConnectionOpResult::TIMEOUT;
 	}
@@ -179,6 +172,8 @@ private:
 	void ping();
 #endif
 
+	void notify_initialize();
+
 private:
 	std::mutex req_mutex_;
 	std::mutex resp_mutex_;
@@ -194,10 +189,12 @@ private:
 	uWS::WebSocket<uWS::CLIENT>* ws_;
 	PrepareOptions options_;
 	std::string service_type_;
-	std::chrono::steady_clock::time_point reconn_timepoint_;
-	std::chrono::steady_clock::time_point lastest_ping_tp_;
-	std::chrono::steady_clock::time_point lastest_recv_tp_;
+	SteadyClock::time_point reconn_timepoint_;
+	SteadyClock::time_point lastest_ping_tp_;
+	SteadyClock::time_point lastest_recv_tp_;
 	ConnectStage stage_;
+	int16_t working_;
+	int16_t initializing_;
 #ifdef SPEECH_STATISTIC
 	std::list<TraceInfo> _trace_infos;
 #endif

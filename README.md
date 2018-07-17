@@ -1,90 +1,94 @@
 # Rokid Speech SDK
-## sdk 编译 (Android平台）
-**sdk依赖模块下载**
+
+## sdk 编译
+
+### 编译依赖
+
+* cmake 3.2以上
+* openssl
+* libz
+* [cmake-modules](https://github.com/Rokid/aife-cmake-modules.git)
+* [mutils](https://github.com/Rokid/aife-mutils.git)
+* [uWS](https://github.com/Rokid/rokid-openvoice-sdk-deps-uWS.git)
+* opus(可选)
+
+> 开源uWebSockets做了一些小修改，回避某些问题
+
+### 编译命令
+
+#### 若/usr下能找到libz, openssl, mutils, uWS的头文件和动态链接库文件
 
 ```
-git clone https://github.com/Rokid/rokid-openvoice-sdk-deps-uWS.git
-
-将以上模块目录放入android工程任意位置
-如 <android_project>/openvoice/uWS
-```
-
-**sdk编译**
-
-```
-git clone https://github.com/Rokid/rokid-openvoice-sdk.git
-将源码目录放入android工程任意位置
-如<android_project>/openvoice/speech
-
-将以下模块加入android工程，一般是编辑device/*/${product_name}.mk。
-加入:
-PRODUCT_PACKAGES += \
-	libuWS \
-	libspeech \
-	librkcodec \
-	librokid_speech_jni \
-	librokid_opus_jni \
-	speech_sdk.json \
-	tts_sdk.json \
-	rokid_speech \
-	opus_player
-
-### Demo程序，可选 ###
-PRODUCT_PACKAGES += \
-	RKSpeechDemo
-
-编译：
-cd <android_project>
-. build/envsetup.sh
-lunch <your_conf>
+./config \
+    --build-dir=${build目录} \  # cmake生成的makefiles目录, 编译生成的二进制文件也将在这里
+    --cmake-modules=${cmake_modules目录}  # 指定cmake-modules所在目录
+cd ${build目录}
 make
+make install
 ```
 
-## sdk 编译 (Ubuntu平台)
-
-**sdk依赖模块编译安装**
-
-* 安装openssl
+#### 若libz, openssl, mutils, uWS中一个或多个的头文件/动态链接库文件无法在/usr下找到，则需要指定它们所在的路径
 
 ```
-sudo apt-get install libssl-dev
-```
-
-* 编译uWebSockets
-
-```
-git clone https://github.com/Rokid/rokid-openvoice-sdk-deps-uWS.git -b uWS
-cd uWS
+./config \
+    --build-dir=${build目录} \
+    --cmake-modules=${cmake_modules目录} \
+    --zlib=${zlib目录} \
+    --openssl=${openssl目录} \
+    --rlog=${mutils目录} \
+    --uWS=${uWS目录}
+cd ${build目录}
 make
+make install
 ```
 
-**sdk编译**
-
-依赖cmake 3.2以上
+#### 交叉编译
 
 ```
-git clone https://github.com/Rokid/rokid-openvoice-sdk.git
-cd rokid-openvoice-sdk
-./config --uws=uWebSockets安装路径
-cd build
+./config \
+    --build-dir=${build目录} \
+    --cmake-modules=${cmake_modules目录} \
+    --toolchain=${工具链目录} \
+    --cross-prefix=${工具链命令前缀} \   # 如arm-openwrt-linux-gnueabi-
+    --find-root-path=${rootpath}
+cd ${build目录}
 make
+make install
+    
+* 注: 交叉编译时，不能在/usr下寻找目标平台的依赖动态链接库及头文件。
+     因此使用--find-root-path指定路径，在${rootpath}/usr下查找libz, openssl, mutils, uWS库及头文件
 ```
 
-## sdk交叉编译
+#### 交叉编译并指定依赖库目录
 
 ```
-git clone https://github.com/Rokid/rokid-openvoice-sdk.git
-cd rokid-openvoice-sdk
-./config --toolchain=工具链安装目录 --cross-prefix=工具链编译命令前缀 --cross-root-path=搜索依赖库的根路径
-cd build
+./config \
+    --build-dir=${build目录} \
+    --cmake-modules=${cmake_modules目录} \
+    --toolchain=${工具链目录} \
+    --cross-prefix=${工具链命令前缀} \   # 如arm-openwrt-linux-gnueabi-
+    --find-root-path=${rootpath} \
+    --zlib=${zlib目录} \
+    --openssl=${openssl目录} \
+    --rlog=${mutils目录} \
+    --uWS=${uWS目录}
+cd ${build目录}
 make
+make install
 ```
 
-例如使用uclibc交叉编译工具链
-./config --toolchain=/home/username/bin/uclibc --cross-prefix=arm-buildroot-linux-uclibcgnueabihf- --cross-root-path=/home/username/uclibc-out
+#### 其它config选项
 
-注：/home/username/uclibc-out/usr/include需要存在openssl, uWebsockets头文件
-/home/username/uclibc-out/usr/lib需要存在openssl, uWebsockets库文件
+```
+--prefix=${prefixPath}  指定安装路径
+--debug  使用调试模式编译
+--build-demo  编译speech演示及测试程序
+--disable-statistic  禁用speech请求统计功能（稍稍减少网络流量）
+--log-enabled=${level}  指定log等级. ${level}取值: verbose|debug|info|warn|error
+--no-std-steady-clock  某些嵌入式linux平台下，std::chrono::steady_clock未正确实现，实际上是system_clock，会随系统时间变化，加上此选项后，使用speech包装的SteadyClock功能代替。
+--opus=${opus目录}  指定opus库搜索目录
+--opus-static  查找libopus.a，如果找到，静态链接opus。如果不指定此选项，将查找libopus.so，如果找到，动态链接opus。
+```
 
 ## SDK接口定义
 

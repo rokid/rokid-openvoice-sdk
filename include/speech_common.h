@@ -44,5 +44,12 @@ enum class VadMode {
 	CLOUD
 };
 
+// enable/disable speech log write to file
+// params:
+//   'enable' true, enable log write to file
+//            false, disable log write to file
+//   'log_path'  directory that log files generated
+void enable_file_log(bool enable, const char* log_path);
+
 } // namespace speech
 } // namespace rokid

@@ -2,7 +2,7 @@
 
 #include <stdint.h>
 #include <string>
-#include "speech_types.h"
+#include "speech_common.h"
 
 namespace rokid {
 namespace speech {
@@ -65,6 +65,9 @@ public:
 	virtual void set_no_nlp(bool value) = 0;
 	// default: false
 	virtual void set_no_intermediate_asr(bool value) = 0;
+	// 奇葩参数，传给服务端asr，设置丢多少ms的语音开头部分
+	// default: 0
+	virtual void set_vad_begin(uint32_t value) = 0;
 
 	static std::shared_ptr<SpeechOptions> new_instance();
 };
@@ -79,6 +82,8 @@ public:
 	std::string voice_trigger;
 	uint32_t trigger_start;
 	uint32_t trigger_length;
+	// 云端二次确认，默认为1
+	int32_t trigger_confirm_by_cloud;
 	float voice_power;
 	// json string
 	// extra data that will send to skill service

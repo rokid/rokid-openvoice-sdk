@@ -2,27 +2,27 @@ syntax = "proto2";
 
 package rokid.open.speech.v2;
 
-import "speech_types.proto";
+import public "speech_types.proto";
 
 enum RespType {
   // 中间结果 asr extra
   INTERMEDIATE = 0;
-	// asr最终结果
-	ASR_FINISH = 1;
-	// 请求完成, 如果SpeechOptions.no_nlp = false，Response包中带有nlp, action结果
+  // asr最终结果
+  ASR_FINISH = 1;
+  // 请求完成, 如果SpeechOptions.no_nlp = false，Response包中带有nlp, action结果
   FINISH = 2;
 }
 
 enum Lang {
   ZH = 0;
-	EN = 1;
+  EN = 1;
 }
 
 enum VadMode {
   // 客户端决定vad_start, vad_end
   LOCAL = 0;
-	// 云端决定vad_start, vad_end
-	CLOUD = 1;
+  // 云端决定vad_start, vad_end
+  CLOUD = 1;
 }
 
 message SpeechOptions {
@@ -37,11 +37,11 @@ message SpeechOptions {
 
   required VadMode vad_mode = 3;
 
-	optional uint32 vend_timeout = 4;
+  optional uint32 vend_timeout = 4;
 
-	required bool no_nlp = 5;
+  required bool no_nlp = 5;
 
-	required bool no_intermediate_asr = 6;
+  required bool no_intermediate_asr = 6;
 
   optional string stack = 7;
 
@@ -58,8 +58,9 @@ message SpeechOptions {
   //   "media_player_status": "xxx"
   // }
   optional string skill_options = 12;
-
-	optional string voice_extra = 13;
+  optional string voice_extra   = 13;
+  optional uint32 vad_begin     = 14;
+  optional bool no_trigger_confirm = 15;
 }
 
 message SpeechRequest {

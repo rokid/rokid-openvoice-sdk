@@ -130,6 +130,10 @@ public:
 
 	void set_voice_extra(const std::string& str);
 
+	void set_vad_begin(uint32_t i);
+
+	void set_no_trigger_confirm(bool b);
+
 private:
 	rokid_open_speech_v2_SpeechOptions* nanopbStruct;
 	std::string _stack;

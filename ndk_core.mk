@@ -10,7 +10,7 @@ LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/nanopb-gen
 
 COMMON_SRC := \
-	src/common/log.cc \
+	src/common/log_plugin.cc \
 	src/common/speech_connection.cc \
 	src/common/nanopb_encoder.cc \
 	src/common/nanopb_decoder.cc
@@ -39,17 +39,13 @@ LOCAL_SRC_FILES := \
 LOCAL_CPP_FEATURES := rtti exceptions
 LOCAL_CFLAGS := $(COMMON_CFLAGS)
 LOCAL_CPPFLAGS := -std=c++11
-LOCAL_SHARED_LIBRARIES := libuWS
+LOCAL_SHARED_LIBRARIES := libuWS librlog
 LOCAL_LDLIBS := -llog -lz
-ifeq ($(PLATFORM_SDK_VERSION), 23)
 LOCAL_C_INCLUDES += $(DEPS_DIR)/boringssl/include
-LOCAL_LDLIBS += -L$(DEPS_DIR)/boringssl/libs -lcrypto
-else
-LOCAL_C_INCLUDES += $(DEPS_DIR)/openssl/$(PLATFORM_SDK_VERSION)/include
-LOCAL_LDLIBS += -L$(DEPS_DIR)/openssl/$(PLATFORM_SDK_VERSION)/libs -lcrypto
+LOCAL_LDLIBS += $(DEPS_DIR)/boringssl/libs/$(TARGET_ABI_NAME)/libcrypto_static.a
+ifeq ($(PLATFORM_SDK_VERSION), 19)
 LOCAL_CFLAGS += -D__STDC_FORMAT_MACROS
 endif
-
 LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/include
 include $(BUILD_SHARED_LIBRARY)
 
@@ -59,17 +55,13 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_SRC_FILES := \
 	src/codec/rkcodec.cc \
-	include/rkcodec.h \
-	src/common/log.cc \
-	src/common/log.h
+	include/rkcodec.h
 LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/include \
 	$(LOCAL_PATH)/src/common \
 	$(DEPS_DIR)/opus/include
-ifeq ($(PLATFORM_SDK_VERSION), 23)
-LOCAL_LDLIBS := -L$(DEPS_DIR)/opus/libs/23 -lopus
-else
-LOCAL_LDLIBS := -L$(DEPS_DIR)/opus/libs/19 -lopus
-endif
+LOCAL_SHARED_LIBRARIES := librlog
 LOCAL_CPPFLAGS := -std=c++11
+LOCAL_LDLIBS := $(DEPS_DIR)/opus/libs/$(TARGET_ABI_NAME)/libopus.a
+LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/include
 include $(BUILD_SHARED_LIBRARY)

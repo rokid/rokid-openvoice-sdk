@@ -31,6 +31,8 @@ class TtsImpl : public Tts {
 public:
 	TtsImpl();
 
+	~TtsImpl();
+
 	bool prepare(const PrepareOptions& options);
 
 	void release();

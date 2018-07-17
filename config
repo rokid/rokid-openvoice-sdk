@@ -11,18 +11,29 @@ Configuration:
     --build-demo                build demo program
     --disable-statistic         disable speech statistic feature
     --test-mp3                  tts codec set to mp3
-    --disable-detail-trace      disable print sdk detail trace
+    --log-enabled=LEVEL         set log level (verbose|debug|info|warn|error)
+    --no-std-steady-clock       no std steady_clock, use rokid::altstd::steady_clock instead
+    --build-dir=DIR             build directory
+    --prefix=PREFIX             install prefix
+    --cmake-modules=DIR         directory of cmake modules file exist
+    --find-root-path=DIR        root dir for search dependencies libs
 
 Dependencies:
     --uws=DIR                   uWebsockets libs and header files dir
     --opus=DIR                  opus libs and header files dir
+    --rlog=DIR                  rklog libs and header files dir
+    --openssl=DIR               openssl libs and header files dir
+    --zlib=DIR                  zlib libs and header files dir
+    --opus-static               static link opus library
 
 Cross Compile:
     --toolchain=DIR             toolchain install dir
     --cross-prefix=PREFIX       compiler name prefix
-    --cross-root-path=DIR       root dir for search dependencies libs
 CONFEOF
 }
+
+builddir="build"
+cmake_modules_dir="cmake"
 
 CMAKE_ARGS=
 for conf_opt
@@ -46,17 +57,44 @@ do
 		--disable-statistic)
 			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DSPEECH_STATISTIC=OFF)
 			;;
-    --test-mp3)
+		--test-mp3)
 			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DTEST_MP3=ON)
-      ;;
-    --disable-detail-trace)
-			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DDETAIL_TRACE=OFF)
-      ;;
+			;;
+		--log-enabled=*)
+			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DLOG_ENABLED=$conf_optarg)
+			;;
+		--no-std-steady-clock)
+			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DNO_STD_STEADY_CLOCK=ON)
+			;;
+		--build-dir=*)
+			builddir=$conf_optarg
+			;;
+		--prefix=*)
+			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DCMAKE_INSTALL_PREFIX=$conf_optarg)
+			;;
+		--cmake-modules=*)
+			cmake_modules_dir=$conf_optarg
+			;;
+		--find-root-path=*)
+			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DCMAKE_FIND_ROOT_PATH=$conf_optarg)
+			;;
 		--uws=*)
 			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DUWSPrefix=$conf_optarg)
 			;;
 		--opus=*)
 			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DOpusPrefix=$conf_optarg)
+			;;
+		--rlog=*)
+			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DRLogPrefix=$conf_optarg)
+			;;
+		--openssl=*)
+			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DOpenSSLPrefix=$conf_optarg)
+			;;
+		--zlib=*)
+			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DZLIBPrefix=$conf_optarg)
+			;;
+		--opus-static)
+			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DOPUS_STATIC=ON)
 			;;
 		--toolchain=*)
 			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DTOOLCHAIN_HOME=$conf_optarg)
@@ -65,18 +103,16 @@ do
 		--cross-prefix=*)
 			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DCROSS_PREFIX=$conf_optarg)
 			;;
-		--cross-root-path=*)
-			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DCROSS_ROOT_PATH=$conf_optarg)
-			;;
 	esac
 done
 
-if [ x$CROSS_COMPILE = x"yes" ]; then
+CMAKE_ARGS=(${CMAKE_ARGS[@]} -DCUSTOM_CMAKE_MODULES=$cmake_modules_dir)
 CUR_DIR=`pwd`
-CMAKE_ARGS=(${CMAKE_ARGS[@]} -DCMAKE_TOOLCHAIN_FILE=$CUR_DIR/cmake/toolchain.cmake)
+if [ x$CROSS_COMPILE = x"yes" ]; then
+CMAKE_ARGS=(${CMAKE_ARGS[@]} -DCMAKE_TOOLCHAIN_FILE=$cmake_modules_dir/toolchain.cmake)
 fi
 
-mkdir -p build
-cd build
-cmake .. \
+mkdir -p $builddir
+cd $builddir
+cmake $CUR_DIR \
 	${CMAKE_ARGS[@]}

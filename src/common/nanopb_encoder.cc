@@ -207,6 +207,16 @@ void SpeechOptionsEnc::set_voice_extra(const string& str) {
 	set_string_field(&nanopbStruct->voice_extra, _voice_extra);
 }
 
+void SpeechOptionsEnc::set_vad_begin(uint32_t i) {
+	nanopbStruct->has_vad_begin = true;
+	nanopbStruct->vad_begin = i;
+}
+
+void SpeechOptionsEnc::set_no_trigger_confirm(bool b) {
+	nanopbStruct->has_no_trigger_confirm = true;
+	nanopbStruct->no_trigger_confirm = b;
+}
+
 SpeechRequest::SpeechRequest() {
 	nanopbStruct = rokid_open_speech_v2_SpeechRequest_init_default;
 	nanopbStructPointer = &nanopbStruct;

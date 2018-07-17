@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <string>
 #include <memory>
-#include "speech_types.h"
+#include "speech_common.h"
 
 namespace rokid {
 namespace speech {

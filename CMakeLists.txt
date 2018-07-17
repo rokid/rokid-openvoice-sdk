@@ -1,12 +1,15 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 3.2)
+CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
 project(rokidspeech)
 set(VERSION 0.1)
 
-option(BUILD_DEMO "Build demo" OFF)
+unset(CMAKE_SKIP_RPATH CACHE)
+set(CMAKE_SKIP_RPATH TRUE)
+option(BUILD_DEMO "Build demo test" OFF)
 option(TEST_MP3 "test tts mp3 codec" OFF)
 option(BUILD_DEBUG "debug or release" OFF)
 option(SPEECH_STATISTIC "speech statistic" ON)
-option(DETAIL_TRACE "print sdk detail trace" ON)
+option(NO_STD_STEADY_CLOCK "no std steady_clock" OFF)
+option(OPUS_STATIC "static link opu library" OFF)
 
 # Configuration fails on < 3.9 if only C++ is enabled (TestBigEndian macro)
 if(NOT CMAKE_VERSION VERSION_LESS 3.9.0)
@@ -53,10 +56,7 @@ endif()
 # Use folders for nice tree in Visual Studio and XCode
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
-option(BUILD_STATIC "Build static libraries (default are shared)" OFF)
-
 include(CMakeDependentOption)
-
 
 if(UNIX)
     # Both APPLE and UNIX are defined on OSX
@@ -66,8 +66,7 @@ if(UNIX)
     endif()
 endif()
 
-
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+include(${CUSTOM_CMAKE_MODULES}/common.mk)
 
 include(CheckSymbolExists)
 include(CMakePushCheckState)
@@ -78,61 +77,113 @@ if(NOT CMAKE_INSTALL_RPATH AND CMAKE_INSTALL_PREFIX)
 	message(STATUS "Setting install rpath to ${CMAKE_INSTALL_RPATH}")
 endif()
 
-find_package(UWS)
-find_package(Opus)
-# if cross compile, don't search openssl dir
-# cross compiler have openssl lib default
-if (CMAKE_TOOLCHAIN_FILE)
-set (OPENSSL_LIBRARIES -lssl -lcrypto)
+if (OPUS_STATIC)
+set(opus_find_args STATIC_LIBS opus)
 else()
-find_package(OpenSSL REQUIRED)
+set(opus_find_args SHARED_LIBS opus)
 endif()
 
-set(IGNORED_WARNINGS "-Wno-sign-compare -Wno-unused-parameter -Wno-sign-promo -Wno-error=return-type -Wno-error=non-virtual-dtor")
+findPackage(UWS REQUIRED
+	HINTS ${UWSPrefix}
+	INC_PATH_SUFFIX include/uWS
+	HEADERS Hub.h
+	SHARED_LIBS uWS
+)
+findPackage(RLog REQUIRED
+	HINTS ${RLogPrefix}
+	INC_PATH_SUFFIX include/log
+	HEADERS rlog.h
+	SHARED_LIBS rlog
+)
+findPackage(Opus
+	HINTS ${OpusPrefix}
+	INC_PATH_SUFFIX include/opus
+	HEADERS opus.h
+	${opus_find_args}
+)
+findPackage(OpenSSL REQUIRED
+	HINTS ${OpenSSLPrefix}
+	HEADERS openssl/ssl.h
+	SHARED_LIBS ssl crypto
+)
+findPackage(ZLIB REQUIRED
+	HINTS ${ZLIBPrefix}
+	HEADERS zlib.h
+	SHARED_LIBS z
+)
+# set(IGNORED_WARNINGS "-Wno-sign-compare -Wno-unused-parameter -Wno-sign-promo -Wno-error=return-type -Wno-error=non-virtual-dtor")
 
-set(COMMON_CFLAGS "-std=c++11 -pthread -fPIC -frtti -fexceptions")
+set(COMMON_CXXFLAGS "-std=c++11 -pthread -fPIC -D__STDC_FORMAT_MACROS")
+set(COMMON_CFLAGS "-pthread -fPIC -D__STDC_FORMAT_MACROS")
 
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${IGNORED_WARNINGS} ${COMMON_CFLAGS}")
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${COMMON_CXXFLAGS}")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${COMMON_CFLAGS}")
 if (CROSS_COMPILE_CXXFLAGS)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CROSS_COMPILE_CXXFLAGS}")
 endif()
 if (BUILD_DEBUG)
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O0")
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O0")
 elseif(CMAKE_TOOLCHAIN_FILE)
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Os -s")
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Os -s")
 else()
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -s")
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -s")
 endif()
 if (SPEECH_STATISTIC)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSPEECH_STATISTIC")
 endif()
-if (DETAIL_TRACE)
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSPEECH_SDK_DETAIL_TRACE")
+set(LogLevel 2)
+if (LOG_ENABLED STREQUAL "verbose")
+	set(LogLevel 0)
+elseif (LOG_ENABLED STREQUAL "debug")
+	set(LogLevel 1)
+elseif (LOG_ENABLED STREQUAL "info")
+	set(LogLevel 2)
+elseif (LOG_ENABLED STREQUAL "warn")
+	set(LogLevel 3)
+elseif (LOG_ENABLED STREQUAL "error")
+	set(LogLevel 4)
 endif()
+if (NO_STD_STEADY_CLOCK)
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNO_STD_STEADY_CLOCK")
+	set(ALTCHRONO_SRCS src/common/alt_chrono.cc src/common/alt_chrono.h)
+endif()
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DROKID_LOG_ENABLED=${LogLevel} -DUWS_THREADSAFE")
 # workaround for g++ threading bug
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wl,--no-as-needed")
 
-# install include files.
-set(HEADER_FILES
-	speech.h
-	tts.h
-	speech_types.h
-)
-
-set(ROKIDSPEECH_HEADER_FILES)
-foreach(HEADER_FILE ${HEADER_FILES})
-	list(APPEND ROKIDSPEECH_HEADER_FILES "${CMAKE_CURRENT_LIST_DIR}/include/${HEADER_FILE}")
-endforeach()
-
-install(FILES ${ROKIDSPEECH_HEADER_FILES}
-	DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/speech
-	PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
-)
+set (COMMON_INCLUDE_DIRS include src/common)
+# target library 'rkcodec'
+if (Opus_LIBRARIES)
+	set (CODEC_SOURCES
+		src/codec/rkcodec.cc
+		include/rkcodec.h
+	)
+	add_library(rkcodec SHARED ${CODEC_SOURCES})
+	target_include_directories(rkcodec
+	PRIVATE
+		${COMMON_INCLUDE_DIRS}
+		${RLog_INCLUDE_DIRS}
+	PUBLIC
+		${Opus_INCLUDE_DIRS}
+	)
+	target_link_libraries(rkcodec
+		${Opus_LIBRARIES}
+		${RLog_LIBRARIES}
+	)
+	set(speech_extra_cflags "-DHAS_OPUS_CODEC")
+	set(speech_extra_libs rkcodec)
+	install (TARGETS rkcodec LIBRARY DESTINATION lib)
+	install (FILES include/rkcodec.h DESTINATION include/speech)
+endif()
 
 # target library 'speech'
 file(GLOB_RECURSE COMMON_SOURCES 
 	src/common/*.h
 	src/common/*.cc
+	src/common/*.c
 )
 file (GLOB_RECURSE SPEECH_SOURCES
 	src/speech/*.h
@@ -142,7 +193,6 @@ file (GLOB_RECURSE TTS_SOURCES
 	src/tts/*.h
 	src/tts/*.cc
 )
-set (COMMON_INCLUDE_DIRS include src/common)
 set (PROTO_SRCS
 	nanopb-gen/auth.pb.c
 	nanopb-gen/speech.pb.c
@@ -164,42 +214,39 @@ add_library(speech SHARED
 	${TTS_SOURCES}
 	${PROTO_SRCS}
 	${NANOPB_SRCS}
+	${ALTCHRONO_SRCS}
 )
 target_include_directories(speech PRIVATE
 	${COMMON_INCLUDE_DIRS}
 	${UWS_INCLUDE_DIRS}
-	${OPENSSL_INCLUDE_DIR}
+	${OpenSSL_INCLUDE_DIRS}
 	${NANOPB_INCLUDE_DIRS}
-	${CMAKE_CURRENT_BINARY_DIR}
+	${RLog_INCLUDE_DIRS}
+	${ZLIB_INCLUDE_DIRS}
+)
+target_compile_options(speech PRIVATE
+	${speech_extra_cflags}
 )
 target_link_libraries(speech
 	${UWS_LIBRARIES}
-	${OPENSSL_LIBRARIES}
+	${OpenSSL_LIBRARIES}
+	${RLog_LIBRARIES}
+	${ZLIB_LIBRARIES}
+	${speech_extra_libs}
 	-lresolv
 )
 install(TARGETS speech
-	RUNTIME DESTINATION bin
 	LIBRARY DESTINATION lib
-	PUBLIC_HEADER DESTINATION include
 )
-
-if (Opus_FOUND)
-	set (CODEC_SOURCES
-		src/codec/rkcodec.cc
-		include/rkcodec.h
-		src/common/log.cc
-		src/common/log.h
-	)
-	add_library(rkcodec SHARED ${CODEC_SOURCES})
-	target_include_directories(rkcodec PRIVATE
-		${COMMON_INCLUDE_DIRS}
-		${Opus_INCLUDE_DIRS}
-	)
-	target_link_libraries(rkcodec
-		speech
-		${Opus_LIBRARIES}
-	)
-endif()
+set(HEADER_FILES
+	include/speech.h
+	include/tts.h
+	include/speech_common.h
+)
+install(FILES ${HEADER_FILES}
+	DESTINATION include/speech
+	PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
+)
 
 #
 # build demo
@@ -212,23 +259,26 @@ if (BUILD_DEMO)
 		demo/simple_wave.h
 		demo/speech_stress_test.cc
 		demo/speech_stress_test.h
+		demo/clargs.cc
+		demo/clargs.h
+		demo/test_utils.cc
+		demo/test_utils.h
+		demo/speech_release_test.cc
+		demo/speech_release_test.h
+		demo/speech_base_test.cc
+		demo/speech_base_test.h
 	)
 	add_executable(demo ${DEMO_SOURCES})
 	target_include_directories(demo PRIVATE
 		${COMMON_INCLUDE_DIRS}
-		${UWS_INCLUDE_DIRS}
-		${OPENSSL_INCLUDE_DIR}
+		${RLog_INCLUDE_DIRS}
 		${CMAKE_CURRENT_BINARY_DIR}
 	)
 	target_link_libraries(demo
-		${UWS_LIBRARIES}
-		${OPENSSL_LIBRARIES}
-		${Opus_LIBRARIES}
-		-lz
 		speech
+		-Wl,-rpath,${CMAKE_INSTALL_PREFIX}/lib
 	)
-	if (Opus_FOUND)
-		target_include_directories(demo PRIVATE ${Opus_INCLUDE_DIRS})
+	if (Opus_LIBRARIES)
 		target_compile_definitions(demo PRIVATE "HAS_OPUS_CODEC")
 		target_link_libraries(demo rkcodec)
 	endif()

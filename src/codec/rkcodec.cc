@@ -1,7 +1,8 @@
 #include <stdio.h>
 #include <sys/mman.h>
+#include <string.h>
 #include "rkcodec.h"
-#include "log.h"
+#include "rlog.h"
 
 #define DEC_TAG "rokid.opus.decoder"
 #define ENC_TAG "rokid.opus.encoder"
@@ -22,13 +23,13 @@ RKOpusDecoder::~RKOpusDecoder() {
 bool RKOpusDecoder::init(uint32_t sample_rate, uint32_t bitrate,
 		uint32_t duration) {
 	if (_opus_decoder) {
-		Log::w(DEC_TAG, "init failed: already initialized");
-		return false;
+		KLOGW(DEC_TAG, "already initialized");
+		return true;
 	}
 	int err;
 	_opus_decoder = opus_decoder_create(sample_rate, 1, &err);
 	if (err != OPUS_OK) {
-		Log::w(DEC_TAG, "opus decoder create failed: %d\n", err);
+		KLOGW(DEC_TAG, "opus decoder create failed: %d\n", err);
 		return false;
 	}
 	opus_decoder_ctl(_opus_decoder, OPUS_SET_VBR(0));
@@ -42,18 +43,18 @@ bool RKOpusDecoder::init(uint32_t sample_rate, uint32_t bitrate,
 
 const uint16_t* RKOpusDecoder::decode_frame(const void* opu) {
 	if (_opus_decoder == NULL) {
-		Log::w(DEC_TAG, "decode failed: not init");
+		KLOGW(DEC_TAG, "decode failed: not init");
 		return NULL;
 	}
 	if (opu == NULL) {
-		Log::w(DEC_TAG, "decode failed: opu data is null");
+		KLOGW(DEC_TAG, "decode failed: opu data is null");
 		return NULL;
 	}
 	int c = opus_decode(_opus_decoder, reinterpret_cast<const uint8_t*>(opu),
 			_opu_frame_size, reinterpret_cast<opus_int16*>(_pcm_buffer),
 			_pcm_frame_size, 0);
 	if (c < 0) {
-		Log::w(DEC_TAG, "decode failed: opu_decode error %d", c);
+		KLOGW(DEC_TAG, "decode failed: opu_decode error %d", c);
 		return NULL;
 	}
 	// debug
@@ -83,13 +84,12 @@ RKOpusEncoder::~RKOpusEncoder() {
 bool RKOpusEncoder::init(uint32_t sample_rate, uint32_t bitrate,
 		uint32_t duration) {
 	if (_opus_encoder) {
-		Log::w(ENC_TAG, "init failed: already initialized");
-		return false;
+		return true;
 	}
 	int err;
 	_opus_encoder = opus_encoder_create(sample_rate, 1, OPUS_APPLICATION_VOIP, &err);
 	if (err != OPUS_OK) {
-		Log::w(ENC_TAG, "opus encoder create failed: %d\n", err);
+		KLOGW(ENC_TAG, "opus encoder create failed: %d\n", err);
 		return false;
 	}
 	opus_encoder_ctl(_opus_encoder, OPUS_SET_VBR(1));
@@ -100,44 +100,79 @@ bool RKOpusEncoder::init(uint32_t sample_rate, uint32_t bitrate,
 	_pcm_frame_size = sample_rate * duration / 1000;
 	_opus_buffer = (uint8_t*)mmap(NULL, OPUS_BUFFER_SIZE,
 			PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+	a_pcm_frame = new uint16_t[_pcm_frame_size];
+	pcm_frame_used_bytes = 0;
 	return true;
 }
 
 const uint8_t* RKOpusEncoder::encode(const uint16_t* pcm,
-		uint32_t num_frames, uint32_t& enc_frames, uint32_t& enc_size) {
-	if (_opus_encoder == NULL) {
-		Log::w(ENC_TAG, "encode failed: not init");
-		return NULL;
-	}
-	if (pcm == NULL || num_frames == 0) {
-		Log::w(ENC_TAG, "encode failed: pcm data is null");
-		return NULL;
-	}
-
-	uint32_t i;
-	int c;
-
-	enc_frames = 0;
+		uint32_t size, uint32_t& enc_size) {
 	enc_size = 0;
-	for(i = 0; i < num_frames; ++i) {
+	if (_opus_encoder == NULL) {
+		KLOGW(ENC_TAG, "encode failed: not init");
+		return NULL;
+	}
+	if (pcm == NULL || size == 0) {
+		KLOGW(ENC_TAG, "encode failed: pcm data is null");
+		return NULL;
+	}
+
+
+	int c;
+	// encode remain pcm data of previous invocation
+	if (pcm_frame_used_bytes) {
+		uint32_t need = _pcm_frame_size - pcm_frame_used_bytes;
+		if (need > size) {
+			memcpy(a_pcm_frame + pcm_frame_used_bytes, pcm, size * sizeof(uint16_t));
+			pcm_frame_used_bytes += size;
+			return NULL;
+		}
+		memcpy(a_pcm_frame + pcm_frame_used_bytes, pcm, need * sizeof(uint16_t));
 		c = opus_encode(_opus_encoder,
-				reinterpret_cast<const opus_int16*>(pcm) + i * _pcm_frame_size,
+				reinterpret_cast<opus_int16*>(a_pcm_frame),
 				_pcm_frame_size, _opus_buffer + enc_size + 1,
 				OPUS_BUFFER_SIZE - enc_size - 1);
 		if (c < 0) {
-			Log::w(ENC_TAG, "encode failed: opu_encode error %d", c);
+			KLOGW(ENC_TAG, "encode failed1: opu_encode error %d", c);
 			return NULL;
 		}
-		// TODO: assert c < 256
 		_opus_buffer[enc_size] = c;
-		++enc_frames;
 		enc_size += c + 1;
+		pcm_frame_used_bytes = 0;
+		pcm += need;
+		size -= need;
+	}
+
+	while (true) {
+		if (size >= _pcm_frame_size) {
+			c = opus_encode(_opus_encoder,
+					reinterpret_cast<const opus_int16*>(pcm),
+					_pcm_frame_size, _opus_buffer + enc_size + 1,
+					OPUS_BUFFER_SIZE - enc_size - 1);
+			if (c < 0) {
+				KLOGW(ENC_TAG, "encode failed2: opu_encode error %d", c);
+				return NULL;
+			}
+			// TODO: assert c < 256
+			_opus_buffer[enc_size] = c;
+			enc_size += c + 1;
+			pcm += _pcm_frame_size;
+			size -= _pcm_frame_size;
+		} else {
+			if (size) {
+				memcpy(a_pcm_frame, pcm, size * sizeof(uint16_t));
+				pcm_frame_used_bytes = size;
+			}
+			break;
+		}
 	}
 	return _opus_buffer;
 }
 
 void RKOpusEncoder::close() {
 	if (_opus_encoder) {
+		delete a_pcm_frame;
+		pcm_frame_used_bytes = 0;
 		munmap(_opus_buffer, OPUS_BUFFER_SIZE);
 		_pcm_frame_size = 0;
 		opus_encoder_destroy(_opus_encoder);

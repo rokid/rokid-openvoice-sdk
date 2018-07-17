@@ -3,7 +3,7 @@ local-path := $(call my-dir)
 include $(clear-vars)
 local.module := speech
 local.ndk-script := $(local-path)/ndk.mk
-local.ndk-modules := uWS
+local.ndk-modules := uWS mutils
 include $(build-ndk-module)
 
 include $(clear-vars)

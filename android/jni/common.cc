@@ -1,7 +1,6 @@
 #include <jni.h>
-#include "JNIHelp.h"
-#include "log.h"
-#include "speech_types.h"
+#include "rlog.h"
+#include "speech_common.h"
 
 namespace rokid {
 namespace speech {
@@ -88,7 +87,7 @@ extern "C" jint JNI_OnLoad(JavaVM* vm, void* reserved) {
 	rokid::speech::vm_ = vm;
 
 	if (vm->GetEnv((void**)&env, JNI_VERSION_1_4) != JNI_OK) {
-		rokid::speech::Log::e("%s: JNI_OnLoad failed", "RokidSpeech");
+		KLOGE("speech.common.jni", "%s: JNI_OnLoad failed", "RokidSpeech");
 		return -1;
 	}
 	rokid::speech::register_com_rokid_speech_Tts(env);

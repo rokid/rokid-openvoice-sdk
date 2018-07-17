@@ -179,6 +179,9 @@ key | string | tts服务认证key
 device\_type\_id | string | 设备类型，用于tts服务认证
 secret | string | 用于tts服务认证
 device\_id | string | 设备id，用于tts服务认证
+reconn\_interval | uint32 | 断线重连尝试时间间隔(毫秒)
+ping\_interval | uint32 | ping时间间隔(毫秒)
+no\_resp\_timeout | uint32 | 判定服务无响应超时时间(毫秒)
 
 #### <a id="to"></a>TtsOptions
 
@@ -217,6 +220,7 @@ device\_id | string | 设备id，用于tts服务认证
 ---|---|---|---
 接口 | set\_vad\_mode | | 设定语音起始结束检查在云端还是本地
 参数 | mode | enum VadMode | 限定值LOCAL CLOUD
+参数 | timeout | uint32 | 如果'mode'为CLOUD，云端利用此参数判定vad end，默认设为500(毫秒)
 
 ~ | 名称 | 类型 | 描述
 ---|---|---|---
@@ -228,15 +232,23 @@ device\_id | string | 设备id，用于tts服务认证
 接口 | set\_no\_intermediate\_asr | | 设定是否需要服务端给出中间asr结果
 参数 | v | boolean |
 
+~ | 名称 | 类型 | 描述
+---|---|---|---
+接口 | set\_vad\_begin | | 奇葩参数，传给云端asr，设置忽略多少ms的语音开头部分
+参数 | value | uint32 |
+
 #### <a id="vo"></a>VoiceOptions
 
 名称 | 类型 | 描述
 ---|---|---
-stack | String |
+stack | string |
 voice\_trigger | string | 激活词
 trigger\_start | uint32 | 语音数据中激活词的开始位置
 trigger\_length | uint32 | 激活词语音数据长度
+trigger\_confirm\_by\_cloud | int32 | 云端语音激活二次确认开关
+voice\_power | float | 音强
 skill\_options | string |
+voice\_extra | string |
 
 ### <a id="errcode"></a>错误码
 
