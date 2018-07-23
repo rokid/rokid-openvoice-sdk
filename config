@@ -17,6 +17,7 @@ Configuration:
     --prefix=PREFIX             install prefix
     --cmake-modules=DIR         directory of cmake modules file exist
     --find-root-path=DIR        root dir for search dependencies libs
+    --upload-trace              enable upload trace: upload speech runtime exception to server
 
 Dependencies:
     --uws=DIR                   uWebsockets libs and header files dir
@@ -25,6 +26,8 @@ Dependencies:
     --zlib=DIR                  zlib libs and header files dir
     --enable-opus=MODE          enable opus codec (disabled | shared | static)
     --opus=DIR                  opus libs and header files dir
+    --poco=DIR                  when specify --upload-trace, speech need poco library(static)
+    --jsonc=DIR                 when specify --upload-trace, speech need jsonc library(static)
 
 Cross Compile:
     --toolchain=DIR             toolchain install dir
@@ -78,6 +81,9 @@ do
 		--find-root-path=*)
 			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DCMAKE_FIND_ROOT_PATH=$conf_optarg)
 			;;
+		--upload-trace)
+			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DROKID_UPLOAD_TRACE=ON)
+			;;
 		--uws=*)
 			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DUWSPrefix=$conf_optarg)
 			;;
@@ -95,6 +101,12 @@ do
 			;;
 		--zlib=*)
 			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DZLIBPrefix=$conf_optarg)
+			;;
+		--poco=*)
+			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DPocoPrefix=$conf_optarg)
+			;;
+		--jsonc=*)
+			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DJsoncPrefix=$conf_optarg)
 			;;
 		--toolchain=*)
 			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DTOOLCHAIN_HOME=$conf_optarg)

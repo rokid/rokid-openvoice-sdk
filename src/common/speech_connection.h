@@ -9,6 +9,9 @@
 #include "Hub.h"
 #include "rlog.h"
 #include "alt_chrono.h"
+#ifdef ROKID_UPLOAD_TRACE
+#include "trace-uploader.h"
+#endif
 
 namespace rokid {
 namespace speech {
@@ -201,6 +204,10 @@ private:
 
 	const char* CONN_TAG;
 	char CONN_TAG_BUF[32];
+
+#ifdef ROKID_UPLOAD_TRACE
+	TraceUploader* trace_uploader_ = nullptr;
+#endif
 
 	static std::chrono::milliseconds ping_interval_;
 	static std::chrono::milliseconds no_resp_timeout_;

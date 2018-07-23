@@ -25,6 +25,8 @@ using std::defer_lock;
 using std::chrono::milliseconds;
 using std::string;
 using std::thread;
+using std::shared_ptr;
+using std::make_shared;
 using std::chrono::system_clock;
 using std::chrono::duration_cast;
 using uWS::Hub;
@@ -53,6 +55,9 @@ void SpeechConnection::initialize(int32_t ws_buf_size,
 	service_type_ = svc;
 	stage_ = ConnectStage::INIT;
 	working_ = 1;
+#ifdef ROKID_UPLOAD_TRACE
+	trace_uploader_ = new TraceUploader(options.device_id, options.device_type_id);
+#endif
 	// unique_lock<recursive_mutex> locker(reconn_mutex_);
 	// reconn_thread_ = new thread([=] { reconn_run(); });
 	unique_lock<mutex> locker(req_mutex_);
@@ -95,6 +100,12 @@ void SpeechConnection::release() {
 	responses_.clear();
 	resp_cond_.notify_all();
 	resp_mutex_.unlock();
+#ifdef ROKID_UPLOAD_TRACE
+	if (trace_uploader_) {
+		delete trace_uploader_;
+		trace_uploader_ = nullptr;
+	}
+#endif
 }
 
 #ifdef SPEECH_STATISTIC
@@ -189,7 +200,16 @@ void SpeechConnection::keepalive_run() {
 			if (now - lastest_recv_tp_ >= no_resp_timeout) {
 				KLOGW(CONN_TAG, "server may no response, try reconnect");
 				lastest_recv_tp_ = SteadyClock::now();
-				ws_->terminate();
+#ifdef ROKID_UPLOAD_TRACE
+				shared_ptr<TraceEvent> ev = make_shared<TraceEvent>();
+				ev->type = TRACE_EVENT_TYPE_SYS;
+				ev->id = "system.speech.timeout";
+				ev->name = "服务器超时未响应";
+				ev->add_key_value("service", service_type_);
+				trace_uploader_->put(ev);
+#endif
+				if (ws_)
+					ws_->terminate();
 			}
 			auto d1 = ping_interval - (now - lastest_ping_tp_);
 			auto d2 = no_resp_timeout - (now - lastest_recv_tp_);
@@ -272,6 +292,14 @@ void SpeechConnection::connect() {
 #elif defined(__GNU_LIBRARY__)
 	res_init();
 #endif
+#ifdef ROKID_UPLOAD_TRACE
+	shared_ptr<TraceEvent> ev = make_shared<TraceEvent>();
+	ev->type = TRACE_EVENT_TYPE_SYS;
+	ev->id = "system.speech.connect";
+	ev->name = "开始连接服务器";
+	ev->add_key_value("service", service_type_);
+	trace_uploader_->put(ev);
+#endif
 	hub_.connect(uri);
 }
 
@@ -295,6 +323,14 @@ void SpeechConnection::onConnection(WebSocket<uWS::CLIENT> *ws) {
 	KLOGI(CONN_TAG, "uws connected, %p", ws);
 	notify_initialize();
 	stage_ = ConnectStage::UNAUTH;
+#ifdef ROKID_UPLOAD_TRACE
+	shared_ptr<TraceEvent> ev = make_shared<TraceEvent>();
+	ev->type = TRACE_EVENT_TYPE_SYS;
+	ev->id = "system.speech.before_auth";
+	ev->name = "准备发送认证包";
+	ev->add_key_value("service", service_type_);
+	trace_uploader_->put(ev);
+#endif
 	auth(ws);
 }
 
@@ -327,6 +363,14 @@ void SpeechConnection::onMessage(uWS::WebSocket<uWS::CLIENT> *ws,
 void SpeechConnection::onError(void* userdata) {
 	KLOGI(CONN_TAG, "uws error: userdata %p, stage %d", userdata, static_cast<int>(stage_));
 	notify_initialize();
+#ifdef ROKID_UPLOAD_TRACE
+	shared_ptr<TraceEvent> ev = make_shared<TraceEvent>();
+	ev->type = TRACE_EVENT_TYPE_SYS;
+	ev->id = "system.speech.socket_error";
+	ev->name = "socket连接错误";
+	ev->add_key_value("service", service_type_);
+	trace_uploader_->put(ev);
+#endif
 	if (ws_) {
 		ws_->close();
 		ws_ = NULL;
@@ -350,6 +394,16 @@ bool SpeechConnection::auth(WebSocket<uWS::CLIENT> *ws) {
 			|| options_.device_id.empty()
 			|| options_.secret.empty()) {
 		KLOGW(CONN_TAG, "auth invalid param");
+#ifdef ROKID_UPLOAD_TRACE
+		shared_ptr<TraceEvent> ev = make_shared<TraceEvent>();
+		ev->type = TRACE_EVENT_TYPE_SYS;
+		ev->id = "system.speech.auth_failed";
+		ev->name = "认证包未发送或服务端认证失败";
+		ev->add_key_value("service", service_type_);
+		ev->add_key_value("reason", "认证参数不合法");
+		ev->add_key_value("key", options_.key);
+		trace_uploader_->put(ev);
+#endif
 		return false;
 	}
 
@@ -368,8 +422,27 @@ bool SpeechConnection::auth(WebSocket<uWS::CLIENT> *ws) {
 	std::string buf;
 	if (!req.SerializeToString(&buf)) {
 		KLOGW(CONN_TAG, "auth: protobuf serialize failed");
+#ifdef ROKID_UPLOAD_TRACE
+		shared_ptr<TraceEvent> ev = make_shared<TraceEvent>();
+		ev->type = TRACE_EVENT_TYPE_SYS;
+		ev->id = "system.speech.auth_failed";
+		ev->name = "认证包未发送或服务端认证失败";
+		ev->add_key_value("service", service_type_);
+		ev->add_key_value("reason", "protobuf序列化失败");
+		ev->add_key_value("key", options_.key);
+		trace_uploader_->put(ev);
+#endif
 		return false;
 	}
+#ifdef ROKID_UPLOAD_TRACE
+		shared_ptr<TraceEvent> ev = make_shared<TraceEvent>();
+		ev->type = TRACE_EVENT_TYPE_SYS;
+		ev->id = "system.speech.auth";
+		ev->name = "发送认证包";
+		ev->add_key_value("service", service_type_);
+		ev->add_key_value("key", options_.key);
+		trace_uploader_->put(ev);
+#endif
 	ws->send(buf.data(), buf.length(), OpCode::BINARY);
 	return true;
 }
@@ -425,6 +498,18 @@ void SpeechConnection::handle_auth_result(uWS::WebSocket<uWS::CLIENT> *ws,
 	AuthResponse resp;
 	if (!resp.ParseFromArray(message, length)) {
 		KLOGW(CONN_TAG, "auth response parse failed, not correct protobuf");
+#ifdef ROKID_UPLOAD_TRACE
+		shared_ptr<TraceEvent> ev = make_shared<TraceEvent>();
+		ev->type = TRACE_EVENT_TYPE_SYS;
+		ev->id = "system.speech.auth_failed";
+		ev->name = "认证包未发送或服务端认证失败";
+		ev->add_key_value("service", service_type_);
+		ev->add_key_value("reason", "认证响应包protobuf解析失败");
+		char tmpstr[16];
+		snprintf(tmpstr, sizeof(tmpstr), "%d", (int32_t)length);
+		ev->add_key_value("resp_length", tmpstr);
+		trace_uploader_->put(ev);
+#endif
 		return;
 	}
 	KLOGV(CONN_TAG, "auth result = %d", resp.result());
@@ -437,6 +522,16 @@ void SpeechConnection::handle_auth_result(uWS::WebSocket<uWS::CLIENT> *ws,
 	} else {
 		KLOGW(CONN_TAG, "auth failed, result = %d", resp.result());
 		reconn_timepoint_ = SteadyClock::now() + milliseconds(options_.reconn_interval);
+#ifdef ROKID_UPLOAD_TRACE
+		shared_ptr<TraceEvent> ev = make_shared<TraceEvent>();
+		ev->type = TRACE_EVENT_TYPE_SYS;
+		ev->id = "system.speech.auth_failed";
+		ev->name = "认证包未发送或服务端认证失败";
+		ev->add_key_value("service", service_type_);
+		ev->add_key_value("reason", "服务端认证失败");
+		ev->add_key_value("key", options_.key);
+		trace_uploader_->put(ev);
+#endif
 		ws->close();
 	}
 }

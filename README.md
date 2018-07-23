@@ -86,8 +86,8 @@ make install
 --disable-statistic  禁用speech请求统计功能（稍稍减少网络流量）
 --log-enabled=${level}  指定log等级. ${level}取值: verbose|debug|info|warn|error
 --no-std-steady-clock  某些嵌入式linux平台下，std::chrono::steady_clock未正确实现，实际上是system_clock，会随系统时间变化，加上此选项后，使用speech包装的SteadyClock功能代替。
+--enable-opus=${mode}  mode: disabled | static | shared  是否启用opus编码功能，以及opus库的链接形式
 --opus=${opus目录}  指定opus库搜索目录
---opus-static  查找libopus.a，如果找到，静态链接opus。如果不指定此选项，将查找libopus.so，如果找到，动态链接opus。
 ```
 
 ## SDK接口定义

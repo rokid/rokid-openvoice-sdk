@@ -9,6 +9,7 @@ option(TEST_MP3 "test tts mp3 codec" OFF)
 option(BUILD_DEBUG "debug or release" OFF)
 option(SPEECH_STATISTIC "speech statistic" ON)
 option(NO_STD_STEADY_CLOCK "no std steady_clock" OFF)
+option(ROKID_UPLOAD_TRACE "runtime exception upload to server" OFF)
 
 # Configuration fails on < 3.9 if only C++ is enabled (TestBigEndian macro)
 if(NOT CMAKE_VERSION VERSION_LESS 3.9.0)
@@ -112,6 +113,19 @@ findPackage(ZLIB REQUIRED
 	HEADERS zlib.h
 	SHARED_LIBS z
 )
+if (ROKID_UPLOAD_TRACE)
+findPackage(Poco REQUIRED
+	HINTS ${PocoPrefix}
+	HEADERS Poco/Net/HTTPRequest.h
+	STATIC_LIBS poco_static
+)
+findPackage(Jsonc REQUIRED
+	HINTS ${JsoncPrefix}
+	HEADERS json.h
+	INC_PATH_SUFFIX jsonc
+	STATIC_LIBS jsonc_static
+)
+endif()
 # set(IGNORED_WARNINGS "-Wno-sign-compare -Wno-unused-parameter -Wno-sign-promo -Wno-error=return-type -Wno-error=non-virtual-dtor")
 
 set(COMMON_CXXFLAGS "-std=c++11 -pthread -fPIC -D__STDC_FORMAT_MACROS")
@@ -154,6 +168,9 @@ endif()
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DROKID_LOG_ENABLED=${LogLevel} -DUWS_THREADSAFE")
 # workaround for g++ threading bug
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wl,--no-as-needed")
+if (ROKID_UPLOAD_TRACE)
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DROKID_UPLOAD_TRACE")
+endif()
 
 set (COMMON_INCLUDE_DIRS include src/common)
 # target library 'rkcodec'
@@ -236,6 +253,16 @@ target_link_libraries(speech
 	${speech_extra_libs}
 	-lresolv
 )
+if (ROKID_UPLOAD_TRACE)
+	target_include_directories(speech PRIVATE
+		${Poco_INCLUDE_DIRS}
+		${Jsonc_INCLUDE_DIRS}
+	)
+	target_link_libraries(speech
+		${Poco_LIBRARIES}
+		${Jsonc_LIBRARIES}
+	)
+endif()
 install(TARGETS speech
 	LIBRARY DESTINATION lib
 )
@@ -286,16 +313,31 @@ if (BUILD_DEMO)
 	if (TEST_MP3)
 		target_compile_definitions(demo PRIVATE "TEST_MP3")
 	endif()
-endif()
 
-add_executable(nanopb-demo
-	${PROTO_SRCS}
-	${NANOPB_SRCS}
-	demo/nanopb_demo.cc
-	src/common/nanopb_encoder.cc
-)
-target_include_directories(nanopb-demo PRIVATE
-	nanopb
-	nanopb-gen
-	src/common
-)
+	add_executable(nanopb-demo
+		${PROTO_SRCS}
+		${NANOPB_SRCS}
+		demo/nanopb_demo.cc
+		src/common/nanopb_encoder.cc
+	)
+	target_include_directories(nanopb-demo PRIVATE
+		nanopb
+		nanopb-gen
+		src/common
+	)
+
+if (ROKID_UPLOAD_TRACE)
+	add_executable(trace-demo
+		demo/trace_demo.cc
+	)
+	target_include_directories(trace-demo PRIVATE
+		src/common
+		${Poco_INCLUDE_DIRS}
+	)
+	target_link_libraries(trace-demo
+		speech
+		-Wl,-rpath,${CMAKE_INSTALL_PREFIX}/lib
+	)
+endif(ROKID_UPLOAD_TRACE)
+
+endif(BUILD_DEMO)
