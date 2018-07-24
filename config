@@ -20,11 +20,11 @@ Configuration:
 
 Dependencies:
     --uws=DIR                   uWebsockets libs and header files dir
-    --opus=DIR                  opus libs and header files dir
     --rlog=DIR                  rklog libs and header files dir
     --openssl=DIR               openssl libs and header files dir
     --zlib=DIR                  zlib libs and header files dir
-    --opus-static               static link opus library
+    --enable-opus=MODE          enable opus codec (disabled | shared | static)
+    --opus=DIR                  opus libs and header files dir
 
 Cross Compile:
     --toolchain=DIR             toolchain install dir
@@ -84,6 +84,9 @@ do
 		--opus=*)
 			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DOpusPrefix=$conf_optarg)
 			;;
+		--enable-opus=*)
+			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DEnableOpus=$conf_optarg)
+			;;
 		--rlog=*)
 			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DRLogPrefix=$conf_optarg)
 			;;
@@ -92,9 +95,6 @@ do
 			;;
 		--zlib=*)
 			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DZLIBPrefix=$conf_optarg)
-			;;
-		--opus-static)
-			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DOPUS_STATIC=ON)
 			;;
 		--toolchain=*)
 			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DTOOLCHAIN_HOME=$conf_optarg)

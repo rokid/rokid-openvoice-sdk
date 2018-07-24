@@ -9,7 +9,6 @@ option(TEST_MP3 "test tts mp3 codec" OFF)
 option(BUILD_DEBUG "debug or release" OFF)
 option(SPEECH_STATISTIC "speech statistic" ON)
 option(NO_STD_STEADY_CLOCK "no std steady_clock" OFF)
-option(OPUS_STATIC "static link opu library" OFF)
 
 # Configuration fails on < 3.9 if only C++ is enabled (TestBigEndian macro)
 if(NOT CMAKE_VERSION VERSION_LESS 3.9.0)
@@ -77,9 +76,9 @@ if(NOT CMAKE_INSTALL_RPATH AND CMAKE_INSTALL_PREFIX)
 	message(STATUS "Setting install rpath to ${CMAKE_INSTALL_RPATH}")
 endif()
 
-if (OPUS_STATIC)
+if (EnableOpus STREQUAL "static")
 set(opus_find_args STATIC_LIBS opus)
-else()
+elseif (EnableOpus STREQUAL "shared")
 set(opus_find_args SHARED_LIBS opus)
 endif()
 
@@ -95,12 +94,14 @@ findPackage(RLog REQUIRED
 	HEADERS rlog.h
 	SHARED_LIBS rlog
 )
-findPackage(Opus
+if (opus_find_args)
+findPackage(Opus REQUIRED
 	HINTS ${OpusPrefix}
 	INC_PATH_SUFFIX include/opus
 	HEADERS opus.h
 	${opus_find_args}
 )
+endif()
 findPackage(OpenSSL REQUIRED
 	HINTS ${OpenSSLPrefix}
 	HEADERS openssl/ssl.h
