@@ -322,6 +322,10 @@ void SpeechImpl::config(const shared_ptr<SpeechOptions>& options) {
 	}
 }
 
+void SpeechImpl::reconn() {
+	connection_.reconn();
+}
+
 static SpeechResultType poptype_to_restype(int32_t type) {
 	static SpeechResultType _tps[] = {
 		SPEECH_RES_INTER,

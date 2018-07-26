@@ -61,6 +61,10 @@ public class Tts extends GenericConfig {
 		_sdk_config(_sdk_tts, opt);
 	}
 
+	public void reconn() {
+		_sdk_reconn(_sdk_tts);
+	}
+
 	// invoke by native poll thread
 	private void handle_callback(TtsResult res) {
 		assert(res.id > 0);
@@ -133,6 +137,8 @@ public class Tts extends GenericConfig {
 	private native void _sdk_cancel(long sdk_tts, int id);
 
 	private native void _sdk_config(long sdk_tts, TtsOptions opt);
+
+	private native void _sdk_reconn(long _sdk_tts);
 
 	private SparseArray<TtsCallback> _callbacks;
 

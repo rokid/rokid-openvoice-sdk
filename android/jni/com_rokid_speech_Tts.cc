@@ -179,6 +179,12 @@ static void com_rokid_speech_Tts__sdk_config(JNIEnv *env, jobject thiz, jlong tt
 	p->tts->config(topts);
 }
 
+static void com_rokid_speech_Tts__sdk_reconn(JNIEnv *env, jobject thiz, jlong ttsl) {
+	TtsNativeInfo* p = reinterpret_cast<TtsNativeInfo*>(ttsl);
+	assert(p);
+	p->tts->reconn();
+}
+
 static jlong com_rokid_speech_TtsOptions_native_new_options(JNIEnv *env, jobject thiz) {
 	TtsOptionsNativeInfo* native_info = new TtsOptionsNativeInfo();
 	native_info->opts = TtsOptions::new_instance();
@@ -226,6 +232,7 @@ static JNINativeMethod _tts_nmethods[] = {
 	{ "_sdk_speak", "(JLjava/lang/String;)I", (void*)com_rokid_speech_Tts__sdk_speak },
 	{ "_sdk_cancel", "(JI)V", (void*)com_rokid_speech_Tts__sdk_cancel },
 	{ "_sdk_config", "(JLcom/rokid/speech/TtsOptions;)V", (void*)com_rokid_speech_Tts__sdk_config },
+	{ "_sdk_reconn", "(J)V", (void*)com_rokid_speech_Tts__sdk_reconn },
 };
 
 int register_com_rokid_speech_Tts(JNIEnv* env) {

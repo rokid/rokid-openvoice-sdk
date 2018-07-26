@@ -82,6 +82,9 @@ public:
 
 	virtual void config(const std::shared_ptr<TtsOptions>& options) = 0;
 
+	// 后台立即尝试重连网络服务
+	virtual void reconn() = 0;
+
 	static std::shared_ptr<Tts> new_instance();
 };
 

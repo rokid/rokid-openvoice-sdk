@@ -234,8 +234,8 @@ no\_resp\_timeout | uint32 | 判定服务无响应超时时间(毫秒)
 
 ~ | 名称 | 类型 | 描述
 ---|---|---|---
-接口 | set\_vad\_begin | | 奇葩参数，传给云端asr，设置忽略多少ms的语音开头部分
-参数 | value | uint32 |
+接口 | set\_vad\_begin | | 通知服务端忽略当前语音起始端指定长度的数据
+参数 | value | uint32 | 忽略的语音长度(ms)
 
 #### <a id="vo"></a>VoiceOptions
 

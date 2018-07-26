@@ -66,6 +66,8 @@ public:
 
 	void config(const std::shared_ptr<SpeechOptions>& options);
 
+	void reconn();
+
 private:
 	inline int32_t next_id() { return ++next_id_; }
 

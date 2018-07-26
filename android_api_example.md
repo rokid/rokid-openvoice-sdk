@@ -57,6 +57,11 @@
 参数 | options | [TtsOptions](#to) | tts的配置选项，详见[TtsOptions](#to)数据结构
 返回值 | 无 | |
 
+~ | 名称 | 类型 | 描述
+---|---|---|---
+接口 | reconn | | 立即尝试重连网络服务
+返回值 | 无 | |
+
 **回调接口**
 
 ~ | 名称 | 类型 | 描述
@@ -240,6 +245,11 @@ tts.config(topts);
 参数 | options | [SpeechOptions](#so) | 详见[SpeechOptions](#so)
 返回值 | 无 | |
 
+~ | 名称 | 类型 | 描述
+---|---|---|---
+接口 | reconn | | 立即尝试重连网络服务
+返回值 | 无 | |
+
 **回调接口**
 
 ~ | 名称 | 类型 | 描述
@@ -372,6 +382,11 @@ device\_id | String | 设备id，用于tts服务认证
 接口 | set\_no\_intermediate\_asr | | 设定是否需要服务端给出中间asr结果
 参数 | v | boolean |
 
+~ | 名称 | 类型 | 描述
+---|---|---|---
+接口 | set\_vad\_begin | | 通知服务端忽略当前语音起始端指定长度的数据
+参数 | v | int | 忽略的数据长度(ms)
+
 #### <a id="vo"></a>VoiceOptions
 
 名称 | 类型 | 描述
@@ -380,7 +395,10 @@ stack | String |
 voice\_trigger | String | 激活词
 trigger\_start | int | 语音数据中激活词的开始位置
 trigger\_length | int | 激活词语音数据长度
+trigger\_confirm\_by\_cloud | int | 云端语音激活二次确认开关
+voice\_power | float | 音强
 skill\_options | String |
+voice\_extra | String |
 
 #### <a id="jsonconf"></a>Json格式配置字串
 

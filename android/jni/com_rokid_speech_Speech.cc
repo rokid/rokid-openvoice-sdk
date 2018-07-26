@@ -30,6 +30,8 @@ enum VoiceOptionsFieldAlias {
 	OPTS_VOICE_TRIGGER,
 	OPTS_TRIGGER_START,
 	OPTS_TRIGGER_LENGTH,
+	OPTS_CLOUD_CONFIRM,
+	OPTS_VOICE_POWER,
 	OPTS_SKILL_OPTIONS,
 	OPTS_VOICE_EXTRA,
 
@@ -156,6 +158,10 @@ static void com_rokid_speech_Speech__sdk_init(JNIEnv *env,
 			options_cls, "trigger_start", "I");
 	constants_.voice_options_fields[OPTS_TRIGGER_LENGTH] = env->GetFieldID(
 			options_cls, "trigger_length", "I");
+	constants_.voice_options_fields[OPTS_CLOUD_CONFIRM] = env->GetFieldID(
+			options_cls, "trigger_confirm_by_cloud", "I");
+	constants_.voice_options_fields[OPTS_VOICE_POWER] = env->GetFieldID(
+			options_cls, "voice_power", "F");
 	constants_.voice_options_fields[OPTS_SKILL_OPTIONS] = env->GetFieldID(
 			options_cls, "skill_options", "Ljava/lang/String;");
 	constants_.voice_options_fields[OPTS_VOICE_EXTRA] = env->GetFieldID(
@@ -221,6 +227,8 @@ static void jobj_to_voice_options(JNIEnv* env, jobject obj, VoiceOptions& opts) 
 
 	opts.trigger_start = env->GetIntField(obj, constants_.voice_options_fields[OPTS_TRIGGER_START]);
 	opts.trigger_length = env->GetIntField(obj, constants_.voice_options_fields[OPTS_TRIGGER_LENGTH]);
+	opts.trigger_confirm_by_cloud = env->GetIntField(obj, constants_.voice_options_fields[OPTS_CLOUD_CONFIRM]);
+	opts.voice_power = env->GetFloatField(obj, constants_.voice_options_fields[OPTS_VOICE_POWER]);
 
 	sv = (jstring)env->GetObjectField(obj, constants_.voice_options_fields[OPTS_SKILL_OPTIONS]);
 	if (sv != NULL) {
@@ -235,7 +243,6 @@ static void jobj_to_voice_options(JNIEnv* env, jobject obj, VoiceOptions& opts) 
 		opts.voice_extra = str;
 		env->ReleaseStringUTFChars(sv, str);
 	}
-
 }
 
 static jint com_rokid_speech_Speech__sdk_put_text(JNIEnv *env, jobject thiz, jlong speechl, jstring str, jobject opts) {
@@ -302,6 +309,12 @@ static void com_rokid_speech_Speech__sdk_config(JNIEnv *env, jobject thiz, jlong
 		shared_ptr<SpeechOptions> sopts = jobj_to_speech_options(env, opt);
 		p->speech->config(sopts);
 	}
+}
+
+static void com_rokid_speech_Speech__sdk_reconn(JNIEnv *env, jobject thiz, jlong speechl) {
+	SpeechNativeInfo* p = reinterpret_cast<SpeechNativeInfo*>(speechl);
+	assert(p);
+	p->speech->reconn();
 }
 
 static jlong com_rokid_speech_SpeechOptions_native_new_options(
@@ -389,6 +402,15 @@ static void com_rokid_speech_SpeechOptions_native_set_no_intermediate_asr(JNIEnv
 	p->options->set_no_intermediate_asr(v);
 }
 
+static void com_rokid_speech_SpeechOptions_native_set_vad_begin(JNIEnv* env,
+		jobject thiz, jlong optl, jint v) {
+	SpeechOptionsNativeInfo* p =
+		reinterpret_cast<SpeechOptionsNativeInfo*>(optl);
+
+	assert(p);
+	p->options->set_vad_begin(v);
+}
+
 static JNINativeMethod _nmethods[] = {
 	{ "_sdk_init", "(Ljava/lang/Class;Ljava/lang/Class;Ljava/lang/Class;)V", (void*)com_rokid_speech_Speech__sdk_init },
 	{ "_sdk_create", "()J", (void*)com_rokid_speech_Speech__sdk_create },
@@ -401,6 +423,7 @@ static JNINativeMethod _nmethods[] = {
 	{ "_sdk_end_voice", "(JI)V", (void*)com_rokid_speech_Speech__sdk_end_voice },
 	{ "_sdk_cancel", "(JI)V", (void*)com_rokid_speech_Speech__sdk_cancel },
 	{ "_sdk_config", "(JLcom/rokid/speech/SpeechOptions;)V", (void*)com_rokid_speech_Speech__sdk_config },
+	{ "_sdk_reconn", "(J)V", (void*)com_rokid_speech_Speech__sdk_reconn },
 };
 
 int register_com_rokid_speech_Speech(JNIEnv* env) {
@@ -421,6 +444,7 @@ static JNINativeMethod _options_nmethods[] = {
 	{ "native_set_vad_mode", "(JLjava/lang/String;)V", (void*)com_rokid_speech_SpeechOptions_native_set_vad_mode },
 	{ "native_set_no_nlp", "(JZ)V", (void*)com_rokid_speech_SpeechOptions_native_set_no_nlp },
 	{ "native_set_no_intermediate_asr", "(JZ)V", (void*)com_rokid_speech_SpeechOptions_native_set_no_intermediate_asr },
+	{ "native_set_vad_begin", "(JI)V", (void*)com_rokid_speech_SpeechOptions_native_set_vad_begin },
 };
 
 int register_com_rokid_speech_SpeechOptions(JNIEnv* env) {

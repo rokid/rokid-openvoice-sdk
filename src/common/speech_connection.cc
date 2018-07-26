@@ -138,6 +138,14 @@ void SpeechConnection::ping() {
 }
 #endif
 
+void SpeechConnection::reconn() {
+	lock_guard<recursive_mutex> locker(reconn_mutex_);
+	if (working_) {
+		reconn_timepoint_ = SteadyClock::now();
+		reconn_cond_.notify_all();
+	}
+}
+
 void SpeechConnection::run() {
 	KLOGV(CONN_TAG, "work thread runing");
 

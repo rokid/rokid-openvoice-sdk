@@ -123,6 +123,9 @@ public:
 	void add_trace_info(const TraceInfo& info);
 #endif
 
+	// 立即尝试重连
+	void reconn();
+
 private:
 	void run();
 

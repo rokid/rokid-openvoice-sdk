@@ -42,6 +42,11 @@ public class SpeechOptions {
 			native_set_no_intermediate_asr(_native_options, v);
 	}
 
+	public void set_vad_begin(int v) {
+		if (_native_options != 0)
+			native_set_vad_begin(_native_options, v);
+	}
+
 	private native long native_new_options();
 
 	private native void native_release(long opt);
@@ -55,6 +60,8 @@ public class SpeechOptions {
 	private native void native_set_no_nlp(long opt, boolean v);
 
 	private native void native_set_no_intermediate_asr(long opt, boolean v);
+
+	private native void native_set_vad_begin(long opt, int v);
 
 	private long _native_options;
 

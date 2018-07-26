@@ -51,6 +51,8 @@ public:
 
 	void config(const std::shared_ptr<TtsOptions>& options);
 
+	void reconn();
+
 private:
 	inline int32_t next_id() { return ++next_id_; }
 

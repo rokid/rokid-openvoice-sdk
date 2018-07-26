@@ -149,6 +149,10 @@ void TtsImpl::config(const shared_ptr<TtsOptions>& options) {
 	mod->modify(options_);
 }
 
+void TtsImpl::reconn() {
+	connection_.reconn();
+}
+
 static TtsResultType poptype_to_restype(int32_t type) {
 	static TtsResultType _tps[] = {
 		TTS_RES_VOICE,

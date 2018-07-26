@@ -92,6 +92,10 @@ public class Speech extends GenericConfig {
 		_sdk_config(_sdk_speech, opt);
 	}
 
+	public void reconn() {
+		_sdk_reconn(_sdk_speech);
+	}
+
 	// invoke by native poll thread
 	private void handle_callback(SpeechResult res) {
 		assert(res.id > 0);
@@ -162,6 +166,8 @@ public class Speech extends GenericConfig {
 
 	private native void _sdk_config(long sdk_speech, SpeechOptions opt);
 
+	private native void _sdk_reconn(long _sdk_speech);
+
 	private SparseArray<SpeechCallback> _callbacks;
 
 	private long _sdk_speech;
@@ -199,6 +205,9 @@ public class Speech extends GenericConfig {
 		public int trigger_start;
 		// 当前语音包含的激活词数据长度
 		public int trigger_length;
+		// 云端二次确认开关
+		public int trigger_confirm_by_cloud = 1;
+		public float voice_power;
 		// 给skill传的额外参数，json格式
 		//   媒体播放状态
 		//   当前音乐的播放进度
