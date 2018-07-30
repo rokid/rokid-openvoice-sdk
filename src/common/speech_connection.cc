@@ -282,7 +282,7 @@ void SpeechConnection::prepare_hub() {
 
 void SpeechConnection::connect() {
 	string uri = get_server_uri();
-	KLOGD(CONN_TAG, "connect to server %s", uri.c_str());
+	KLOGI(CONN_TAG, "connect to server %s", uri.c_str());
 // glibc bug: gethostbyname not reread resolv.conf if the file changed
 // glibc 2.26 fix the bug
 #if defined(__GLIBC__)
@@ -345,7 +345,7 @@ void SpeechConnection::onDisconnection(uWS::WebSocket<uWS::CLIENT> *ws,
 
 void SpeechConnection::onMessage(uWS::WebSocket<uWS::CLIENT> *ws,
 		char* message, size_t length, uWS::OpCode opcode) {
-	KLOGV(CONN_TAG, "uws recv message, length %d, opcode 0x%x", length, opcode);
+	KLOGI(CONN_TAG, "uws recv message, length %d, opcode 0x%x", length, opcode);
 	lastest_recv_tp_ = SteadyClock::now();
 	switch (stage_) {
 		case ConnectStage::UNAUTH:
@@ -521,6 +521,9 @@ void SpeechConnection::handle_auth_result(uWS::WebSocket<uWS::CLIENT> *ws,
 		req_mutex_.unlock();
 	} else {
 		KLOGW(CONN_TAG, "auth failed, result = %d", resp.result());
+		KLOGW(CONN_TAG, "auth failed: key(%s), device type(%s), device id(%s)",
+				options_.key.c_str(), options_.device_type_id.c_str(),
+				options_.device_id.c_str());
 		reconn_timepoint_ = SteadyClock::now() + milliseconds(options_.reconn_interval);
 #ifdef ROKID_UPLOAD_TRACE
 		shared_ptr<TraceEvent> ev = make_shared<TraceEvent>();

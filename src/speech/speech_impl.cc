@@ -353,6 +353,15 @@ bool SpeechImpl::poll(SpeechResult& res) {
 						res.nlp = resin->nlp;
 						res.action = resin->action;
 						res.extra = resin->extra;
+						if (res.asr.length() > 0) {
+							KLOGI(tag__, "voice recognize intermediate asr %d:%s", id, resin->asr.c_str());
+						}
+						if (res.extra.length() > 0) {
+							KLOGI(tag__, "voice recognize extra %d:%s", id, resin->extra.c_str());
+						}
+						if (res.nlp.length() > 0) {
+							KLOGI(tag__, "voice recognize nlp/action id %d", id);
+						}
 					}
 					KLOGV(tag__, "SpeechImpl.poll return result "
 							"id(%d), type(%d)", res.id, res.type);
@@ -486,6 +495,9 @@ void SpeechImpl::req_config(SpeechRequest& req,
 	sopt->set_no_nlp(options_.no_nlp);
 	sopt->set_no_intermediate_asr(options_.no_intermediate_asr);
 	sopt->set_vad_begin(options_.vad_begin);
+	KLOGI(tag__, "speech config: codec(%d), vad mode(%d:%u), vad begin(%u), no nlp(%d), no intermediate asr(%d)",
+			codec, options_.vad_mode, options_.vend_timeout, options_.vad_begin,
+			options_.no_nlp, options_.no_intermediate_asr);
 	if (options.get()) {
 		sopt->set_stack(options->stack);
 		sopt->set_voice_trigger(options->voice_trigger);
@@ -605,6 +617,7 @@ void SpeechImpl::gen_results() {
 		locker.unlock();
 
 		r = connection_.recv(resp, timeout);
+		KLOGI(tag__, "speech connection recv result %d", r);
 		if (r == ConnectionOpResult::NOT_READY)
 			break;
 		locker.lock();
@@ -661,13 +674,14 @@ void SpeechImpl::gen_result_by_resp(SpeechResponse& resp) {
 	bool new_data = false;
 	shared_ptr<SpeechOperationController::Operation> op =
 		controller_.current_op();
-	KLOGV(tag__, "gen_result_by_resp: current op is %p", op.get());
 	if (op.get()) {
-		KLOGV(tag__, "gen_result_by_resp: current op id(%d), status(%d)",
+		KLOGI(tag__, "gen_result_by_resp: current op id(%d), status(%d)",
 				op->id, op->status);
+	} else {
+		KLOGI(tag__, "gen_result_by_resp: opctl is null");
 	}
-	KLOGV(tag__, "gen_result_by_resp: resp id(%d), type(%d), result(%d), asr(%s)",
-			resp.id(), resp.type(), resp.result(), resp.asr().c_str());
+	KLOGI(tag__, "gen_result_by_resp: resp id(%d), type(%d), result(%d), asr(%s), extra(%s)",
+			resp.id(), resp.type(), resp.result(), resp.asr().c_str(), resp.extra().c_str());
 	if (op.get() && op->id == resp.id()
 			&& op->status != SpeechStatus::CANCELLED
 			&& op->status != SpeechStatus::ERROR) {

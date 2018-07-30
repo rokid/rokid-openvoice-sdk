@@ -12,7 +12,10 @@ using namespace std;
 
 void SpeechBaseTest::run(const PrepareOptions& opt, const uint8_t* data, uint32_t size) {
 	shared_ptr<Speech> speech = Speech::new_instance();
+	shared_ptr<SpeechOptions> sopts = SpeechOptions::new_instance();
 	speech->prepare(opt);
+	sopts->set_vad_mode(VadMode::CLOUD, 500);
+	speech->config(sopts);
 
 	working = true;
 	thread poll_thread(

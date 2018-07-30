@@ -105,7 +105,7 @@ void TtsImpl::release() {
 int32_t TtsImpl::speak(const char* text) {
 	if (!initialized_)
 		return -1;
-	KLOGD(tag__, "speak %s", text);
+	KLOGI(tag__, "speak %s", text);
 	shared_ptr<TtsReqInfo> req(new TtsReqInfo());
 	req->data = text;
 	req->deleted = false;
@@ -299,7 +299,7 @@ static const char* get_codec_str(Codec codec) {
 }
 
 bool TtsImpl::do_request(shared_ptr<TtsReqInfo>& req) {
-	KLOGV(tag__, "do_request: send req to server. (%d:%s), codec(%s), declaimer(%s), samplerate(%u)",
+	KLOGI(tag__, "do_request: send req to server. (%d:%s), codec(%s), declaimer(%s), samplerate(%u)",
 			req->id, req->data.c_str(), get_codec_str(options_.codec),
 			options_.declaimer.c_str(), options_.samplerate);
 	TtsRequest treq;
@@ -343,6 +343,7 @@ void TtsImpl::gen_results() {
 		locker.unlock();
 
 		r = connection_.recv(resp, timeout);
+		KLOGI(tag__, "tts connection recv result %d", r);
 		if (r == ConnectionOpResult::NOT_READY)
 			break;
 		locker.lock();
