@@ -18,6 +18,7 @@ static const uint32_t MODIFY_VADMODE = 4;
 static const uint32_t MODIFY_NO_NLP = 8;
 static const uint32_t MODIFY_NO_INTERMEDIATE_ASR = 0x10;
 static const uint32_t MODIFY_VAD_BEGIN = 0x20;
+static const uint32_t MODIFY_LOG_SERVER = 0x40;
 
 class SpeechOptionsModifier : public SpeechOptionsHolder, public SpeechOptions {
 public:
@@ -57,6 +58,12 @@ public:
 		_mask |= MODIFY_VAD_BEGIN;
 	}
 
+	void set_log_server(const char* host, int32_t port) {
+		this->log_host = host;
+		this->log_port = port;
+		_mask |= MODIFY_LOG_SERVER;
+	}
+
 	void modify(SpeechOptionsHolder& options) {
 		if (_mask & MODIFY_LANG)
 			options.lang = lang;
@@ -72,16 +79,22 @@ public:
 			options.no_intermediate_asr = no_intermediate_asr;
 		if (_mask & MODIFY_VAD_BEGIN)
 			options.vad_begin = vad_begin;
+		if (_mask & MODIFY_LOG_SERVER) {
+			options.log_host = log_host;
+			options.log_port = log_port;
+		}
 		KLOGD(tag__, "SpeechOptions modified to: vad(%s:%u), codec(%s), "
 				"lang(%s), no_nlp(%d), no_intermediate_asr(%d), "
-				"vad_begin(%u)",
+				"vad_begin(%u), log server(%s:%d)",
 				options.vad_mode == VadMode::CLOUD ? "cloud" : "local",
 				options.vend_timeout,
 				options.codec == Codec::OPU ? "opu" : "pcm",
 				options.lang == Lang::EN ? "en" : "zh",
 				options.no_nlp,
 				options.no_intermediate_asr,
-				options.vad_begin);
+				options.vad_begin,
+				options.log_host.c_str(),
+				options.log_port);
 	}
 
 private:
@@ -278,6 +291,12 @@ void SpeechImpl::config(const shared_ptr<SpeechOptions>& options) {
 	else
 		opus_encoder_.close();
 #endif
+	if (options_.log_host.size() > 0) {
+		TCPSocketArg arg;
+		arg.host = options_.log_host.c_str();
+		arg.port = options_.log_port;
+		rokid_log_ctl(ROKID_LOG_CTL_DEFAULT_ENDPOINT, "tcp-socket", &arg);
+	}
 }
 
 static SpeechResultType poptype_to_restype(int32_t type) {
@@ -799,7 +818,8 @@ SpeechOptionsHolder::SpeechOptionsHolder() : lang(Lang::ZH),
 	vend_timeout(0),
 	no_nlp(0),
 	no_intermediate_asr(0),
-	vad_begin(0) {
+	vad_begin(0),
+	log_port(0) {
 }
 
 shared_ptr<SpeechOptions> SpeechOptions::new_instance() {

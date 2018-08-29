@@ -69,6 +69,8 @@ public:
 	// default: 0
 	virtual void set_vad_begin(uint32_t value) = 0;
 
+	virtual void set_log_server(const char* host, int32_t port) = 0;
+
 	static std::shared_ptr<SpeechOptions> new_instance();
 };
 

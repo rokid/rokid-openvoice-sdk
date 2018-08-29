@@ -34,6 +34,8 @@ public:
 	VadMode vad_mode;
 	uint32_t vend_timeout;
 	uint32_t vad_begin;
+	std::string log_host;
+	int32_t log_port;
 	uint32_t no_nlp:1;
 	uint32_t no_intermediate_asr:1;
 	uint32_t no_trigger_confirm:1;
