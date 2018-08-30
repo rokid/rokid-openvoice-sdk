@@ -6,6 +6,7 @@
 #include <string>
 #include <memory>
 #include <thread>
+#include <chrono>
 #include "speech.h"
 #include "types.h"
 #include "op_ctl.h"
@@ -70,7 +71,7 @@ private:
 
 	void gen_results();
 
-	void gen_result_by_resp(SpeechResponse& resp);
+	void gen_result_by_resp(SpeechResponse& resp, std::unique_lock<mutex>& resp_locker);
 
 	bool gen_result_by_status();
 

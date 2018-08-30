@@ -1,4 +1,3 @@
-#include <chrono>
 #include "speech_impl.h"
 
 #define WS_SEND_TIMEOUT 5000
@@ -6,6 +5,7 @@
 using std::shared_ptr;
 using std::mutex;
 using std::lock_guard;
+using std::unique_lock;
 using std::make_shared;
 using std::chrono::system_clock;
 
@@ -225,7 +225,7 @@ void SpeechImpl::end_voice(int32_t id) {
 }
 
 void SpeechImpl::cancel(int32_t id) {
-	lock_guard<mutex> req_locker(req_mutex_);
+	unique_lock<mutex> req_locker(req_mutex_);
 	if (!initialized_)
 		return;
 	KLOGV(tag__, "cancel %d", id);
@@ -241,6 +241,7 @@ void SpeechImpl::cancel(int32_t id) {
 				return;
 			}
 		}
+		req_locker.unlock();
 		lock_guard<mutex> resp_locker(resp_mutex_);
 		controller_.cancel_op(id, resp_cond_);
 	} else {
@@ -252,6 +253,7 @@ void SpeechImpl::cancel(int32_t id) {
 		for (it = text_reqs_.begin(); it != text_reqs_.end(); ++it) {
 			(*it)->type = SpeechReqType::CANCELLED;
 		}
+		req_locker.unlock();
 		lock_guard<mutex> resp_locker(resp_mutex_);
 		controller_.cancel_op(0, resp_cond_);
 	}
@@ -306,7 +308,9 @@ bool SpeechImpl::poll(SpeechResult& res) {
 	unique_lock<mutex> locker(resp_mutex_);
 	while (initialized_) {
 		op = controller_.front_op();
-		KLOGV(tag__, "SpeechImpl.poll: front op = %p", op.get());
+		if (op.get() == NULL) {
+			KLOGI(tag__, "SpeechImpl.poll: front op = (nil)");
+		}
 		if (op.get()) {
 			KLOGV(tag__, "SpeechImpl.poll: front op status = %d", op->status);
 			if (op->status == SpeechStatus::CANCELLED) {
@@ -423,8 +427,8 @@ void SpeechImpl::send_reqs() {
 			KLOGV(tag__, "SpeechImpl.send_reqs awake");
 			continue;
 		}
-		opr = do_ctl_change_op(info);
 		locker.unlock();
+		opr = do_ctl_change_op(info);
 
 		if (opr) {
 			rv = do_request(info);
@@ -439,8 +443,11 @@ void SpeechImpl::send_reqs() {
 }
 
 bool SpeechImpl::do_ctl_change_op(shared_ptr<SpeechReqInfo>& req) {
+	unique_lock<mutex> locker(resp_mutex_);
 	shared_ptr<SpeechOperationController::Operation> op =
 		controller_.current_op();
+	locker.unlock();
+
 	KLOGV(tag__, "do_ctl_change_op: current op is %p", op.get());
 	if (op.get()) {
 		KLOGV(tag__, "do_ctl_change_op: current op id(%d), status(%d)",
@@ -451,6 +458,7 @@ bool SpeechImpl::do_ctl_change_op(shared_ptr<SpeechReqInfo>& req) {
 	if (req->type == SpeechReqType::TEXT
 			|| req->type == SpeechReqType::VOICE_START) {
 		assert(op.get() == NULL);
+		locker.lock();
 		controller_.new_op(req->id, SpeechStatus::START);
 		return true;
 	}
@@ -459,6 +467,7 @@ bool SpeechImpl::do_ctl_change_op(shared_ptr<SpeechReqInfo>& req) {
 				|| req->type == SpeechReqType::VOICE_DATA)
 			return true;
 		if (req->type == SpeechReqType::CANCELLED) {
+			locker.lock();
 			op->status = SpeechStatus::CANCELLED;
 			controller_.clear_current_op();
 			resp_cond_.notify_one();
@@ -467,6 +476,7 @@ bool SpeechImpl::do_ctl_change_op(shared_ptr<SpeechReqInfo>& req) {
 		return false;
 	}
 	if (req->type == SpeechReqType::CANCELLED) {
+		locker.lock();
 		controller_.new_op(req->id, SpeechStatus::CANCELLED);
 		// no data send to server
 		// notify 'poll' function to generate 'CANCEL' result
@@ -623,7 +633,7 @@ void SpeechImpl::gen_results() {
 		locker.lock();
 		if (r == ConnectionOpResult::SUCCESS) {
 			controller_.refresh_op_time(true);
-			gen_result_by_resp(resp);
+			gen_result_by_resp(resp, locker);
 		} else if (r == ConnectionOpResult::TIMEOUT) {
 			if (controller_.op_timeout() == 0) {
 				int32_t id = controller_.current_op()->id;
@@ -670,8 +680,9 @@ void SpeechImpl::gen_results() {
 	KLOGV(tag__, "thread 'gen_results' quit");
 }
 
-void SpeechImpl::gen_result_by_resp(SpeechResponse& resp) {
+void SpeechImpl::gen_result_by_resp(SpeechResponse& resp, unique_lock<mutex>& resp_locker) {
 	bool new_data = false;
+	int32_t erase_req_id = -1;
 	shared_ptr<SpeechOperationController::Operation> op =
 		controller_.current_op();
 	if (op.get()) {
@@ -723,12 +734,12 @@ void SpeechImpl::gen_result_by_resp(SpeechResponse& resp) {
 				new_data = true;
 				op->status = SpeechStatus::END;
 				controller_.finish_op();
-				erase_req(resp.id());
+				erase_req_id = resp.id();
 			} else {
 				responses_.erase(resp.id(), resp.result());
 				new_data = true;
 				controller_.finish_op();
-				erase_req(resp.id());
+				erase_req_id = resp.id();
 			}
 #ifdef SPEECH_STATISTIC
 			finish_cur_req();
@@ -742,6 +753,12 @@ void SpeechImpl::gen_result_by_resp(SpeechResponse& resp) {
 		if (new_data) {
 			resp_cond_.notify_one();
 		}
+
+		resp_locker.unlock();
+		if (erase_req_id > 0) {
+			erase_req(erase_req_id);
+		}
+		resp_locker.lock();
 	}
 }
 
