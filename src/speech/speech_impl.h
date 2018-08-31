@@ -29,17 +29,17 @@ class SpeechOptionsHolder {
 public:
 	SpeechOptionsHolder();
 
-	Lang lang;
-	Codec codec;
-	VadMode vad_mode;
-	uint32_t vend_timeout;
-	uint32_t vad_begin;
+	Lang lang = Lang::ZH;
+	Codec codec = Codec::PCM;
+	VadMode vad_mode = VadMode::LOCAL;
+	uint32_t vend_timeout = 0;
+	uint32_t vad_begin = 0;
 	std::string log_host;
-	int32_t log_port;
+	uint32_t voice_fragment = 1000;
+	int32_t log_port = 0;
 	uint32_t no_nlp:1;
 	uint32_t no_intermediate_asr:1;
-	uint32_t no_trigger_confirm:1;
-	uint32_t unused:29;
+	uint32_t unused:30;
 };
 
 class SpeechImpl : public Speech {

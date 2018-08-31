@@ -18,7 +18,8 @@ static const uint32_t MODIFY_VADMODE = 4;
 static const uint32_t MODIFY_NO_NLP = 8;
 static const uint32_t MODIFY_NO_INTERMEDIATE_ASR = 0x10;
 static const uint32_t MODIFY_VAD_BEGIN = 0x20;
-static const uint32_t MODIFY_LOG_SERVER = 0x40;
+static const uint32_t MODIFY_VOICE_FRAGMENT = 0x40;
+static const uint32_t MODIFY_LOG_SERVER = 0x80;
 
 class SpeechOptionsModifier : public SpeechOptionsHolder, public SpeechOptions {
 public:
@@ -64,6 +65,11 @@ public:
 		_mask |= MODIFY_LOG_SERVER;
 	}
 
+	void set_voice_fragment(uint32_t size) {
+		this->voice_fragment = size;
+		_mask |= MODIFY_VOICE_FRAGMENT;
+	}
+
 	void modify(SpeechOptionsHolder& options) {
 		if (_mask & MODIFY_LANG)
 			options.lang = lang;
@@ -83,9 +89,11 @@ public:
 			options.log_host = log_host;
 			options.log_port = log_port;
 		}
+		if (_mask & MODIFY_VOICE_FRAGMENT)
+			options.voice_fragment = voice_fragment;
 		KLOGD(tag__, "SpeechOptions modified to: vad(%s:%u), codec(%s), "
 				"lang(%s), no_nlp(%d), no_intermediate_asr(%d), "
-				"vad_begin(%u), log server(%s:%d)",
+				"vad_begin(%u), log server(%s:%d), voice_fragment(%u)",
 				options.vad_mode == VadMode::CLOUD ? "cloud" : "local",
 				options.vend_timeout,
 				options.codec == Codec::OPU ? "opu" : "pcm",
@@ -94,7 +102,8 @@ public:
 				options.no_intermediate_asr,
 				options.vad_begin,
 				options.log_host.c_str(),
-				options.log_port);
+				options.log_port,
+				options.voice_fragment);
 	}
 
 private:
@@ -216,12 +225,26 @@ void SpeechImpl::put_voice(int32_t id, const uint8_t* voice, uint32_t length) {
 	}
 #endif
 	lock_guard<mutex> locker(req_mutex_);
-	shared_ptr<string> spv(new string((const char*)voice, length));
-	if (voice_reqs_.stream(id, spv)) {
+	shared_ptr<string> spv;
+	const char* strp = reinterpret_cast<const char*>(voice);
+	uint32_t off = 0;
+	uint32_t sz;
+	bool need_notify = false;
+	while (off < length) {
+		sz = length - off;
+		if (options_.voice_fragment < sz)
+			sz = options_.voice_fragment;
+		spv = make_shared<string>(strp + off, sz);
+		off += sz;
+		if (voice_reqs_.stream(id, spv)) {
+			need_notify = true;
+		} else {
+			KLOGI(tag__, "put voice failed, maybe id %d is invalid", id);
+		}
+	}
+	if (need_notify) {
 		KLOGV(tag__, "put voice %d, len %u", id, length);
 		req_cond_.notify_one();
-	} else {
-		KLOGI(tag__, "put voice failed, maybe id %d is invalid", id);
 	}
 }
 
@@ -646,7 +669,7 @@ void SpeechImpl::gen_results() {
 		locker.unlock();
 
 		r = connection_.recv(resp, timeout);
-		KLOGI(tag__, "speech connection recv result %d", r);
+		KLOGD(tag__, "speech connection recv result %d", r);
 		if (r == ConnectionOpResult::NOT_READY)
 			break;
 		locker.lock();
@@ -812,14 +835,9 @@ VoiceOptions& VoiceOptions::operator = (const VoiceOptions& options) {
 	return *this;
 }
 
-SpeechOptionsHolder::SpeechOptionsHolder() : lang(Lang::ZH),
-	codec(Codec::PCM),
-	vad_mode(VadMode::LOCAL),
-	vend_timeout(0),
-	no_nlp(0),
-	no_intermediate_asr(0),
-	vad_begin(0),
-	log_port(0) {
+SpeechOptionsHolder::SpeechOptionsHolder() {
+	no_nlp = 0;
+	no_intermediate_asr = 0;
 }
 
 shared_ptr<SpeechOptions> SpeechOptions::new_instance() {

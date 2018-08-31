@@ -343,7 +343,7 @@ void TtsImpl::gen_results() {
 		locker.unlock();
 
 		r = connection_.recv(resp, timeout);
-		KLOGI(tag__, "tts connection recv result %d", r);
+		KLOGD(tag__, "tts connection recv result %d", r);
 		if (r == ConnectionOpResult::NOT_READY)
 			break;
 		locker.lock();
