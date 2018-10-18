@@ -18,6 +18,7 @@ Configuration:
     --cmake-modules=DIR         directory of cmake modules file exist
     --find-root-path=DIR        root dir for search dependencies libs
     --upload-trace              enable upload trace: upload speech runtime exception to server
+    --no-uws-threadsafe         disable uWS threadsafe (use libuv)
 
 Dependencies:
     --uws=DIR                   uWebsockets libs and header files dir
@@ -68,6 +69,9 @@ do
 			;;
 		--no-std-steady-clock)
 			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DNO_STD_STEADY_CLOCK=ON)
+			;;
+		--no-uws-threadsafe)
+			CMAKE_ARGS=(${CMAKE_ARGS[@]} -DUWS_THREADSAFE=OFF)
 			;;
 		--build-dir=*)
 			builddir=$conf_optarg
