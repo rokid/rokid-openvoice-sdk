@@ -73,7 +73,7 @@ public:
 	virtual void set_log_server(const char* host, int32_t port) = 0;
 
 	// 设置语音数据分片大小
-	// 默认值1000 bytes
+	// 默认值0xffffffff bytes
 	virtual void set_voice_fragment(uint32_t size) = 0;
 
 	static std::shared_ptr<SpeechOptions> new_instance();

@@ -35,7 +35,7 @@ public:
 	uint32_t vend_timeout = 0;
 	uint32_t vad_begin = 0;
 	std::string log_host;
-	uint32_t voice_fragment = 1000;
+	uint32_t voice_fragment = 0xffffffff;
 	int32_t log_port = 0;
 	uint32_t no_nlp:1;
 	uint32_t no_intermediate_asr:1;
