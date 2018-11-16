@@ -6,7 +6,7 @@
 #include <list>
 #include "alt_chrono.h"
 
-#define NOOP_TIMEOUT 10000
+#define NOOP_TIMEOUT 20000
 #define NORESP_TIMEOUT 30000
 
 namespace rokid {
