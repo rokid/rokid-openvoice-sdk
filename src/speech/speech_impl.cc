@@ -338,6 +338,43 @@ static SpeechResultType poptype_to_restype(int32_t type) {
   return _tps[type];
 }
 
+static const char *speech_err_str(enum SpeechError err) {
+  switch (err) {
+  case SPEECH_SUCCESS:
+    return "SUCCESS";
+  case SPEECH_UNAUTHENTICATED:
+    return "UNAUTHENTICATED";
+  case SPEECH_CONNECTION_EXCEED:
+    return "CONNECTION_EXCEED";
+  case SPEECH_SERVER_RESOURCE_EXHASTED:
+    return "SERVER_RESOURCE_EXHASTED";
+  case SPEECH_SERVER_BUSY:
+    return "SERVER_BUSY";
+  case SPEECH_SERVER_INTERNAL:
+    return "SERVER_INTERNAL";
+  case SPEECH_VAD_TIMEOUT:
+    return "VAD_TIMEOUT";
+  case SPEECH_NLP_EMPTY:
+    return "NLP_EMPTY";
+  case SPEECH_UNINITIALIZED:
+    return "UNINITIALIZED";
+  case SPEECH_DUP_INITIALIZED:
+    return "DUP_INITIALIZED";
+  case SPEECH_BADREQUEST:
+    return "BADREQUEST";
+  case SPEECH_SERVICE_UNAVAILABLE:
+    return "SERVICE_UNAVAILABLE";
+  case SPEECH_SDK_CLOSED:
+    return "SDK_CLOSED";
+  case SPEECH_TIMEOUT:
+    return "TIMEOUT";
+  default:
+    KLOGV(tag__, "unknown err code: %d", err);
+    break;
+  }
+  return "UNKNOWN";
+}
+
 bool SpeechImpl::poll(SpeechResult& res) {
   shared_ptr<SpeechOperationController::Operation> op;
   int32_t id;
@@ -370,7 +407,7 @@ bool SpeechImpl::poll(SpeechResult& res) {
         controller_.remove_front_op();
         KLOGV(tag__, "SpeechImpl.poll (%d) cancelled, "
             "remove front op", op->id);
-        KLOGI(tag__, "voice recognize %d: cancel", id);
+        KLOGI(tag__, "voice recognize (%d) CANCELLED", res.id);
         return true;
       } else if (op->status == SpeechStatus::ERROR) {
         if (responses_.erase(op->id)) {
@@ -383,7 +420,8 @@ bool SpeechImpl::poll(SpeechResult& res) {
         controller_.remove_front_op();
         KLOGV(tag__, "SpeechImpl.poll (%d) error, "
             "remove front op", op->id);
-        KLOGI(tag__, "voice recognize %d: error %u", res.id, res.err);
+        KLOGI(tag__, "voice recognize (%d) ERROR: %u - %s",
+          res.id, res.err, speech_err_str(res.err));
         return true;
       } else {
         poptype = responses_.pop(id, resin, err);
@@ -393,7 +431,8 @@ bool SpeechImpl::poll(SpeechResult& res) {
           res.type = poptype_to_restype(poptype);
           res.err = static_cast<SpeechError>(err);
           if (res.err != SPEECH_SUCCESS)
-            KLOGI(tag__, "voice recognize %d: error %u", id, res.err);
+            KLOGI(tag__, "voice recognize (%d) result: %u - %s",
+              id, res.err, speech_err_str(res.err));
           if (resin.get()) {
             if (resin->asr_finish) {
               res.type = SpeechResultType::SPEECH_RES_ASR_FINISH;
