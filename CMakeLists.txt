@@ -42,7 +42,7 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" )
   set(COMPILER_IS_CLANG true)
 
   # The Travis CI build machines don't have libc++ installed
-  if (NOT DEFINED ENV{TRAVIS})
+  if (NOT DEFINED ENV{TRAVIS} AND NOT ANDROID)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++" )
   endif()
 
@@ -251,13 +251,19 @@ target_include_directories(speech PRIVATE
 target_compile_options(speech PRIVATE
 	${speech_extra_cflags}
 )
+
+
+if(NOT ANDROID)
+	set(resolv_FLAGS -lresolv)
+endif()
+
 target_link_libraries(speech
 	${UWS_LIBRARIES}
 	${OpenSSL_LIBRARIES}
 	${RLog_LIBRARIES}
 	${ZLIB_LIBRARIES}
 	${speech_extra_libs}
-	-lresolv
+	${resolv_FLAGS}
 )
 if (ROKID_UPLOAD_TRACE)
 	target_include_directories(speech PRIVATE
