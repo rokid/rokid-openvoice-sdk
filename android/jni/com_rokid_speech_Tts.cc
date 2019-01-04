@@ -18,7 +18,7 @@ enum TtsResultFieldAlias {
 	RES_TYPE,
 	RES_ERROR,
 	RES_VOICE,
-
+	RES_TEXT,
 	RES_FIELD_NUM
 };
 
@@ -79,6 +79,12 @@ private:
 			env_->ReleaseByteArrayElements(voice_obj, tmp, 0);
 		}
 		env_->SetObjectField(res_obj, constants_.result_fields[RES_VOICE], voice_obj);
+
+		if ((result.text.get()) && (result.text->length() > 0)) {
+			jstring strobj;
+			strobj = env_->NewStringUTF(result.text->c_str());
+			env_->SetObjectField(res_obj, constants_.result_fields[RES_TEXT], strobj);
+		}
 		return res_obj;
 	}
 
@@ -105,6 +111,7 @@ static void com_rokid_speech_Tts__sdk_init(JNIEnv *env, jobject thiz, jclass tts
 	constants_.result_fields[RES_TYPE] = env->GetFieldID(res_cls, "type", "I");
 	constants_.result_fields[RES_ERROR] = env->GetFieldID(res_cls, "err", "I");
 	constants_.result_fields[RES_VOICE] = env->GetFieldID(res_cls, "voice", "[B");
+	constants_.result_fields[RES_TEXT] = env->GetFieldID(res_cls, "text", "Ljava/lang/String;");
 	constants_.result_class = (jclass)env->NewGlobalRef(res_cls);
 }
 

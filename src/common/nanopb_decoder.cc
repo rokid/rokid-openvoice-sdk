@@ -64,6 +64,15 @@ string* TtsResponse::release_voice() {
   return str;
 }
 
+string* TtsResponse::release_text() {
+	if (_text.get() == NULL)
+		return NULL;
+	string* str = new string(*_text);
+	_text.reset();
+	return str;
+
+}
+
 void TtsResponse::clear_super_data() {
   _text.reset();
   _voice.reset();

@@ -16,7 +16,7 @@ namespace rokid {
 namespace speech {
 
 typedef OperationController<TtsStatus, TtsError> TtsOperationController;
-typedef StreamQueue<std::string, int32_t> TtsStreamQueue;
+typedef StreamQueue<TtsResultIn, int32_t> TtsStreamQueue;
 
 class TtsOptionsHolder {
 public:

@@ -77,7 +77,7 @@ public class Tts extends GenericConfig {
 			try {
 				switch(res.type) {
 					case 0:
-						cb.onVoice(res.id, res.voice);
+						cb.onVoice(res.id, res.voice, res.text);
 						break;
 					case 1:
 						cb.onStart(res.id);
@@ -161,5 +161,6 @@ public class Tts extends GenericConfig {
 		public int type;
 		public int err;
 		public byte[] voice;
+		public String text;
 	}
 }

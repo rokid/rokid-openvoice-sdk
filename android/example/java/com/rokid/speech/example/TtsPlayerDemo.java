@@ -22,12 +22,9 @@ public class TtsPlayerDemo implements TtsCallback {
 	}
 
 	@Override
-	public void onText(int id, String text) {
-	}
-
-	@Override
-	public void onVoice(int id, byte[] data) {
+	public void onVoice(int id, byte[] data, String text) {
 		Log.d(TAG, "onVoice(" + id + ") data " + data.length);
+		Log.d(TAG, "onVoice(" + id + ") text " + text);
 		// data = _opus.decode(data);
 		// Log.d(TAG, "onVoice decoded data " + data.length);
 

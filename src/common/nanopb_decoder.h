@@ -56,6 +56,7 @@ public:
 	}
 
 	std::string* release_voice();
+	std::string* release_text();
 
 	inline bool finish() const {
 		return nanopbStruct.finish;
