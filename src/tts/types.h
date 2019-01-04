@@ -8,6 +8,11 @@ namespace speech {
 #define SOCKET_BUF_SIZE 0x40000
 
 typedef struct {
+	std::shared_ptr<std::string> voice;
+	std::shared_ptr<std::string> text;
+} TtsResultIn;
+
+typedef struct {
 	int32_t id;
 	bool deleted;
 	std::string data;

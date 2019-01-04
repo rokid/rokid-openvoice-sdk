@@ -3,9 +3,7 @@ package com.rokid.speech;
 public interface TtsCallback {
 	public void onStart(int id);
 
-	public void onText(int id, String text);
-
-	public void onVoice(int id, byte[] data);
+	public void onVoice(int id, byte[] data, String text);
 
 	public void onCancel(int id);
 

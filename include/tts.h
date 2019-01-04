@@ -42,6 +42,7 @@ struct TtsResult {
 	int32_t id;
 	TtsError err;
 	std::shared_ptr<std::string> voice;
+	std::shared_ptr<std::string> text;
 };
 
 class TtsOptions {

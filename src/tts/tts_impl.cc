@@ -188,11 +188,12 @@ static TtsError integer_to_reserr(uint32_t err) {
 bool TtsImpl::poll(TtsResult& res) {
 	shared_ptr<TtsOperationController::Operation> op;
 	int32_t id;
-	shared_ptr<string> voice;
+	std::shared_ptr<TtsResultIn>resin;
 	int32_t poptype;
 	uint32_t err = 0;
 
 	res.voice.reset();
+	res.text.reset();
 	res.err = TTS_SUCCESS;
 
 	unique_lock<mutex> locker(resp_mutex_);
@@ -201,7 +202,7 @@ bool TtsImpl::poll(TtsResult& res) {
 		if (op.get()) {
 			if (op->status == TtsStatus::CANCELLED) {
 				if (responses_.erase(op->id)) {
-					responses_.pop(id, voice, err);
+					responses_.pop(id, resin, err);
 					assert(id == op->id);
 				}
 				res.id = op->id;
@@ -213,7 +214,7 @@ bool TtsImpl::poll(TtsResult& res) {
 				return true;
 			} else if (op->status == TtsStatus::ERROR) {
 				if (responses_.erase(op->id)) {
-					responses_.pop(id, voice, err);
+					responses_.pop(id, resin, err);
 					assert(id == op->id);
 				}
 				res.id = op->id;
@@ -224,13 +225,16 @@ bool TtsImpl::poll(TtsResult& res) {
 						"remove front op", op->id);
 				return true;
 			} else {
-				poptype = responses_.pop(id, voice, err);
+				poptype = responses_.pop(id, resin, err);
 				if (poptype != TtsStreamQueue::POP_TYPE_EMPTY) {
 					assert(id == op->id);
 					res.id = id;
 					res.type = poptype_to_restype(poptype);
 					res.err = integer_to_reserr(err);
-					res.voice = voice;
+					if (TtsStreamQueue::POP_TYPE_DATA == poptype) {
+						res.voice = resin->voice;
+						res.text = resin->text;
+					}
 					KLOGV(tag__, "TtsImpl.poll return result id(%d), "
 							"type(%d)", res.id, res.type);
 					if (res.type == TTS_RES_END) {
@@ -398,16 +402,16 @@ void TtsImpl::gen_result_by_resp(TtsResponse& resp) {
 		KLOGV(tag__, "TtsResponse has_voice(%d), finish(%d)",
 				resp.has_voice(), resp.finish());
 		if (resp.has_voice()) {
-			shared_ptr<string> voice;
-#ifdef LOW_PB_VERSION
-			voice.reset(new string(resp.voice()));
-#else
-			voice.reset(resp.release_voice());
-#endif
-			responses_.stream(resp.id(), voice);
+			shared_ptr<TtsResultIn>resin;
+
+			resin = make_shared<TtsResultIn>();
+			resin->voice.reset(resp.release_voice());
+			resin->text.reset(resp.release_text());
+
+			responses_.stream(resp.id(), resin);
 			new_data = true;
 			KLOGV(tag__, "gen_result_by_resp(%d): push voice "
-					"resp, %d bytes", resp.id(), voice->length());
+					"resp, %d bytes", resp.id(), resin->voice->length());
 		}
 
 		if (resp.finish()) {
