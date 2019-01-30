@@ -206,6 +206,10 @@ int32_t SpeechImpl::start_voice(const VoiceOptions* options) {
   return id;
 }
 
+static bool is_stream_codec(Codec codec) {
+  return codec == Codec::PCM;
+}
+
 void SpeechImpl::put_voice(int32_t id, const uint8_t* voice, uint32_t length) {
   if (!initialized_)
     return;
@@ -232,7 +236,7 @@ void SpeechImpl::put_voice(int32_t id, const uint8_t* voice, uint32_t length) {
   bool need_notify = false;
   while (off < length) {
     sz = length - off;
-    if (options_.voice_fragment < sz)
+    if (is_stream_codec(options_.codec) && options_.voice_fragment < sz)
       sz = options_.voice_fragment;
     spv = make_shared<string>(strp + off, sz);
     off += sz;
@@ -603,9 +607,9 @@ void SpeechImpl::req_config(SpeechRequest& req,
   sopt->set_no_nlp(options_.no_nlp);
   sopt->set_no_intermediate_asr(options_.no_intermediate_asr);
   sopt->set_vad_begin(options_.vad_begin);
-  KLOGI(tag__, "speech config: codec(%d), vad mode(%d:%u), vad begin(%u), no nlp(%d), no intermediate asr(%d)",
+  KLOGI(tag__, "speech config: codec(%d), vad mode(%d:%u), vad begin(%u), no nlp(%d), no intermediate asr(%d), voice fragment(%d)",
       codec, options_.vad_mode, options_.vend_timeout, options_.vad_begin,
-      options_.no_nlp, options_.no_intermediate_asr);
+      options_.no_nlp, options_.no_intermediate_asr, options_.voice_fragment);
   if (options.get()) {
     sopt->set_stack(options->stack);
     sopt->set_voice_trigger(options->voice_trigger);
