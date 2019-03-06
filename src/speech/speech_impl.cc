@@ -319,10 +319,11 @@ void SpeechImpl::config(const shared_ptr<SpeechOptions>& options) {
     opus_encoder_.close();
 #endif
   if (options_.log_host.size() > 0) {
-    TCPSocketArg arg;
-    arg.host = options_.log_host.c_str();
-    arg.port = options_.log_port;
-    rokid_log_ctl(ROKID_LOG_CTL_DEFAULT_ENDPOINT, "tcp-socket", &arg);
+    char buf[64];
+    snprintf(buf, sizeof(buf), "tcp://%s:%d/",
+             options_.log_host.c_str(), options_.log_port);
+    if (RLog::add_endpoint("socket", ROKID_LOGWRITER_SOCKET) == 0)
+      RLog::enable_endpoint("socket", buf, true);
   }
 }
 
