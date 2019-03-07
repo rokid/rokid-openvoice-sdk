@@ -66,29 +66,29 @@ static const char* ENDPOINT_NAME = "file-ex";
 static FileLogWriter file_log_writer_;
 
 static bool mkdirs(const string& path) {
-	char* p;
-	char* h = new char[path.length() + 1];
-	int r;
-	strcpy(h, path.c_str());
+  char* p;
+  char* h = new char[path.length() + 1];
+  int r;
+  strcpy(h, path.c_str());
 
-	p = h + 1;
-	while (*p) {
-		if (*p == '/') {
-			*p = '\0';
-			r = mkdir(h, 0755);
-			if (r == 0 || errno == EEXIST) {
-				*p = '/';
-				++p;
-				continue;
-			}
-			// mkdir failed
-			delete[] h;
-			return false;
-		}
-		++p;
-	}
-	delete[] h;
-	return true;
+  p = h + 1;
+  while (*p) {
+    if (*p == '/') {
+      *p = '\0';
+      r = mkdir(h, 0755);
+      if (r == 0 || errno == EEXIST) {
+        *p = '/';
+        ++p;
+        continue;
+      }
+      // mkdir failed
+      delete[] h;
+      return false;
+    }
+    ++p;
+  }
+  delete[] h;
+  return true;
 }
 
 static void init_file_log(const char* path) {
@@ -102,10 +102,10 @@ static void final_file_log() {
 }
 
 void enable_file_log(bool enable, const char* log_path) {
-	if (enable)
-		init_file_log(log_path);
-	else
-		final_file_log();
+  if (enable)
+    init_file_log(log_path);
+  else
+    final_file_log();
 }
 
 } // namespace speech
