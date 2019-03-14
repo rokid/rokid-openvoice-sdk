@@ -17,13 +17,20 @@ void SpeechBaseTest::run(const PrepareOptions& opt, const uint8_t* data, uint32_
 	sopts->set_vad_mode(VadMode::CLOUD, 500);
 	speech->config(sopts);
 
-	working = true;
 	thread poll_thread(
 			[this, &speech]() {
 				this->speech_poll_routine(speech);
 			});
 
-	uint32_t off = 0;
+  do_request(0, data, size, speech);
+
+	speech->release();
+	poll_thread.join();
+}
+
+void SpeechBaseTest::do_request(uint32_t off, const uint8_t* data,
+                                uint32_t size, shared_ptr<Speech> &speech) {
+	requiring = true;
 	uint32_t frame_size = 16000 * 2 * 80 / 1000;
 	int32_t id = speech->start_voice();
 	while (off < size) {
@@ -34,12 +41,9 @@ void SpeechBaseTest::run(const PrepareOptions& opt, const uint8_t* data, uint32_
 		speech->put_voice(id, data + off, frame_size);
 		off += frame_size;
 		usleep(80 * 1000);
-		if (!working)
+		if (!requiring)
 			break;
 	}
-
-	poll_thread.join();
-	speech->release();
 }
 
 void SpeechBaseTest::speech_poll_routine(shared_ptr<Speech>& speech) {
@@ -51,15 +55,14 @@ void SpeechBaseTest::speech_poll_routine(shared_ptr<Speech>& speech) {
 		switch (result.type) {
 			case SPEECH_RES_ASR_FINISH:
 				KLOGI(TAG, "asr is %s", result.asr.c_str());
-				goto exit;
+        requiring = false;
+        break;
 			case SPEECH_RES_ERROR:
 				KLOGI(TAG, "speech error %d", result.err);
-				goto exit;
+        requiring = false;
+        break;
 		}
 	}
-
-exit:
-	working = false;
 }
 
 void SpeechBaseTest::test(const PrepareOptions& opts, const DemoOptions& dopts) {

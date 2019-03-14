@@ -30,6 +30,7 @@ using std::cv_status;
 using std::chrono::system_clock;
 using std::chrono::duration_cast;
 using std::chrono::milliseconds;
+using std::chrono::seconds;
 using uWS::Hub;
 using uWS::WebSocket;
 using uWS::OpCode;
@@ -64,8 +65,7 @@ void SpeechConnection::initialize(int32_t ws_buf_size,
   KLOGD(CONN_TAG, "reconn interval = %u, ping interval = %u, no resp timeout = %u",
       options_.reconn_interval, options_.ping_interval, options_.no_resp_timeout);
   service_type_ = svc;
-  stage_ = ConnectStage::DISCONN;
-  update_reconn_tp(0);
+  stage_ = ConnectStage::PAUSED;
 #ifdef ROKID_UPLOAD_TRACE
   trace_uploader_ = new TraceUploader(options.device_id, options.device_type_id);
 #endif
@@ -116,7 +116,8 @@ void SpeechConnection::add_trace_info(const TraceInfo& info) {
     _trace_infos.pop_front();
   req_mutex_.unlock();
 
-  reconn_cond_.notify_one();
+  // notify keepalive thread?
+  // stage_changed.notify_all();
 }
 
 void SpeechConnection::ping(string* payload) {
@@ -205,12 +206,17 @@ void SpeechConnection::update_recv_tp() {
   lastest_recv_tp_ = SteadyClock::now();
 }
 
+void SpeechConnection::update_voice_tp() {
+  lastest_voice_tp_ = SteadyClock::now();
+}
+
 void SpeechConnection::keepalive_run() {
   SteadyClock::time_point now;
   unique_lock<mutex> locker(stage_mutex_);
   milliseconds timeout;
   milliseconds ping_interval = milliseconds(options_.ping_interval);
   milliseconds no_resp_timeout = milliseconds(options_.no_resp_timeout);
+  seconds conn_duration = seconds(options_.conn_duration);
 #ifdef SPEECH_STATISTIC
   bool has_trace_info;
 #endif
@@ -242,6 +248,14 @@ void SpeechConnection::keepalive_run() {
         update_reconn_tp(0);
         if (ws_)
           ws_->close();
+        continue;
+      }
+      if (now - lastest_voice_tp_ >= conn_duration) {
+        KLOGI(CONN_TAG, "no voice data long time, close connection");
+        stage_ = ConnectStage::PAUSED;
+        if (ws_)
+          ws_->close();
+        stage_changed_.notify_all();
         continue;
       }
       auto d1 = ping_interval - (now - lastest_ping_tp_);
@@ -628,6 +642,7 @@ bool SpeechConnection::handle_auth_result(char* message, size_t length,
     req_cond_.notify_one();
     req_mutex_.unlock();
     */
+    update_ping_tp();
     return true;
   }
   KLOGW(CONN_TAG, "auth failed, result = %d", resp.result());
@@ -649,6 +664,11 @@ bool SpeechConnection::handle_auth_result(char* message, size_t length,
 
 bool SpeechConnection::ensure_connection_available(uint32_t timeout) {
   unique_lock<mutex> locker(stage_mutex_);
+  if (stage_ == ConnectStage::PAUSED) {
+    stage_ = ConnectStage::DISCONN;
+    update_reconn_tp(0);
+    stage_changed_.notify_all();
+  }
   auto tp = SteadyClock::now() + milliseconds(timeout);
   while (stage_ != ConnectStage::READY) {
     if (timeout == 0)
@@ -686,6 +706,7 @@ void SpeechConnection::push_resp_data(char* msg, size_t length) {
 void SpeechConnection::ws_send(const char* msg, size_t length, uWS::OpCode op) {
   if (ws_) {
     KLOGV(CONN_TAG, "SpeechConnection.ws_send: %lu bytes", length);
+    update_voice_tp();
     ws_->send(msg, length, op);
   }
 }
@@ -697,6 +718,7 @@ PrepareOptions::PrepareOptions() {
   reconn_interval = 20000;
   ping_interval = 30000;
   no_resp_timeout = 45000;
+  conn_duration = 7200;
 }
 
 PrepareOptions& PrepareOptions::operator = (const PrepareOptions& options) {

@@ -184,15 +184,15 @@ private:
 
   void update_recv_tp();
 
+  void update_voice_tp();
+
 private:
-  std::mutex req_mutex_;
+  /**
   std::recursive_mutex reconn_mutex_;
   std::condition_variable req_cond_;
   std::condition_variable_any reconn_cond_;
-
-
-
-
+  */
+  std::mutex req_mutex_;
   std::mutex resp_mutex_;
   std::condition_variable resp_cond_;
   std::list<SpeechBinaryResp*> responses_;
@@ -209,6 +209,7 @@ private:
   SteadyClock::time_point reconn_timepoint_;
   SteadyClock::time_point lastest_ping_tp_;
   SteadyClock::time_point lastest_recv_tp_;
+  SteadyClock::time_point lastest_voice_tp_;
 #ifdef SPEECH_STATISTIC
   std::list<TraceInfo> _trace_infos;
 #endif
