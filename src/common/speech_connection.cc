@@ -99,6 +99,7 @@ void SpeechConnection::release() {
   responses_.clear();
   resp_cond_.notify_all();
   resp_mutex_.unlock();
+  push_status_resp(BinRespType::CLOSED);
 #ifdef ROKID_UPLOAD_TRACE
   if (trace_uploader_) {
     delete trace_uploader_;
