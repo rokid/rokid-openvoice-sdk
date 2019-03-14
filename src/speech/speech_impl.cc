@@ -608,7 +608,7 @@ void SpeechImpl::req_config(SpeechRequest& req,
   sopt->set_no_nlp(options_.no_nlp);
   sopt->set_no_intermediate_asr(options_.no_intermediate_asr);
   sopt->set_vad_begin(options_.vad_begin);
-  KLOGI(tag__, "speech config: codec(%d), vad mode(%d:%u), vad begin(%u), no nlp(%d), no intermediate asr(%d), voice fragment(%d)",
+  KLOGI(tag__, "speech config: codec(%d), vad mode(%d:%u), vad begin(%u), no nlp(%d), no intermediate asr(%d), voice fragment(%u)",
       codec, options_.vad_mode, options_.vend_timeout, options_.vad_begin,
       options_.no_nlp, options_.no_intermediate_asr, options_.voice_fragment);
   if (options.get()) {
