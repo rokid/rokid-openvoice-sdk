@@ -188,11 +188,6 @@ private:
   void update_voice_tp();
 
 private:
-  /**
-  std::recursive_mutex reconn_mutex_;
-  std::condition_variable req_cond_;
-  std::condition_variable_any reconn_cond_;
-  */
   std::mutex req_mutex_;
   std::mutex resp_mutex_;
   std::condition_variable resp_cond_;

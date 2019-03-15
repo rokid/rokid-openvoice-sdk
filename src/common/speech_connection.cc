@@ -274,50 +274,6 @@ void SpeechConnection::keepalive_run() {
       stage_changed_.wait(locker);
       KLOGD(CONN_TAG, "stage change to %s", stage_to_string(stage_));
     }
-
-
-
-
-
-    /**
-    if (stage_ == ConnectStage::READY) {
-      now = SteadyClock::now();
-#ifdef SPEECH_STATISTIC
-      has_trace_info = send_trace_info();
-#endif
-      if (now - lastest_ping_tp_ >= ping_interval) {
-        ping();
-      }
-      if (now - lastest_recv_tp_ >= no_resp_timeout) {
-        KLOGW(CONN_TAG, "server may no response, try reconnect");
-        lastest_recv_tp_ = SteadyClock::now();
-#ifdef ROKID_UPLOAD_TRACE
-        shared_ptr<TraceEvent> ev = make_shared<TraceEvent>();
-        ev->type = TRACE_EVENT_TYPE_SYS;
-        ev->id = "system.speech.timeout";
-        ev->name = "服务器超时未响应";
-        ev->add_key_value("service", service_type_);
-        trace_uploader_->put(ev);
-#endif
-        if (ws_)
-          ws_->terminate();
-      }
-      auto d1 = ping_interval - (now - lastest_ping_tp_);
-      auto d2 = no_resp_timeout - (now - lastest_recv_tp_);
-      timeout = duration_cast<milliseconds>(d1 < d2 ? d1 : d2);
-      if (timeout.count() < 0)
-        timeout = milliseconds(0);
-#ifdef SPEECH_STATISTIC
-      if (has_trace_info && timeout.count() > SEND_TRACE_INFO_INTERVAL)
-        timeout = milliseconds(SEND_TRACE_INFO_INTERVAL);
-#endif
-    } else {
-      timeout = ping_interval;
-    }
-    locker.lock();
-    reconn_cond_.wait_for(locker, timeout);
-    locker.unlock();
-    */
   }
   KLOGV(CONN_TAG, "keepalive thread quit");
 }
@@ -403,17 +359,6 @@ string SpeechConnection::get_server_uri() {
   return string(tmp);
 }
 
-/**
-void SpeechConnection::notify_initialize() {
-  // notify function 'initialize' return
-  req_mutex_.lock();
-  if (initializing_) {
-    req_cond_.notify_one();
-  }
-  req_mutex_.unlock();
-}
-*/
-
 void SpeechConnection::onConnection(WebSocket<uWS::CLIENT> *ws) {
   KLOGI(CONN_TAG, "uws connected, %p", ws);
   lock_guard<mutex> locker(stage_mutex_);
@@ -490,16 +435,6 @@ void SpeechConnection::onError(void* userdata) {
 #endif
   push_status_resp(BinRespType::ERROR);
   ws_->close();
-  /**
-  lock_guard<mutex> locker(stage_mutex_);
-  if (stage_ == ConnectStage::CLOSED || stage_ == ConnectStage::PAUSED)
-    return;
-  if (stage_ == ConnectStage::READY)
-    update_reconn_tp(0);
-  else
-    update_reconn_tp(options_.reconn_interval);
-  close_connection(ConnectStage::DISCONN);
-  */
 }
 
 void SpeechConnection::onPong(uWS::WebSocket<uWS::CLIENT> *ws,
@@ -637,13 +572,6 @@ bool SpeechConnection::handle_auth_result(char* message, size_t length,
   }
   KLOGV(CONN_TAG, "auth result = %d", resp.result());
   if (resp.result() == 0) {
-    /**
-    req_mutex_.lock();
-    stage_ = ConnectStage::READY;
-    ws_ = ws;
-    req_cond_.notify_one();
-    req_mutex_.unlock();
-    */
     update_ping_tp();
     return true;
   }
