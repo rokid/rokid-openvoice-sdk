@@ -222,6 +222,7 @@ void SpeechConnection::keepalive_run() {
 #endif
 
   KLOGV(CONN_TAG, "keepalive thread run");
+  KLOGI(CONN_TAG, "connection duration is %u", options_.conn_duration);
   while (true) {
     if (stage_ == ConnectStage::CLOSED)
       break;
