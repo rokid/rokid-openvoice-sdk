@@ -178,15 +178,15 @@ void SpeechConnection::run() {
         KLOGD(CONN_TAG, "stage change to %s", stage_to_string(stage_));
         break;
       default:
-        KLOGV(CONN_TAG, "work thread: loop");
         // wait for:
         //   connection lose
         //   socket error
         //   SpeechConnection release
         locker.unlock();
+        KLOGD(CONN_TAG, "uWS run, stage %s", stage_to_string(stage_));
         hub_.run();
+        KLOGD(CONN_TAG, "uWS stop run, stage %s", stage_to_string(stage_));
         locker.lock();
-        KLOGV(CONN_TAG, "work thread: loop end");
         break;
     }
   }
@@ -253,13 +253,14 @@ void SpeechConnection::keepalive_run() {
       if (now - lastest_voice_tp_ >= conn_duration) {
         KLOGI(CONN_TAG, "no voice data long time, close connection");
         stage_ = ConnectStage::PAUSED;
-        if (ws_)
-          ws_->close();
         stage_changed_.notify_all();
+        locker.unlock();
+        hub_.getDefaultGroup<uWS::CLIENT>().close();
+        locker.lock();
         continue;
       }
-      auto d1 = ping_interval - (now - lastest_ping_tp_);
-      auto d2 = no_resp_timeout - (now - lastest_recv_tp_);
+      auto d1 = ping_interval - duration_cast<milliseconds>(now - lastest_ping_tp_);
+      auto d2 = no_resp_timeout - duration_cast<milliseconds>(now - lastest_recv_tp_);
       timeout = duration_cast<milliseconds>(d1 < d2 ? d1 : d2);
       if (timeout.count() < 0)
         timeout = milliseconds(0);
@@ -456,6 +457,7 @@ void SpeechConnection::onMessage(uWS::WebSocket<uWS::CLIENT> *ws,
       stage_mutex_.lock();
       if (handle_auth_result(message, length, opcode)) {
         update_recv_tp();
+        update_voice_tp();
         stage_ = ConnectStage::READY;
         stage_changed_.notify_all();
       } else {
@@ -706,7 +708,6 @@ void SpeechConnection::push_resp_data(char* msg, size_t length) {
 void SpeechConnection::ws_send(const char* msg, size_t length, uWS::OpCode op) {
   if (ws_) {
     KLOGV(CONN_TAG, "SpeechConnection.ws_send: %lu bytes", length);
-    update_voice_tp();
     ws_->send(msg, length, op);
   }
 }
@@ -732,6 +733,7 @@ PrepareOptions& PrepareOptions::operator = (const PrepareOptions& options) {
   this->reconn_interval = options.reconn_interval;
   this->ping_interval = options.ping_interval;
   this->no_resp_timeout = options.no_resp_timeout;
+  this->conn_duration = options.conn_duration;
   return *this;
 }
 

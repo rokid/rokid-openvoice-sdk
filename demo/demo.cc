@@ -303,7 +303,9 @@ static bool check_demo_options_valid(const DemoOptions& opts) {
 		return false;
 	if (opts.testcase == 3 && opts.pcm == nullptr && opts.wav == nullptr)
 		return false;
-	if (opts.testcase > 3)
+	if (opts.testcase == 4 && opts.pcm == nullptr && opts.wav == nullptr)
+		return false;
+	if (opts.testcase > 4)
 		return false;
 	return true;
 }

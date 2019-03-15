@@ -66,7 +66,7 @@ void SpeechBaseTest::speech_poll_routine(shared_ptr<Speech>& speech) {
   }
 }
 
-void SpeechBaseTest::test(const PrepareOptions& opts, const DemoOptions& dopts) {
+void SpeechBaseTest::do_test(const PrepareOptions& opts, const DemoOptions& dopts) {
   SimpleWaveReader wav_reader;
   const uint8_t* data;
   uint32_t size;
@@ -92,10 +92,14 @@ void SpeechBaseTest::test(const PrepareOptions& opts, const DemoOptions& dopts) 
     data = read_pcm_data(dopts.pcm, size);
   }
 
-  SpeechBaseTest test;
-  test.run(opts, data, size);
+  run(opts, data, size);
   if (dopts.wav)
     wav_reader.close();
   else
     release_pcm_data(const_cast<uint8_t*>(data), size);
+}
+
+void SpeechBaseTest::test(const PrepareOptions& opts, const DemoOptions& dopts) {
+  SpeechBaseTest test;
+  test.do_test(opts, dopts);
 }

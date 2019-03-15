@@ -81,6 +81,7 @@ public:
       KLOGI(CONN_TAG, "send: connection not available");
       return ConnectionOpResult::CONNECTION_NOT_AVAILABLE;
     }
+    update_voice_tp();
     ws_send(buf.data(), buf.length(), uWS::OpCode::BINARY);
     return ConnectionOpResult::SUCCESS;
   }

@@ -6,7 +6,7 @@
 using namespace rokid::speech;
 using namespace std;
 
-#define TAG "SpeechBaseTest"
+#define TAG "SpeechAutoCloseTest"
 
 void SpeechAutoCloseTest::run(const PrepareOptions& opt, const uint8_t* data, uint32_t size) {
   shared_ptr<Speech> speech = Speech::new_instance();
@@ -24,18 +24,24 @@ void SpeechAutoCloseTest::run(const PrepareOptions& opt, const uint8_t* data, ui
         this->speech_poll_routine(speech);
       });
 
+  KLOGD(TAG, "first request");
   do_request(0, data, size, speech);
+  KLOGD(TAG, "sleep 15, then second request");
   sleep(15);
   do_request(0, data, size, speech);
+  KLOGD(TAG, "sleep 5, then third request");
   sleep(5);
   do_request(0, data, size, speech);
+  KLOGD(TAG, "sleep 15, then forth request");
   sleep(15);
   do_request(0, data, size, speech);
+  KLOGD(TAG, "all requests done");
 
   speech->release();
   poll_thread.join();
 }
 
 void SpeechAutoCloseTest::test(const PrepareOptions& opts, const DemoOptions& dopts) {
-  SpeechBaseTest::test(opts, dopts);
+  SpeechAutoCloseTest test;
+  test.do_test(opts, dopts);
 }
