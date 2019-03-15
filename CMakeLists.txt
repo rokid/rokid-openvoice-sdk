@@ -307,6 +307,8 @@ if (BUILD_DEMO)
 		demo/speech_release_test.h
 		demo/speech_base_test.cc
 		demo/speech_base_test.h
+		demo/speech_auto_close_test.cc
+		demo/speech_auto_close_test.h
 	)
 	add_executable(demo ${DEMO_SOURCES})
 	target_include_directories(demo PRIVATE

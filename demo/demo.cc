@@ -9,6 +9,7 @@
 #include "speech_stress_test.h"
 #include "speech_release_test.h"
 #include "speech_base_test.h"
+#include "speech_auto_close_test.h"
 #include "clargs.h"
 #include "defs.h"
 #ifdef HAS_OPUS_CODEC
@@ -325,6 +326,8 @@ static bool create_demo_options(clargs_h handle, DemoOptions& opts) {
 					opts.testcase = 2;
 				} else if (strcmp(value, "speech-base") == 0) {
 					opts.testcase = 3;
+				} else if (strcmp(value, "auto-close") == 0) {
+          opts.testcase = 4;
 				}
 			}
 		} else if (strcmp(key, "p") == 0 || strcmp(key, "pcm") == 0) {
@@ -376,6 +379,9 @@ int main(int argc, char** argv) {
 			break;
 		case 3:
 			SpeechBaseTest::test(opts, demo_options);
+			break;
+    case 4:
+			SpeechAutoCloseTest::test(opts, demo_options);
 			break;
 	}
 
