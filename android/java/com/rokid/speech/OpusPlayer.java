@@ -88,7 +88,7 @@ public class OpusPlayer {
 //					.build())
 //			.setBufferSizeInBytes(bufSize)
 //			.build();
-		return new AudioTrack(AudioManager.STREAM_MUSIC,
+		return new AudioTrack(AudioManager.STREAM_ALARM,
 				SAMPLE_RATE, AudioFormat.CHANNEL_OUT_MONO,
 				AUDIO_ENCODING, bufSize, AudioTrack.MODE_STREAM);
 	}
