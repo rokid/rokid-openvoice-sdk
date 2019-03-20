@@ -81,8 +81,8 @@ void SpeechConnection::release() {
   stage_mutex_.lock();
   stage_ = ConnectStage::CLOSED;
   stage_changed_.notify_all();
-  stage_mutex_.unlock();
   hub_.getDefaultGroup<uWS::CLIENT>().close();
+  stage_mutex_.unlock();
 
   KLOGD(CONN_TAG, "join work thread");
   work_thread_->join();
@@ -255,9 +255,7 @@ void SpeechConnection::keepalive_run() {
         KLOGI(CONN_TAG, "no voice data long time, close connection");
         stage_ = ConnectStage::PAUSED;
         stage_changed_.notify_all();
-        locker.unlock();
         hub_.getDefaultGroup<uWS::CLIENT>().close();
-        locker.lock();
         continue;
       }
       auto d1 = ping_interval - duration_cast<milliseconds>(now - lastest_ping_tp_);
@@ -384,7 +382,6 @@ void SpeechConnection::onDisconnection(uWS::WebSocket<uWS::CLIENT> *ws,
   KLOGI(CONN_TAG, "uws disconnected, code %d, msg length %d, stage %d",
       code, length, static_cast<int>(stage_));
   ws_ = NULL;
-  lock_guard<mutex> locker(stage_mutex_);
   if (stage_ == ConnectStage::PAUSED || stage_ == ConnectStage::CLOSED)
     return;
   if (stage_ == ConnectStage::READY)
@@ -435,7 +432,17 @@ void SpeechConnection::onError(void* userdata) {
   trace_uploader_->put(ev);
 #endif
   push_status_resp(BinRespType::ERROR);
-  ws_->close();
+  if (ws_) {
+    // lock stage_mutex_ for onDisconnection
+    lock_guard<mutex> locker(stage_mutex_);
+    ws_->close();
+  } else {
+    // ws_ == nullptr, stage_ must be CONNECTING
+    // stage_mutex_ is already locked
+    update_reconn_tp(options_.reconn_interval);
+    stage_ = ConnectStage::DISCONN;
+    stage_changed_.notify_all();
+  }
 }
 
 void SpeechConnection::onPong(uWS::WebSocket<uWS::CLIENT> *ws,
