@@ -447,6 +447,7 @@ bool SpeechImpl::poll(SpeechResult& res) {
             res.nlp = resin->nlp;
             res.action = resin->action;
             res.extra = resin->extra;
+            res.voice_trigger = resin->voice_trigger;
             if (res.asr.length() > 0) {
               KLOGI(tag__, "voice recognize intermediate asr %d:%s", id, resin->asr.c_str());
             }
@@ -455,6 +456,9 @@ bool SpeechImpl::poll(SpeechResult& res) {
             }
             if (res.nlp.length() > 0) {
               KLOGI(tag__, "voice recognize nlp/action id %d", id);
+            }
+            if (res.voice_trigger.length() > 0) {
+              KLOGI(tag__, "voice recognize voice_trigger id %d %s", id, resin->voice_trigger.c_str());
             }
           }
           KLOGV(tag__, "SpeechImpl.poll return result "
@@ -807,6 +811,7 @@ void SpeechImpl::gen_result_by_resp(SpeechResponse& resp, unique_lock<mutex>& re
 
     shared_ptr<SpeechResultIn> resin;
     string extra = resp.extra();
+    string voice_trigger = resp.voice_trigger();
     if (extra.length() > 0) {
       resin = make_shared<SpeechResultIn>();
       resin->extra = extra;
@@ -814,7 +819,11 @@ void SpeechImpl::gen_result_by_resp(SpeechResponse& resp, unique_lock<mutex>& re
       responses_.stream(resp.id(), resin);
       new_data = true;
     }
+
     resin = make_shared<SpeechResultIn>();
+    if (voice_trigger.length() > 0) {
+      resin->voice_trigger = voice_trigger;
+    }
     switch (resp.type()) {
     case rokid_open_speech_v2_RespType_INTERMEDIATE:
       resin->asr = resp.asr();

@@ -109,7 +109,11 @@ public:
 			return _empty_string;
 		return *_extra;
 	}
-
+	inline std::string voice_trigger() {
+		if (_voice_trigger.get() == NULL)
+			return _empty_string;
+		return *_voice_trigger;
+	}
 protected:
 	void clear_super_data();
 
@@ -119,6 +123,7 @@ private:
 	std::shared_ptr<std::string> _nlp;
 	std::shared_ptr<std::string> _action;
 	std::shared_ptr<std::string> _extra;
+	std::shared_ptr<std::string> _voice_trigger;
 	std::string _empty_string;
 };
 

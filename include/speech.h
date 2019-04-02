@@ -53,6 +53,7 @@ typedef struct {
 	//   "activation": "fake|reject|accept|none"
 	// }
 	std::string extra;
+	std::string voice_trigger;
 } SpeechResult;
 
 class SpeechOptions {

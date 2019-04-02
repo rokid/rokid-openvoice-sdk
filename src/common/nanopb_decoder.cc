@@ -77,6 +77,7 @@ SpeechResponse::SpeechResponse() {
 	init_string_field(&nanopbStruct.nlp, &_nlp);
 	init_string_field(&nanopbStruct.action, &_action);
 	init_string_field(&nanopbStruct.extra, &_extra);
+  init_string_field(&nanopbStruct.voice_trigger, &_voice_trigger);
 }
 
 void SpeechResponse::clear_super_data() {
