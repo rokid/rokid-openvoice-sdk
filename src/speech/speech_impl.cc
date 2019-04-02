@@ -458,7 +458,8 @@ bool SpeechImpl::poll(SpeechResult& res) {
               KLOGI(tag__, "voice recognize nlp/action id %d", id);
             }
             if (res.voice_trigger.length() > 0) {
-              KLOGI(tag__, "voice recognize voice_trigger id %d %s", id, resin->voice_trigger.c_str());
+              KLOGI(tag__, "voice recognize voice_trigger id %d %s",
+                    id, resin->voice_trigger.c_str());
             }
           }
           KLOGV(tag__, "SpeechImpl.poll return result "
