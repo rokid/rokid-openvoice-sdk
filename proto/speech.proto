@@ -93,4 +93,12 @@ message SpeechResponse {
   //   "activation": "fake|reject|accept|none"
   // }
   optional string extra = 7;
+
+  /* scores[0]=per am score; scores[1]=glob am score; scores[2]=glob lm score */
+  // repeated float asr_scores = 8;
+
+  // {"id": "xxx"}
+  // optional string vpr = 9;
+  // optional string asr_phoneticisms = 10;
+  optional string voice_trigger = 11;
 }

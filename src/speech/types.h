@@ -50,6 +50,7 @@ typedef struct {
 	std::string nlp;
 	std::string action;
 	std::string extra;
+	std::string voice_trigger;
 	bool asr_finish;
 } SpeechResultIn;
 
