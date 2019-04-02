@@ -839,6 +839,7 @@ void SpeechImpl::gen_result_by_resp(SpeechResponse& resp, unique_lock<mutex>& re
       break;
     case rokid_open_speech_v2_RespType_FINISH:
       if (resp.result() == rokid_open_speech_v1_SpeechErrorCode_SUCCESS) {
+        resin->asr = resp.asr();
         resin->nlp = resp.nlp();
         resin->action = resp.action();
         resin->asr_finish = false;
