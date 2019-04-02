@@ -41,6 +41,8 @@ static bool checkreturn pb_enc_fixed_length_bytes(pb_ostream_t *stream, const pb
 #ifdef PB_WITHOUT_64BIT
 #define pb_int64_t int32_t
 #define pb_uint64_t uint32_t
+
+static bool checkreturn pb_encode_negative_varint(pb_ostream_t *stream, pb_uint64_t value);
 #else
 #define pb_int64_t int64_t
 #define pb_uint64_t uint64_t
@@ -194,7 +196,7 @@ static bool checkreturn encode_array(pb_ostream_t *stream, const pb_field_t *fie
                  PB_LTYPE(field->type) == PB_LTYPE_BYTES))
             {
                 if (!func(stream, field, *(const void* const*)p))
-                    return false;      
+                    return false;
             }
             else
             {
@@ -223,14 +225,17 @@ static bool pb_check_proto3_default_value(const pb_field_t *field, const void *p
     else if (PB_HTYPE(type) == PB_HTYPE_REPEATED)
     {
         /* Repeated fields inside proto3 submessage: present if count != 0 */
-        return *(const pb_size_t*)pSize == 0;
+        if (field->size_offset != 0)
+            return *(const pb_size_t*)pSize == 0;
+        else
+            return false; /* Fixed length array */
     }
     else if (PB_HTYPE(type) == PB_HTYPE_ONEOF)
     {
         /* Oneof fields */
         return *(const pb_size_t*)pSize == 0;
     }
-    else if (PB_HTYPE(type) == PB_HTYPE_OPTIONAL && field->size_offset)
+    else if (PB_HTYPE(type) == PB_HTYPE_OPTIONAL && field->size_offset != 0)
     {
         /* Proto2 optional fields inside proto3 submessage */
         return *(const bool*)pSize == false;
@@ -359,10 +364,17 @@ static bool checkreturn encode_basic_field(pb_ostream_t *stream,
             }
             break;
         
-        case PB_HTYPE_REPEATED:
-            if (!encode_array(stream, field, pData, *(const pb_size_t*)pSize, func))
+        case PB_HTYPE_REPEATED: {
+            pb_size_t count;
+            if (field->size_offset != 0) {
+                count = *(const pb_size_t*)pSize;
+            } else {
+                count = field->array_size;
+            }
+            if (!encode_array(stream, field, pData, count, func))
                 return false;
             break;
+        }
         
         case PB_HTYPE_ONEOF:
             if (*(const pb_size_t*)pSize == field->tag)
@@ -535,6 +547,33 @@ bool pb_get_encoded_size(size_t *size, const pb_field_t fields[], const void *sr
 /********************
  * Helper functions *
  ********************/
+
+#ifdef PB_WITHOUT_64BIT
+bool checkreturn pb_encode_negative_varint(pb_ostream_t *stream, pb_uint64_t value)
+{
+  pb_byte_t buffer[10];
+  size_t i = 0;
+  size_t compensation = 32;/* we need to compensate 32 bits all set to 1 */
+
+  while (value)
+  {
+    buffer[i] = (pb_byte_t)((value & 0x7F) | 0x80);
+    value >>= 7;
+    if (compensation)
+    {
+      /* re-set all the compensation bits we can or need */
+      size_t bits = compensation > 7 ? 7 : compensation;
+      value ^= (pb_uint64_t)((0xFFu >> (8 - bits)) << 25); /* set the number of bits needed on the lowest of the most significant 7 bits */
+      compensation -= bits;
+    }
+    i++;
+  }
+  buffer[i - 1] &= 0x7F; /* Unset top bit on last byte */
+
+  return pb_write(stream, buffer, i);
+}
+#endif
+
 bool checkreturn pb_encode_varint(pb_ostream_t *stream, pb_uint64_t value)
 {
     pb_byte_t buffer[10];
@@ -710,7 +749,12 @@ static bool checkreturn pb_enc_varint(pb_ostream_t *stream, const pb_field_t *fi
     else
         PB_RETURN_ERROR(stream, "invalid data_size");
     
-    return pb_encode_varint(stream, (pb_uint64_t)value);
+#ifdef PB_WITHOUT_64BIT
+    if (value < 0)
+      return pb_encode_negative_varint(stream, (pb_uint64_t)value);
+    else
+#endif
+      return pb_encode_varint(stream, (pb_uint64_t)value);
 }
 
 static bool checkreturn pb_enc_uvarint(pb_ostream_t *stream, const pb_field_t *field, const void *src)
