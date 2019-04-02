@@ -392,6 +392,7 @@ bool SpeechImpl::poll(SpeechResult& res) {
   res.nlp.clear();
   res.action.clear();
   res.extra.clear();
+  res.voice_trigger.clear();
 
   unique_lock<mutex> locker(resp_mutex_);
   while (initialized_) {

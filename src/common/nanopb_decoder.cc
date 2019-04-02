@@ -85,6 +85,7 @@ void SpeechResponse::clear_super_data() {
   _nlp.reset();
   _action.reset();
   _extra.reset();
+  _voice_trigger.reset();
 }
 
 } // namespace speech
