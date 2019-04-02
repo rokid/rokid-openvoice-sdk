@@ -100,5 +100,5 @@ message SpeechResponse {
   // {"id": "xxx"}
   // optional string vpr = 9;
   // optional string asr_phoneticisms = 10;
-  // optional string voice_trigger = 11;
+  optional string voice_trigger = 11;
 }
