@@ -28,20 +28,20 @@ enum VadMode {
 message SpeechOptions {
   // zh
   // en
-  optional Lang lang = 1;
+  required Lang lang = 1;
 
   // pcm
   // opu
   // opu2
-  optional rokid.open.speech.v1.Codec codec = 2;
+  required rokid.open.speech.v1.Codec codec = 2;
 
-  optional VadMode vad_mode = 3;
+  required VadMode vad_mode = 3;
 
   optional uint32 vend_timeout = 4;
 
-  optional bool no_nlp = 5;
+  required bool no_nlp = 5;
 
-  optional bool no_intermediate_asr = 6;
+  required bool no_intermediate_asr = 6;
 
   optional string stack = 7;
 
