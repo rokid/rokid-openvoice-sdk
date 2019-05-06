@@ -109,6 +109,18 @@ bool SimpleWaveReader::open(const char* fname) {
 	_chunk = reinterpret_cast<RIFFChunk*>(_file_map);
 	_sub_chunk1 = reinterpret_cast<RIFFSubChunk1*>(_chunk + 1);
 	_sub_chunk2 = reinterpret_cast<RIFFSubChunk2*>(_sub_chunk1 + 1);
+	do {
+		uint32_t size = _sub_chunk2->size;
+
+		if (_sub_chunk2->id[0] == 'd' &&
+			_sub_chunk2->id[1] == 'a' &&
+			_sub_chunk2->id[2] == 't' &&
+			_sub_chunk2->id[3] == 'a')
+			break;
+
+		_sub_chunk2++;
+		_sub_chunk2 = reinterpret_cast<RIFFSubChunk2*>((char *)_sub_chunk2 + size);
+	} while (1);
 	return true;
 }
 
