@@ -8,6 +8,7 @@ LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/src/common
 LOCAL_CPPFLAGS := $(COMMON_FLAGS) -std=c++11
 LOCAL_SHARED_LIBRARIES := libspeech librlog
+LOCAL_LDLIBS := -llog
 LOCAL_SRC_FILES := \
 		$(JNI_DIR)/com_rokid_speech_Tts.cc \
 		$(JNI_DIR)/com_rokid_speech_Speech.cc \

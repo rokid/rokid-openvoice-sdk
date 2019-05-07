@@ -380,7 +380,7 @@ static void com_rokid_speech_SpeechOptions_native_set_vad_mode(JNIEnv* env,
 		mode = VadMode::CLOUD;
 	else
 		mode = VadMode::LOCAL;
-	p->options->set_vad_mode(mode);
+	p->options->set_vad_mode(mode, 700);
 	env->ReleaseStringUTFChars(v, sv);
 }
 
