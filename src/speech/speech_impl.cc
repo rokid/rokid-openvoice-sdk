@@ -760,6 +760,7 @@ void SpeechImpl::gen_results() {
     } else if (r == ConnectionOpResult::CONNECTION_BROKEN) {
       shared_ptr<SpeechOperationController::Operation> op
         = controller_.current_op();
+      KLOGI(tag__, "connection broken, current speech abort");
       controller_.set_op_error(SPEECH_SERVICE_UNAVAILABLE);
       resp_cond_.notify_one();
       locker.unlock();
