@@ -384,6 +384,7 @@ void SpeechConnection::onDisconnection(uWS::WebSocket<uWS::CLIENT> *ws,
   ws_ = NULL;
   if (stage_ == ConnectStage::PAUSED || stage_ == ConnectStage::CLOSED)
     return;
+  push_status_resp(BinRespType::ERROR);
   if (stage_ == ConnectStage::READY)
     update_reconn_tp(0);
   else
@@ -431,7 +432,6 @@ void SpeechConnection::onError(void* userdata) {
   ev->add_key_value("service", service_type_);
   trace_uploader_->put(ev);
 #endif
-  push_status_resp(BinRespType::ERROR);
   if (ws_) {
     // lock stage_mutex_ for onDisconnection
     lock_guard<mutex> locker(stage_mutex_);
@@ -439,6 +439,7 @@ void SpeechConnection::onError(void* userdata) {
   } else {
     // ws_ == nullptr, stage_ must be CONNECTING
     // stage_mutex_ is already locked
+    push_status_resp(BinRespType::ERROR);
     update_reconn_tp(options_.reconn_interval);
     stage_ = ConnectStage::DISCONN;
     stage_changed_.notify_all();
