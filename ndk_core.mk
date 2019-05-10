@@ -36,13 +36,11 @@ LOCAL_SRC_FILES := \
 	$(SPEECH_SRC) \
 	$(PB_SRC)
 
-LOCAL_CPP_FEATURES := rtti exceptions
-LOCAL_CFLAGS := $(COMMON_CFLAGS)
+LOCAL_CPP_FEATURES := exceptions
+LOCAL_CFLAGS := $(COMMON_CFLAGS) -DUWS_THREADSAFE
 LOCAL_CPPFLAGS := -std=c++11
-LOCAL_SHARED_LIBRARIES := libuWS librlog
+LOCAL_STATIC_LIBRARIES := libuWS librlog libssl libcrypto
 LOCAL_LDLIBS := -llog -lz
-LOCAL_C_INCLUDES += $(DEPS_DIR)/boringssl/include
-LOCAL_LDLIBS += $(DEPS_DIR)/boringssl/libs/$(TARGET_ABI_NAME)/libcrypto_static.a
 ifeq ($(PLATFORM_SDK_VERSION), 19)
 LOCAL_CFLAGS += -D__STDC_FORMAT_MACROS
 endif
@@ -60,8 +58,8 @@ LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/include \
 	$(LOCAL_PATH)/src/common \
 	$(DEPS_DIR)/opus/include
-LOCAL_SHARED_LIBRARIES := librlog
+LOCAL_STATIC_LIBRARIES := librlog
 LOCAL_CPPFLAGS := -std=c++11
-LOCAL_LDLIBS := $(DEPS_DIR)/opus/libs/$(TARGET_ABI_NAME)/libopus.a
+LOCAL_LDLIBS := $(DEPS_DIR)/opus/libs/$(TARGET_ABI_NAME)/libopus.a -llog
 LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/include
 include $(BUILD_SHARED_LIBRARY)
