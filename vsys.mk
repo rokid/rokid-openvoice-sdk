@@ -15,3 +15,10 @@ include $(clear-vars)
 local.module := phony-speech
 local.ndk-modules := speech
 include $(build-executable)
+
+include $(clear-vars)
+local.module := speech-java-example
+local.jar-modules := rokid_speech
+local.manifest := AndroidManifest.xml
+local.src-paths := android/example/java
+include $(build-java-app)
