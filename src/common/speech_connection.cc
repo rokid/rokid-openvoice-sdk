@@ -127,13 +127,13 @@ void SpeechConnection::ping(string* payload) {
     data = payload->data();
     len = payload->length();
   }
-  KLOGV(CONN_TAG, "send ping frame, payload %lu bytes", len);
+  KLOGI(CONN_TAG, "send ping frame, payload %lu bytes", len);
   ws_send(data, len, OpCode::PING);
   lastest_ping_tp_ = SteadyClock::now();
 }
 #else
 void SpeechConnection::ping() {
-  KLOGV(CONN_TAG, "send ping frame");
+  KLOGI(CONN_TAG, "send ping frame");
   ws_send(NULL, 0, OpCode::PING);
   lastest_ping_tp_ = SteadyClock::now();
 }
@@ -200,6 +200,8 @@ void SpeechConnection::update_reconn_tp(uint32_t ms) {
 
 void SpeechConnection::update_ping_tp() {
   lastest_ping_tp_ = SteadyClock::now();
+  KLOGI(CONN_TAG, "lastest ping tp %lld",
+      duration_cast<milliseconds>(lastest_ping_tp_.time_since_epoch()).count());
 }
 
 void SpeechConnection::update_recv_tp() {
@@ -228,9 +230,14 @@ void SpeechConnection::keepalive_run() {
       break;
     if (stage_ == ConnectStage::READY) {
       now = SteadyClock::now();
+      KLOGI(CONN_TAG, "now tp %lld",
+        duration_cast<milliseconds>(now.time_since_epoch()).count());
 #ifdef SPEECH_STATISTIC
       has_trace_info = send_trace_info();
 #endif
+      KLOGI(CONN_TAG, "check ping interval: %lld/%lld",
+          duration_cast<milliseconds>(now - lastest_ping_tp_).count(),
+          ping_interval.count());
       if (now - lastest_ping_tp_ >= ping_interval) {
         KLOGD(CONN_TAG, "ping");
         ping();
@@ -269,12 +276,12 @@ void SpeechConnection::keepalive_run() {
 #endif
       stage_changed_.wait_for(locker, timeout);
     } else {
-      KLOGD(CONN_TAG, "wait because stage is %s", stage_to_string(stage_));
+      KLOGI(CONN_TAG, "wait because stage is %s", stage_to_string(stage_));
       stage_changed_.wait(locker);
-      KLOGD(CONN_TAG, "stage change to %s", stage_to_string(stage_));
+      KLOGI(CONN_TAG, "stage change to %s", stage_to_string(stage_));
     }
   }
-  KLOGV(CONN_TAG, "keepalive thread quit");
+  KLOGI(CONN_TAG, "keepalive thread quit");
 }
 
 #ifdef SPEECH_STATISTIC
@@ -448,7 +455,7 @@ void SpeechConnection::onError(void* userdata) {
 
 void SpeechConnection::onPong(uWS::WebSocket<uWS::CLIENT> *ws,
     char* message, size_t length) {
-  KLOGV(CONN_TAG, "uws recv pong: stage %d", static_cast<int>(stage_));
+  KLOGI(CONN_TAG, "uws recv pong: stage %d", static_cast<int>(stage_));
   update_recv_tp();
 }
 
