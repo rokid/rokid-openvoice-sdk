@@ -167,7 +167,7 @@ void SpeechConnection::run() {
           stage_ = ConnectStage::CONNECTING;
           connect();
         } else {
-          KLOGD(CONN_TAG, "wait %d ms for reconnect",
+          KLOGD(CONN_TAG, "wait %lld ms for reconnect",
                 duration_cast<milliseconds>(reconn_timepoint_ - now).count());
           stage_changed_.wait_for(locker, reconn_timepoint_ - now);
         }
@@ -437,12 +437,14 @@ void SpeechConnection::onError(void* userdata) {
     lock_guard<mutex> locker(stage_mutex_);
     ws_->close();
   } else {
-    // ws_ == nullptr, stage_ must be CONNECTING
+    // ws_ == nullptr, stage_ must be CONNECTING|CLOSED
     // stage_mutex_ is already locked
     push_status_resp(BinRespType::ERROR);
     update_reconn_tp(options_.reconn_interval);
-    stage_ = ConnectStage::DISCONN;
-    stage_changed_.notify_all();
+    if (stage_ != ConnectStage::CLOSED) {
+      stage_ = ConnectStage::DISCONN;
+      stage_changed_.notify_all();
+    }
   }
 }
 
